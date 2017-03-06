@@ -24,9 +24,7 @@ import sys
 import re
 from time import localtime, strftime
 import numpy as np
-#from platform import dist
-#from audioop import avg
-#from decimal import _div_nearest
+
 
 gmx_exec = 'gmx' #'gmx_5.0.4_mpi'
 os.environ["GMX_MAXBACKUP"] = "-1"

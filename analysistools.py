@@ -12,6 +12,7 @@ def get_inputlist():
         chol_selflist=[]
         dppc_chollist=[]
         dupc_chollist=[]
+        
         for datfile in ls:
             if 'headtailhalfs' in datfile and 'DPPC_DPPC' in datfile:
                 dppc_dppc_headtaillist.append(datfile)
