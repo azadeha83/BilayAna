@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+#import os
+#import subprocess
+import sys
+from time import localtime, strftime
+from datetime import datetime
+from importlib.machinery import SourceFileLoader
+mod = SourceFileLoader("AnalyseLipidSystem","/home/f_kell07/software/lipidanalysis/AnalyseLipidSystem.py").load_module()
+obj= mod.AnalyseLipidSystem("inputfile")
+
+
+def exec_analysis(obj,func,*args):
+    starttime=datetime.now()
+    print("Job started at:",strftime("%c:", localtime()))
+    getattr(obj,func)
+    print("Finished job at:",strftime("%c:", localtime()))
+    finishtime=datetime.now()
+    print("It took ",finishtime-starttime," to finish the job.")
+    
+        
+         
+exec_analysis(obj,sys.argv[1],sys.argv[2])
+

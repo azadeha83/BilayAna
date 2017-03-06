@@ -1,0 +1,11 @@
+#System info
+System: dppc
+Lipidmolecules: dppc
+Temperature: XXX
+Timeframe: 0,1000000,1000
+
+# absolute path to mdfiles
+mdfiles: /scratch/f_kell07/mdfiles
+
+
+

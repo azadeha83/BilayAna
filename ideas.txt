@@ -1,0 +1,24 @@
+use __init__ to import package
+
+__main__ input:
+	-(system, inputfile)
+	-gromacs_tools (load system need)
+	-execution script?
+
+class system_info(type=lipid_systems)
+	-creates folder structure
+	-containts all information regarding system
+	
+class lipid_systems:
+	-information about lipid mols (atom indeces, etc...)
+	
+class gromacs_tools
+	-input is load_system class?
+	-exec gromacs function
+	-all functions using gromacs
+	
+class edit_textfiles
+	-converts datafiles to fit certain structure
+	
+class edit_data
+	-like analysistools
