@@ -6,17 +6,17 @@ class SysInfo():
     def __init__(self, inputfile):
         self.system_info = self.read_infofile(inputfile)
         cwd = os.getcwd()
-        os.mkdir('datafiles')
-        os.mkdir('indexfiles')
-        os.mkdir('tempfiles')
-        os.mkdir('energyfiles')
+        os.makedirs(cwd+'datafiles', exit_ok=True)
+        os.makedirs(cwd+'indexfiles', exit_ok=True)
+        os.makedirs(cwd+'tempfiles', exit_ok=True)
+        os.makedirs(cwd+'energyfiles', exit_ok=True)
         # '''_absolute_ paths to  md-files  '''
+        self.mdfilepath = self.system_info['mdfiles']
         self.trjpath = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
         self.gropath = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.toppath = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
         self.tprpath = '{}/tpr/{}_{}'.format(self.mdfilepath, self.system, self.temperature)
         # ''' outputpaths (specify _absolute_ paths! '''
-        self.mdfilepath = self.system_info['mdfiles']
         self.indexpath = "{}/indexfiles".format(cwd)
         self.datapath = "{}/datafiles".format(cwd)
         self.temppath = "{}/tempfiles".format(cwd)
@@ -33,7 +33,7 @@ class SysInfo():
             self.molecules.append('CHL1')
             self.molecules.remove('CHOL')
         if self.times[1] == 'end':
-            print("Not yet implemented")
+            raise ValueError("Not yet implemented")
         else:
             self.t_end = int(self.times[1])
             self.t_start = int(self.times[0])

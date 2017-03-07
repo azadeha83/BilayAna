@@ -1,22 +1,104 @@
+''' Module for automating analysis using Gromacs '''
+
 import subprocess
+import os
+import sys 
+from time import localtime, strftime
+#import re
+
+#from src import systeminfo
+from src.__main__ import mysystem
+from src import lipidmolecules
+
+gmx_exec = 'gmx' #'gmx_5.0.4_mpi'
+os.environ["GMX_MAXBACKUP"] = "-1"
 
 
 
+def run_full_energycalculations():
+    ''' Run complete calculations using multiple threads ? '''
 
 
-def exec_gromacs(self,cmd,inp_str=None): 
-    '''arglist (cmd) is list of arguments like "['gmx cmd','-f','tprfile','-e','en.edr']".        --> inp_str must be byte b' ' !'''
+def exec_gromacs(cmd,inp_str=None): 
+    '''arglist (cmd) is list of arguments like "['gmx cmd','-f','tprfile','-e','en.edr']"
+        inp_str must be encoded!
+    '''
     if inp_str is None:
-        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
     else:
-        proc = subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate(inp_str)
     proc.wait()
     proc.stdout.close()
     proc.stderr.close()
     return out, err
 
+
+
+    
+def trajectory_to_gro(overwrite='off',atomlist=None,lipids='all'):
+    os.makedirs(mysystem.datapath+'/grofiles')
+    getcoords={}
+    print('Converting trajectory-file to structure-file...\n')
+    if lipids != 'all':
+        molecules=[lipids]
+    else:
+        if "CHOL" in mysystem.molecules:
+            molecules_new = mysystem.molecules.copy()
+            molecules_new.remove("CHOL")
+            #print(molecules_new)
+        else:
+            molecules_new = mysystem.molecules
+        molecules = molecules_new
+    for lipidmolecule in molecules:
+        grofile_output = ''.join([mysystem.datapath, '/grofiles', '/calc_scd_for', str(lipidmolecule), '.gro'])
+        sys.stdout.flush()
+        if atomlist == None:
+            atomlist = lipidmolecules.tail_atoms_of[lipidmolecule]+['P', 'O3']
+        print(strftime("%H:%M:%S :", localtime()),"Processing {} ...".format(lipidmolecule))
+        inp_str=str(lipidmolecule).encode()
+        if os.path.isfile(grofile_output) and overwrite=='off':
+            pass
+        else:
+            gmx_traj_arglist = [\
+                gmx_exec,'trjconv','-s',mysystem.tprpath, '-f',mysystem.trjpath,\
+                '-o',grofile_output,\
+                '-b', str(mysystem.t_start), '-e', str(mysystem.t_end),\
+                '-dt', str(mysystem.dt),\
+                '-pbc', 'whole',]
+            out,err = exec_gromacs(gmx_traj_arglist,inp_str)      #Creates a gro file containing {timeframe:resid:atoms:xyz}
+            with open("gmx_traj.log","w") as logfile:
+                logfile.write(err.decode())
+                logfile.write(150*'_')
+                logfile.write(out.decode())
+                logfile.write(150*'_')
+        with open(grofile_output,"r") as grofile:
+            print(strftime("%H:%M:%S :", localtime()),"...read data output...")
+            regexp = re.compile(r'[\s]*\d+'+lipidmolecule)
+            for line in grofile:
+                if 't=' in line:
+                    time=float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
+                    print("...at time {}".format(time),end="\r")
+                    if float(mysystem.t_end) < time:
+                        print("breaking at", time)
+                        break
+                #print("Match",regexp.match(line),line[:15],end='\r')
+                #print("Time match is",float(self.t_start)<=time,end='\r')
+                if float(mysystem.t_start) <= time and regexp.match(line) != None:
+                    #print("Reading data at",time,end='\r')
+                    atom = line[9:15].strip()
+                    lipidtype = line[5:9]
+                    if atom not in atomlist and lipidtype not in molecules: continue
+                    resid = line[:5].strip()
+                    coordinates = [float(x) for x in line[20:44].split()]
+                    keytuple = (str(lipidtype),time,int(resid),str(atom))
+                    getcoords.update({keytuple:coordinates})
+    return getcoords,time-1000.0        
+
+                
+class Neighbors():
+    ''' All calculations regarding lipid neighbors '''
 
     def create_selectionfile_neighborsearch(self,resid):
         filename="{}/neighbors_of_residue{}".format(self.temppath,resid)
@@ -30,27 +112,27 @@ def exec_gromacs(self,cmd,inp_str=None):
                 neibs;".format(resid),file=selection)
         return filename
 
-
     def find_all_neighbors(self,verbose='off'):
-        ''' Returns a list of all neighbors being in the cutoff distance at least once in the trajectory. Neighborfile is !required! and is output of "determine_neighbors()" '''
-        neighborfile="neighbor_info"
-        #neib=[0,[]]
-        #neiblist=[[]]
-        neibdict={}
+        ''' Returns a list of all neighbors being in the
+         cutoff distance at least once in the trajectory.
+        Neighborfile is !required! and is output of 
+        "determine_neighbors()" '''
+        neighborfile = "neighbor_info"
+        neibdict = {}
         with open(neighborfile,"r") as neibmap:
             neibmap.readline() 
             for line in neibmap:
-                cols=line.split()
-                resid=int(cols[0])
-                time=float(cols[1])
+                cols = line.split()
+                resid = int(cols[0])
+                time = float(cols[1])
                 if resid not in neibdict.keys():
                     neibdict.update({resid:{}})
                 try:
-                    neiblist=[int(x) for x in cols[3].split(',')]
+                    neiblist = [int(x) for x in cols[3].split(',')]
                     neibdict[resid].update({time:neiblist})
                 except IndexError:
                     neibdict[resid].update({time:[]})
-                    if verbose=='on':
+                    if verbose == 'on':
                         print("No neighbors of residue {} at time {}.".format(cols[0],cols[1])) 
         return neibdict
 
@@ -108,73 +190,7 @@ def exec_gromacs(self,cmd,inp_str=None):
             filecontent=output.readlines()
             resindex_all.write(''.join(filecontent)+"\n\n")
         resindex_all.close() 
-
     
-    def trajectory_to_gro(self,overwrite='off',atomlist=None,lipids='all'):
-        try:
-            os.mkdir(self.datapath+'/grofiles')
-        except OSError:
-            pass
-        getcoords={}
-        print('Converting trajectory-file to structure-file...\n')
-        if lipids!='all':
-            molecules=[lipids]
-        else:
-            if "CHOL" in self.molecules:
-                molecules_new=self.molecules.copy()
-                molecules_new.remove("CHOL")
-                #print(molecules_new)
-            else:
-                molecules_new=self.molecules
-            molecules=molecules_new
-            
-        for lipidmolecule in molecules:
-            grofile_output=self.datapath+'/grofiles'+'/calc_scd_for'+str(lipidmolecule)+'.gro'
-            sys.stdout.flush()
-            
-            if atomlist==None:
-                atomlist=self.tail_atoms_of[lipidmolecule]+['P','O3']
-            
-            print(strftime("%H:%M:%S :", localtime()),"Processing {} ...".format(lipidmolecule))
-            inp_str=str(lipidmolecule).encode()
-            if os.path.isfile(grofile_output) and overwrite=='off':
-                pass
-            else:
-                gmx_traj_arglist = [gmx_exec,'trjconv','-s',self.tprpath, '-f',self.trjpath,\
-                                        '-o',grofile_output,\
-                                        '-b', str(self.t_start), '-e', str(self.t_end),\
-                                        '-dt', str(self.dt),\
-                                        '-pbc', 'whole',]
-                out,err=self.exec_gromacs(gmx_traj_arglist,inp_str)      #Creates a gro file containing {timeframe:resid:atoms:xyz}
-                with open("gmx_traj.log","w") as logfile:
-                    logfile.write(err.decode()); logfile.write(150*'_'); logfile.write(out.decode()); logfile.write(150*'_')
-            with open(grofile_output,"r") as grofile:
-                print(strftime("%H:%M:%S :", localtime()),"...read data output...")
-                regexp=re.compile(r'[\s]*\d+'+lipidmolecule)
-                for line in grofile:
-                    if 't=' in line:
-                        time=float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
-                        print("...at time {}".format(time),end="\r")
-                        if float(self.t_end)<time:
-                            print("breaking at",time)
-                            break
-                    #print("Match",regexp.match(line),line[:15],end='\r')
-                    #print("Time match is",float(self.t_start)<=time,end='\r')
-                    if float(self.t_start)<=time and regexp.match(line)!=None:
-                        #print("Reading data at",time,end='\r')
-                        atom=line[9:15].strip()
-                        lipidtype=line[5:9]
-                        if atom not in atomlist and lipidtype not in molecules: continue
-                        resid=line[:5].strip()
-                        coordinates=[float(x) for x in line[20:44].split()]
-                        keytuple=(str(lipidtype),time,int(resid),str(atom))
-                        getcoords.update({keytuple:coordinates})
-        return getcoords,time-1000.0        
-
-    
-                
-    ############################################################################################################################
-        
     def determine_neighbors(self,overwrite=True):
         print("\n____Determining neighbors____\n")
         try:
@@ -192,25 +208,31 @@ def exec_gromacs(self,cmd,inp_str=None):
                 if os.path.isfile(datafileoutput) and overwrite==False:
                     print("Neighbor file of residue {} already exists. Skipping.".format(residue))
                 else:
-                    cmdlist=[gmx_exec,'select','-s',self.tprpath,'-f',self.trjpath,'-sf',selectionfile,'-on',indexoutput,'-oi',datafileoutput,\
-                                '-b',str(self.t_start), '-e', str(self.t_end),\
-                                '-dt', str(self.dt),\
-                             ]
+                    cmdlist=[\
+                        gmx_exec,'select','-s',self.tprpath,'-f',self.trjpath,\
+                        '-sf',selectionfile,'-on',indexoutput,'-oi',datafileoutput,\
+                        '-b',str(self.t_start), '-e', str(self.t_end),\
+                        '-dt', str(self.dt),\
+                        ]
                     out,err=self.exec_gromacs(cmdlist)
                     with open("gmx_select.log","w") as logfile:
-                        logfile.write(err.decode()); logfile.write(150*'_'); logfile.write(out.decode()); logfile.write(150*'_')
+                        logfile.write(err.decode())
+                        logfile.write(150*'_')
+                        logfile.write(out.decode())
+                        logfile.write(150*'_')
                 with open(datafileoutput,"r") as datfile:
                     for line in datfile:
-                        cols=line.split()
-                        time=cols.pop(0)
-                        nneibs=cols.pop(0)
-                        neibindeces=[int(x) for x in cols]
-                        neibresid=[self.index_to_resid[x] for x in neibindeces]
-                        residlist=','.join([str(x) for x in neibresid])
+                        cols = line.split()
+                        time = cols.pop(0)
+                        nneibs = cols.pop(0)
+                        neibindeces = [int(x) for x in cols]
+                        neibresid = [self.index_to_resid[x] for x in neibindeces]
+                        residlist = ','.join([str(x) for x in neibresid])
                         print('{} \t {} \t {} \t {}'.format(residue,time,nneibs,residlist), file=outfile)
-                        
-     
 
+
+class Energy():
+    ''' All about energy calculation '''
     def calculate_energies(self,resindex_all,mdp_raw,overwrite=True,startres=1,endres=-1,parts='complete'):
         neiblist=self.find_all_neighbors()
         if endres==-1:
@@ -438,13 +460,6 @@ def exec_gromacs(self,cmd,inp_str=None):
                                                 coul=energyline_cols[res_to_row[('Coul',parthost+str(resid),partneib+str(x))]]
                                                 Etot=float(vdw)+float(coul)
                                                 print("{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}{: <20.5f}".format(time,resid,x,inter,vdw,coul,Etot), file=energyoutput)
-       
-
-   
-
-
-class Energy():
-    ''' All about energy calculation '''
     
 class Scd():
-    ''' All about scds '''
+    ''' All about calculating the lipid Scd order parameter '''

@@ -42,7 +42,7 @@ from src import gromacstoolautomator
 
 
 inputfile = sys.argv[1]
-my_system = systeminfo.SysInfo(inputfile)
+mysystem = systeminfo.SysInfo(inputfile)
 
 
 
