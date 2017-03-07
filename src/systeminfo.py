@@ -3,6 +3,9 @@ import os
 
 class SysInfo():
     ''' Gather all relevant information about the system to analyse '''
+    
+    NUMBEROFPARTICLES = 'all' #'all'
+    
     def __init__(self, inputfile):
         self.system_info = self.read_infofile(inputfile)
         cwd = os.getcwd()
