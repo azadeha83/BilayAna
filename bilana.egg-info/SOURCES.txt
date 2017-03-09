@@ -1,0 +1,12 @@
+BilAna/__init__.py
+BilAna/energyfilecreator.py
+BilAna/gromacstoolautomator.py
+BilAna/lipidmolecules.py
+BilAna/mainanalysis.py
+BilAna/misc.py
+BilAna/systeminfo.py
+bilana.egg-info/PKG-INFO
+bilana.egg-info/SOURCES.txt
+bilana.egg-info/dependency_links.txt
+bilana.egg-info/top_level.txt
+bilana.egg-info/zip-safe

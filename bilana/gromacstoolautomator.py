@@ -6,9 +6,9 @@ import os
 import sys 
 from time import localtime, strftime
 
-from src import lipidmolecules
+from bilana import lipidmolecules
 
-from src.systeminfo import mysystem
+from bilana.systeminfo import mysystem
 global mysystem
 
 #inputfile = sys.argv[1]
@@ -336,7 +336,7 @@ class Energy():
     ''' All about energy calculation '''
 
     DENOMINATOR = 40
-    
+
     def __init__(self,resindex_all,mdp_raw,overwrite=True,startres=1,endres=-1,parts='complete'):
         #self.mysystem = mysystem
         self.neiblist = Neighbors().get_neighbor_dict()
@@ -357,18 +357,24 @@ class Energy():
         elif parts == 'head-tail':
             self.molparts = ["resid_h_","resid_t_"]
             self.denominator = int(self.DENOMINATOR/2)
-            self.molparts_short=["h_", "t_"]
-            self.interactions=['head-tail', 'head-head', 'tail-tail']
+            self.molparts_short = ["h_", "t_"]
+            self.interactions = ['head-tail', 'head-head', 'tail-tail']
             self.all_energies='all_energies_headtail.dat'
         elif parts == 'head-tailhalfs':
             self.molparts = ["resid_h_", "resid_t12_", "resid_t22_"]
             self.denominator = int(self.DENOMINATOR/4)
-            self.molparts_short=["h_","t12_","t22_"]
-            self.interactions=['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
-            self.all_energies='all_energies_headtailhalfs.dat'
+            self.molparts_short = ["h_","t12_","t22_"]
+            self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
+            self.all_energies = 'all_energies_headtailhalfs.dat'
+        elif parts == 'carbons':
+            self.molparts = ['resid_C{}_'.format(i) for i in range(len(lipidmolecules))]
+            self.denominator = int(self.DENOMINATOR/10)
+            self.molparts_short = []
+            self.interactions = []
+            self.all_energies = ["all_energies_carbons.dat"]
         print('\n Calculating for energygroups:', self.molparts)
 
-    def run_energycalculation(self):
+    def run_calculation(self):
         ''' Runs a complete energy calculation with settings from Energy() instance '''
         print('''\n____Rerunning MD for energyfiles,
          yielding xvgtables with relevant energies.____\n
@@ -397,7 +403,7 @@ class Energy():
                 groupblockstart = groupfragment*self.denominator
                 groupblockend = (groupfragment+1)*self.denominator
                 self.groupblocks = (groupblockstart, groupblockend)
-                # File outputs
+                # File in-/outputs
                 groupfragment=str(groupfragment) 
                 mdpout = ''.join([mysystem.energypath, '/mdpfiles/energy_mdp_recalc_resid', str(res), '_', groupfragment, self.parts, '.mdp'])
                 tprout = ''.join([mysystem.energypath, '/tprfiles/mdrerun_resid', str(res), '_', groupfragment, self.parts, '.tpr'])
@@ -509,7 +515,10 @@ class Energy():
 
     def write_energyfile(self):
         with open(self.all_energies,"w") as energyoutput:
-            energyoutput.write("{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}\n".format("Time", "Host", "Neighbor", "VdW", "Coul", "Etot"))
+            energyoutput.write('''{: <10}{: <10}{: <10}{: <20}
+                                {: <20}{: <20}{: <20}\n
+                                '''.format("Time", "Host", "Neighbor", "Molparts",\
+                                           "VdW", "Coul", "Etot"))
             for resid in range(1, mysystem.NUMBEROFMOLECULES+1):
                 print("Working on residue {}".format(resid), end="\r")
                 residtype = mysystem.resid_to_lipid[resid]
@@ -565,5 +574,8 @@ class Energy():
                                             vdw = energyline_cols[res_to_row[('LJ', parthost+str(resid), partneib+str(neib))]]
                                             coul = energyline_cols[res_to_row[('Coul', parthost+str(resid), partneib+str(neib))]]
                                             Etot = float(vdw)+float(coul)
-                                            print("{: <10},{: <10},{: <10},{: <20},{: <20},{: <20},{: <20.5f}".format(time, resid, neib, inter, vdw, coul, Etot), file=energyoutput)
+                                            print('''{: <10},{: <10},{: <10},{: <20},
+                                                {: <20},{: <20},{: <20.5f}
+                                                '''.format(time, resid, neib, inter,\
+                                                           vdw, coul, Etot), file=energyoutput)
 

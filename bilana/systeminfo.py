@@ -115,6 +115,10 @@ class SysInfo():
 
 try:
     inp = sys.argv[1]
-except NameError:
-    raise('Specify inputfile as input argument')
-mysystem=SysInfo(inp)
+except IndexError:
+    inp = input('Specify (relative) path to inputfile\n')
+try:
+    mysystem = SysInfo(inp)
+except FileNotFoundError:
+    print("Inputfile not found.")
+    raise

@@ -8,10 +8,10 @@ import sys
 import numpy as np
 from time import localtime, strftime
 
-from src.systeminfo import mysystem
+from bilana.systeminfo import mysystem
 global mysystem
-from src import lipidmolecules
-from src import gromacstoolautomator as gmxauto
+from bilana import lipidmolecules
+from bilana import gromacstoolautomator as gmxauto
 
 class Scd():
     ''' All about calculating the lipid Scd order parameter '''

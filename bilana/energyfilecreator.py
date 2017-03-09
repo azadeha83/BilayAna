@@ -1,8 +1,8 @@
 ''' All about creating energy files '''
 
-from src.systeminfo import mysystem
+from bilana.systeminfo import mysystem
 global mysystem
-from src import gromacstoolautomator
+from bilana import gromacstoolautomator
 
 def create_Eofr_input(self,energyfile,distancefile):
     time_pair_to_E = {}
@@ -151,8 +151,8 @@ class EofScd():
     def write_outputfile(self, timetoenergy, timetoscd, endtime, wantedpair):
         outname = ''.join(['Eofscd', wantedpair, self.parts])
         with open(outname, "w") as outf:
-            header = '   '.join(["Time", "Host", "Host_Scd", "Neib",\
-                               "Neib_Scd", "DeltaScd", "AvgScd", "Etot",\
+            header = '   '.join(["Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
+                                 "Molpart", "DeltaScd", "AvgScd", "Etot",\
                                "Evdw", "Ecoul", "NChol", "\n"])
             outf.write(header) 
             # {: <10}{: <10}{: <20}{: <10}{: <20}{: <20}{: <20}{: <20}{: <20}{: <20}{: <10}
