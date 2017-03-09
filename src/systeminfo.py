@@ -1,18 +1,27 @@
 ''' Gather information about system '''
-import os
+
+import sys
+import os 
 
 class SysInfo():
     ''' Gather all relevant information about the system to analyse '''
-    
-    NUMBEROFPARTICLES = 'all' #'all'
-    
+
+    NUMBEROFMOLECULES = 'all' #'all'
+
     def __init__(self, inputfile):
         self.system_info = self.read_infofile(inputfile)
         cwd = os.getcwd()
-        os.makedirs(cwd+'datafiles', exit_ok=True)
-        os.makedirs(cwd+'indexfiles', exit_ok=True)
-        os.makedirs(cwd+'tempfiles', exit_ok=True)
-        os.makedirs(cwd+'energyfiles', exit_ok=True)
+        os.makedirs(cwd+'datafiles', exist_ok=True)
+        os.makedirs(cwd+'indexfiles', exist_ok=True)
+        os.makedirs(cwd+'tempfiles', exist_ok=True)
+        os.makedirs(cwd+'energyfiles', exist_ok=True)
+        # ''' general system information '''
+        self.system = self.system_info['System']
+        self.temperature = self.system_info['Temperature']
+        self.molecules = [x.upper() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
+        self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
+        self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
+        self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         # '''_absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
         self.trjpath = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
@@ -24,13 +33,6 @@ class SysInfo():
         self.datapath = "{}/datafiles".format(cwd)
         self.temppath = "{}/tempfiles".format(cwd)
         self.energypath = "{}/energyfiles".format(cwd)
-        # ''' general system information '''
-        self.system = self.system_info['System']
-        self.temperature = self.system_info['Temperature']
-        self.molecules = [x.upper() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
-        self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
-        self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
-        self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         #''' '''
         if 'CHOL' in self.molecules:
             self.molecules.append('CHL1')
@@ -42,20 +44,22 @@ class SysInfo():
             self.t_start = int(self.times[0])
             self.dt = int(self.times[2])
         print('Total number of atoms: {}\nNumber of lipids: {}\n\n'.format(self.system_size, self.number_of_lipids))
-        
-    def read_infofile(self, inputfile):
+        if self.NUMBEROFMOLECULES == 'all':
+            self.NUMBEROFMOLECULES = self.number_of_lipids
+
+    def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
         Input arguments are not checked for validity - double check yourself'''
         system_info = {}
-        with open(inputfile,"r") as inp:
+        with open(inputfname,"r") as inputf:
             # Creates a list like [[system,dppc_chol],[temperature,290]]
-            filecontent = [x.split(': ') for x in [y.strip('\n') for y in inp.readlines()]] 
+            filecontent = [x.split(': ') for x in [y.strip('\n') for y in inputf.readlines()]] 
             for info in filecontent:
                 if len(info) == 2 and not '#' in info[0]:
                     system_info.update({info[0]: info[1]})
                     print("{} : {}".format(info[0], info[1]),"\n")  
         return system_info
-        
+
     def index_conversion_dict(self): 
         ''' returns a dictionary for conversion from index to resid as well as resid to molecule'''
         grofile = self.gropath
@@ -77,7 +81,7 @@ class SysInfo():
                     in2res.update({ind:resid})
                     res2mol.update({resid:lipid})
         return in2res, res2mol
-    
+
     def determine_systemsize_and_number_of_lipids(self):
         ''' returns number of atoms in system and number of lipid molecules '''
         grofile = self.gropath
@@ -108,3 +112,9 @@ class SysInfo():
     #    err=err.split()
     #    endtime=err[err.index(b'Step')+1]
     #   return int(endtime.decode())
+
+try:
+    inp = sys.argv[1]
+except NameError:
+    raise('Specify inputfile as input argument')
+mysystem=SysInfo(inp)

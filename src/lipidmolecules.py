@@ -12,7 +12,6 @@ tailcarbonsdupc=[tailcarbonsdppc[0]+['C217','C218'],tailcarbonsdppc[1]+['C317','
 tailhydrdupc=[tailhydrdppc[0].copy()+['H17X','H17Y','H18X','H18Y','H18Z'],tailhydrdppc[1].copy()+['H17X','H17Y','H18X','H18Y','H18Z']]
 tailhydrdupc[0].remove('H16T')
 tailhydrdupc[1].remove('H16Z')
-#####
 
 scd_tail_atoms_of={\
     'DPPC':[['C22','C24','C26', 'C28', 'C210', 'C212', 'C214', 'C216'],\
