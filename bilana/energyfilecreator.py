@@ -2,7 +2,7 @@
 
 from bilana.systeminfo import mysystem
 global mysystem
-from bilana import gromacstoolautomator
+from bilana import gromacstoolautomator, lipidmolecules
 
 def create_Eofr_input(self,energyfile,distancefile):
     time_pair_to_E = {}
@@ -25,9 +25,9 @@ def create_Eofr_input(self,energyfile,distancefile):
             keystring = time+'_'+respair
             time_pair_to_r.update({keystring:distance})
     with open("Eofr_dat","w") as outfile:
-        print('''
-            {: <10} {: <10} {: <10} {: < 10} {: <20}\n
-            '''.format("Time", "Host", "Neib", "Distance", "Etot"), file=outfile)
+        print(\
+            '{: <10} {: <10} {: <10} {: < 10} {: <20}\n'\
+            .format("Time", "Host", "Neib", "Distance", "Etot"), file=outfile)
         endtime = int(float(time))
         neiblist = self.get_neighbor_dict()
         for i in range(1, self.NUMBEROFPARTICLES+1):
@@ -68,20 +68,20 @@ def create_NofScd_input(self, scdfile, neighborfile):
     with open("Nofscd_dppc.dat","w") as outfile_dppc,\
         open("Nofscd_chol.dat","w") as outfile_chol,\
         open("Nofscd_dupc.dat","w") as outfile_dupc:
-        print('''
-            {: <10} {: <10} {: <20} {: <20} 
-            {: <10} {: <10} {: <10}
-            '''.format("Time", "Host", "Host_Scd", "N Neighbor",\
+        print(\
+            '{: <10} {: <10} {: <20} {: <20}'\
+            '{: <10} {: <10} {: <10}'\
+            .format("Time", "Host", "Host_Scd", "N Neighbor",\
                        "N Chol", "N DPPC", "N DUPC"), file=outfile_dppc)
-        print('''
-            {: <10} {: <10} {: <20} {: <20} 
-            {: <10} {: <10} {: <10}
-            '''.format("Time", "Host", "Host_Scd", "N Neighbor",\
+        print(\
+            '{: <10} {: <10} {: <20} {: <20}'\
+            '{: <10} {: <10} {: <10}'\
+            .format("Time", "Host", "Host_Scd", "N Neighbor",\
                        "N Chol", "N DPPC", "N DUPC"), file=outfile_chol)
-        print('''
-            {: <10} {: <10} {: <20} {: <20} 
-            {: <10} {: <10} {: <10}
-            '''.format("Time", "Host", "Host_Scd", "N Neighbor",\
+        print(\
+            '{: <10} {: <10} {: <20} {: <20}'\
+            '{: <10} {: <10} {: <10}'\
+            .format("Time", "Host", "Host_Scd", "N Neighbor",\
                        "N Chol", "N DPPC", "N DUPC"), file=outfile_dupc)
         endtime = int(float(time))
         for i in range(1, self.NUMBEROFPARTICLES+1):
@@ -99,17 +99,23 @@ def create_NofScd_input(self, scdfile, neighborfile):
                 ndupc = neibtypelist.count('DUPC')
                 scd_host = float(time_resid_to_scd[time+'_'+str(i)])
                 if restype == 'DPPC':
-                    print('''{: <10}{: <10}{: <20.5f}{: <20.5f}
-                    {: <10}{: <10}{: <10}'''.format(time, i, scd_host, float(n_neibs),\
-                                                    nchol, ndppc, ndupc), file=outfile_dppc)
+                    print(\
+                          '{: <10}{: <10}{: <20.5f}{: <20.5f}'\
+                          '{: <10}{: <10}{: <10}'\
+                          .format(time, i, scd_host, float(n_neibs),\
+                                  nchol, ndppc, ndupc), file=outfile_dppc)
                 elif restype == 'CHL1':
-                    print('''{: <10}{: <10}{: <20.5f}{: <20.5f}
-                        {: <10}{: <10}{: <10}'''.format(time, i, scd_host, float(n_neibs),\
-                                                        nchol, ndppc, ndupc), file=outfile_chol)
+                    print(\
+                          '{: <10}{: <10}{: <20.5f}{: <20.5f}'\
+                          '{: <10}{: <10}{: <10}'\
+                          .format(time, i, scd_host, float(n_neibs),\
+                                  nchol, ndppc, ndupc), file=outfile_chol)
                 elif restype == 'DUPC':
-                    print('''{: <10}{: <10}{: <20.5f}{: <20.5f}
-                            {: <10}{: <10}{: <10}'''.format(time, i, scd_host, float(n_neibs),\
-                                                            nchol, ndppc, ndupc), file=outfile_dupc)
+                    print(\
+                          '{: <10}{: <10}{: <20.5f}{: <20.5f}'\
+                          '{: <10}{: <10}{: <10}'\
+                          .format(time, i, scd_host, float(n_neibs),\
+                                  nchol, ndppc, ndupc), file=outfile_dupc)
 
 class EofScd():
     ''' All about writing the beloved E(Scd)-files '''
@@ -131,6 +137,15 @@ class EofScd():
                                     't22_t22', 't22_w',\
                                     'w_w']
             self.parts = parts
+        elif parts == 'carbons':
+            self.interactionskey = []
+            for i in range(lipidmolecules.shortestchain):
+                for j in range(lipidmolecules.shortestchain):
+                    if j > i:
+                        continue
+                    else:
+                        self.interactionskey.append('C{0}_C{1}'.format(i,j))
+            self.parts = parts
         self.lipidpairs = []
         for lipid1 in mysystem.molecules:   # Creates a list of pairs
             lipid1index = mysystem.molecules.index(lipid1) # Like 'DPPC_DPPC'
@@ -151,11 +166,16 @@ class EofScd():
     def write_outputfile(self, timetoenergy, timetoscd, endtime, wantedpair):
         outname = ''.join(['Eofscd', wantedpair, self.parts])
         with open(outname, "w") as outf:
-            header = '   '.join(["Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
-                                 "Molpart", "DeltaScd", "AvgScd", "Etot",\
-                               "Evdw", "Ecoul", "NChol", "\n"])
-            outf.write(header) 
-            # {: <10}{: <10}{: <20}{: <10}{: <20}{: <20}{: <20}{: <20}{: <20}{: <20}{: <10}
+            print(\
+                  '{: ^10}{: ^10}{: ^15}{: ^8}{: ^10}'\
+                  '{: ^15}{: ^15}{: ^15}'\
+                  '{: ^15}{: ^15}'\
+                  '{: ^15}{: ^5}'\
+                  .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
+                            "Molpart", "DeltaScd", "AvgScd",\
+                            "Etot", "Evdw",\
+                            "Ecoul", "NChol"),\
+                  file=outf)
             for host in range(1, mysystem.NUMBEROFMOLECULES+1):
                 type_host = mysystem.resid_to_lipid[host]
                 for t in range(mysystem.t_start, endtime+1, mysystem.dt):
@@ -181,17 +201,16 @@ class EofScd():
                                 Etot, VDW, COUL = timetoenergy[(t, respair, inter)]
                             else:
                                 continue
-                            print('''
-                                {: <10}{: <10}{: <20.5f}{: <10}{: <20.5f}
-                                {: <15}{: <20.5f}{: <20.5f}
-                                {: <20.5f}{: <20.5f}
-                                {: <20.5f}{: <10}
-                                '''.format(\
-                                    t, host, scd_host, neib, scd_neib,\
-                                    inter, delta_scd, avg_scd,\
-                                    float(Etot), float(VDW),\
-                                    float(COUL), nchol),\
-                                    file=outf)
+                            print(\
+                                  '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'\
+                                  '{: <15}{: <15.5f}{: <15.5f}'\
+                                  '{: <15.5f}{: <15.5f}'\
+                                  '{: <15.5f}{: <5}'\
+                                  .format(t, host, scd_host, neib, scd_neib,\
+                                            inter, delta_scd, avg_scd,\
+                                            float(Etot), float(VDW),\
+                                            float(COUL), nchol),\
+                                  file=outf)
 
     def read_energyinput(self, energyfile):
         timetoenergy = {}

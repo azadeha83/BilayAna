@@ -185,15 +185,15 @@ class Neighbors():
     def create_selectionfile_neighborsearch(self,resid):
         filename="{}/neighbors_of_residue{}".format(mysystem.temppath, resid)
         with open(filename,"w") as selection:
-            print('''
-                host =  resid {} and (name P O3);\n
-                allOAtoms = resname CHL1 and name O3 and not host;\n
-                allPAtoms = resname DPPC DUPC and name P and not host;\n
-                neibOs = allOAtoms and within 1.0 of host;\n
-                neibPs = allPAtoms and within 1.0 of host;\n
-                neibs = neibPs or neibOs;\n
-                neibs;
-                '''.format(resid), file=selection)
+            print(\
+                'host =  resid {} and (name P O3);\n'\
+                'allOAtoms = resname CHL1 and name O3 and not host;\n'\
+                'allPAtoms = resname DPPC DUPC and name P and not host;\n'\
+                'neibOs = allOAtoms and within 1.0 of host;\n'\
+                'neibPs = allPAtoms and within 1.0 of host;\n'\
+                'neibs = neibPs or neibOs;\n'\
+                'neibs;'\
+                .format(resid), file=selection)
         return filename
 
     def get_neighbor_dict(self,verbose='off'):
@@ -252,9 +252,8 @@ class Neighbors():
                                    ]
                     selectionlist = []
                     for item in selprefixes:
-                        selectionlist += '''
-                            resid_{0}{1}=resid {1} and resname {2} and name {3};\n
-                            '''.format(item[0], str(i), lipidtype, item[1])
+                        selectionlist += 'resid_{0}{1}=resid {1} and resname {2} and name {3};\n'\
+                                        .format(item[0], str(i), lipidtype, item[1])
                     
                     lastlineitems = ['resid_{}{};\n'.format(item[0], str(i)) for item in selprefixes]
                     selectionlist += ''.join(lastlineitems)
@@ -337,7 +336,7 @@ class Energy():
 
     DENOMINATOR = 40
 
-    def __init__(self,resindex_all,mdp_raw,overwrite=True,startres=1,endres=-1,parts='complete'):
+    def __init__(self, resindex_all, mdp_raw, overwrite=True, startres=1, endres=-1, parts='complete'):
         #self.mysystem = mysystem
         self.neiblist = Neighbors().get_neighbor_dict()
         self.resindex_all = resindex_all
@@ -367,10 +366,10 @@ class Energy():
             self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
             self.all_energies = 'all_energies_headtailhalfs.dat'
         elif parts == 'carbons':
-            self.molparts = ['resid_C{}_'.format(i) for i in range(len(lipidmolecules))]
+            self.molparts = ['resid_C{}_'.format(i) for i in range(len(lipidmolecules.shortestchain))]
             self.denominator = int(self.DENOMINATOR/10)
-            self.molparts_short = []
-            self.interactions = []
+            self.molparts_short = ['C{}_'.format(i) for i in range(len(lipidmolecules.shortestchain))]
+            self.interactions = ['C{0}-C{0}'.format(i) for i in range(len(lipidmolecules.shortestchain))]
             self.all_energies = ["all_energies_carbons.dat"]
         print('\n Calculating for energygroups:', self.molparts)
 
@@ -415,7 +414,7 @@ class Energy():
                 self.create_MDP(self.mdp_raw, mdpout, energygroups)
                 self.create_TPR(mdpout, tprout)
                 self.do_Energyrun(res, groupfragment, tprout, energyf_output)
-                self.write_XVG(energyf_output, xvg_out, tprout, relev_energies)
+                self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
         return 'Done'
 
     def gather_energygroups(self, res, all_neibs_of_res):
@@ -477,9 +476,9 @@ class Energy():
         out, err = exec_gromacs(grompp_arglist)
         with open("gmx_grompp.log","a") as logfile:
             logfile.write(err.decode())
-            logfile.write(150*'_')
+            logfile.write(100*'_')
             logfile.write(out.decode())
-            logfile.write(150*'_')
+            logfile.write(100*'_')
 
     def do_Energyrun(self, res, groupfragment, tprrerun_in, energyf_out):
         ''' Create ENERGYFILE with mdrun -rerun '''
@@ -494,11 +493,11 @@ class Energy():
         out, err = exec_gromacs(mdrun_arglist)
         with open("gmx_mdrun.log","a") as logfile:
             logfile.write(err.decode())
-            logfile.write(150*'_')
+            logfile.write(100*'_')
             logfile.write(out.decode())
-            logfile.write(150*'_')
+            logfile.write(100*'_')
 
-    def write_XVG(self, energyf_in, xvg_out, tprrerun_in, all_relev_energies):
+    def write_XVG(self, energyf_in, tprrerun_in, all_relev_energies, xvg_out):
         ''' Create XVG-TABLE with all relevant energies '''
         print(strftime("%H:%M:%S :", localtime()),'...Extracting all relevant energies from .edr file...')
         os.makedirs(mysystem.energypath+'/xvgtables', exist_ok=True)
@@ -509,16 +508,18 @@ class Energy():
         out, err = exec_gromacs(g_energy_arglist, inp_str)
         with open("gmx_energy.log","a") as logfile:
             logfile.write(err.decode())
-            logfile.write(150*'_')
+            logfile.write(100*'_')
             logfile.write(out.decode())
-            logfile.write(150*'_')
+            logfile.write(100*'_')
 
     def write_energyfile(self):
         with open(self.all_energies,"w") as energyoutput:
-            energyoutput.write('''{: <10}{: <10}{: <10}{: <20}
-                                {: <20}{: <20}{: <20}\n
-                                '''.format("Time", "Host", "Neighbor", "Molparts",\
-                                           "VdW", "Coul", "Etot"))
+            print(\
+                  '{: <10}{: <10}{: <10}{: <20}'
+                  '{: <20}{: <20}{: <20}'\
+                  .format("Time", "Host", "Neighbor", "Molparts",\
+                                           "VdW", "Coul", "Etot"),\
+                  file=energyoutput)
             for resid in range(1, mysystem.NUMBEROFMOLECULES+1):
                 print("Working on residue {}".format(resid), end="\r")
                 residtype = mysystem.resid_to_lipid[resid]
@@ -574,8 +575,10 @@ class Energy():
                                             vdw = energyline_cols[res_to_row[('LJ', parthost+str(resid), partneib+str(neib))]]
                                             coul = energyline_cols[res_to_row[('Coul', parthost+str(resid), partneib+str(neib))]]
                                             Etot = float(vdw)+float(coul)
-                                            print('''{: <10},{: <10},{: <10},{: <20},
-                                                {: <20},{: <20},{: <20.5f}
-                                                '''.format(time, resid, neib, inter,\
-                                                           vdw, coul, Etot), file=energyoutput)
+                                            print(\
+                                                  '{: <10},{: <10},{: <10},{: <20},'
+                                                  '{: <20},{: <20},{: <20.5f}'
+                                                  .format(time, resid, neib, inter,\
+                                                                            vdw, coul, Etot),\
+                                                  file=energyoutput)
 
