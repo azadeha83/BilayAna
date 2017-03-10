@@ -20,8 +20,6 @@ class SysInfo():
         self.temperature = self.system_info['Temperature']
         self.molecules = [x.upper() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
         self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
-        self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
-        self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         # '''_absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
         self.trjpath = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
@@ -33,6 +31,8 @@ class SysInfo():
         self.datapath = "{}/datafiles".format(cwd)
         self.temppath = "{}/tempfiles".format(cwd)
         self.energypath = "{}/energyfiles".format(cwd)
+        self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
+        self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         #''' '''
         if 'CHOL' in self.molecules:
             self.molecules.append('CHL1')

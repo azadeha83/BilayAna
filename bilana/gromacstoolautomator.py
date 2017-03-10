@@ -355,18 +355,21 @@ class Energy():
             self.interactions = ['']
         elif parts == 'head-tail':
             self.molparts = ["resid_h_","resid_t_"]
+            self.parts = parts
             self.denominator = int(self.DENOMINATOR/2)
             self.molparts_short = ["h_", "t_"]
             self.interactions = ['head-tail', 'head-head', 'tail-tail']
             self.all_energies='all_energies_headtail.dat'
         elif parts == 'head-tailhalfs':
             self.molparts = ["resid_h_", "resid_t12_", "resid_t22_"]
+            self.parts = parts
             self.denominator = int(self.DENOMINATOR/4)
             self.molparts_short = ["h_","t12_","t22_"]
             self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
             self.all_energies = 'all_energies_headtailhalfs.dat'
         elif parts == 'carbons':
             self.molparts = ['resid_C{}_'.format(i) for i in range(len(lipidmolecules.shortestchain))]
+            self.parts = parts
             self.denominator = int(self.DENOMINATOR/10)
             self.molparts_short = ['C{}_'.format(i) for i in range(len(lipidmolecules.shortestchain))]
             self.interactions = ['C{0}-C{0}'.format(i) for i in range(len(lipidmolecules.shortestchain))]
@@ -551,6 +554,7 @@ class Energy():
                                     neibtype = mysystem.resid_to_lipid[neib]
                                     counterhost = 0
                                     for parthost in self.molparts:
+                                        parthost = parthost[6:]
                                         if residtype == 'CHL1' and counterhost == 0:
                                             parthost = ''
                                             counterhost += 1
@@ -558,6 +562,7 @@ class Energy():
                                             continue
                                         counterneib=0
                                         for partneib in self.molparts:
+                                            partneib = partneib[6:]
                                             if neibtype == 'CHL1' and counterneib == 0:
                                                 partneib = ''
                                                 counterneib+=1
