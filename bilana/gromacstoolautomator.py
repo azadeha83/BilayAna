@@ -557,11 +557,7 @@ class Energy():
                                     neibtype = mysystem.resid_to_lipid[neib]
                                     counterhost = 0
                                     for parthost in self.molparts:
-<<<<<<< HEAD
                                         parthost = parthost[6:]
-=======
-                                        parthost = parthost[7:]
->>>>>>> 2f91e28c2c7ae5fcd0ee424ad56b57c9a9672781
                                         if residtype == 'CHL1' and counterhost == 0:
                                             parthost = ''
                                             counterhost += 1
@@ -569,11 +565,7 @@ class Energy():
                                             continue
                                         counterneib = 0
                                         for partneib in self.molparts:
-<<<<<<< HEAD
                                             partneib = partneib[6:]
-=======
-                                            partneib = partneib[7:]
->>>>>>> 2f91e28c2c7ae5fcd0ee424ad56b57c9a9672781
                                             if neibtype == 'CHL1' and counterneib == 0:
                                                 partneib = ''
                                                 counterneib += 1
