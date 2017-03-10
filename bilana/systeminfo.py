@@ -31,6 +31,10 @@ class SysInfo():
         self.datapath = "{}/datafiles".format(cwd)
         self.temppath = "{}/tempfiles".format(cwd)
         self.energypath = "{}/energyfiles".format(cwd)
+<<<<<<< HEAD
+=======
+        # ''' Dictionaries '''
+>>>>>>> 2f91e28c2c7ae5fcd0ee424ad56b57c9a9672781
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         #''' '''

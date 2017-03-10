@@ -337,7 +337,10 @@ class Energy():
     DENOMINATOR = 40
 
     def __init__(self, resindex_all, mdp_raw, overwrite=True, startres=1, endres=-1, parts='complete'):
-        #self.mysystem = mysystem
+        #self.mysystem = mysystem#
+        knownparts = ['complete', 'head-tail', 'head-tailhalfs', 'carbons']
+        if parts not in knownparts:
+            raise ValueError("Part keyword specified is not known.")
         self.neiblist = Neighbors().get_neighbor_dict()
         self.resindex_all = resindex_all
         self.mdp_raw = mdp_raw
@@ -554,18 +557,26 @@ class Energy():
                                     neibtype = mysystem.resid_to_lipid[neib]
                                     counterhost = 0
                                     for parthost in self.molparts:
+<<<<<<< HEAD
                                         parthost = parthost[6:]
+=======
+                                        parthost = parthost[7:]
+>>>>>>> 2f91e28c2c7ae5fcd0ee424ad56b57c9a9672781
                                         if residtype == 'CHL1' and counterhost == 0:
                                             parthost = ''
                                             counterhost += 1
                                         elif residtype == 'CHL1' and counterhost != 0:
                                             continue
-                                        counterneib=0
+                                        counterneib = 0
                                         for partneib in self.molparts:
+<<<<<<< HEAD
                                             partneib = partneib[6:]
+=======
+                                            partneib = partneib[7:]
+>>>>>>> 2f91e28c2c7ae5fcd0ee424ad56b57c9a9672781
                                             if neibtype == 'CHL1' and counterneib == 0:
                                                 partneib = ''
-                                                counterneib+=1
+                                                counterneib += 1
                                             elif neibtype == 'CHL1' and counterneib != 0:
                                                 continue
                                             if parthost[:-1] == '':
