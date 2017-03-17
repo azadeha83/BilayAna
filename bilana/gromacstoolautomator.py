@@ -604,7 +604,7 @@ class Energy():
                                                                             vdw, coul, Etot),\
                                                   file=energyoutput)
 
-    def check_exit_xvgs(self):
+    def check_exist_xvgs(self):
         all_okay = True
         for resid in range(1, mysystem.NUMBEROFMOLECULES+1):
             all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))

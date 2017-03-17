@@ -21,7 +21,7 @@ class SysInfo():
         self.system = self.system_info['System']
         self.temperature = self.system_info['Temperature']
         self.molecules = [x.upper() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
-        if 'CHOL' in self.molecules:
+        if 'CHOL' in self.molecules:    # This must be declared immediately !!!
             self.molecules.append('CHL1')
             self.molecules.remove('CHOL')
         self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
