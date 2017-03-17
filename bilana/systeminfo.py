@@ -21,6 +21,9 @@ class SysInfo():
         self.system = self.system_info['System']
         self.temperature = self.system_info['Temperature']
         self.molecules = [x.upper() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
+        if 'CHOL' in self.molecules:    # This must be declared immediately !!!
+            self.molecules.append('CHL1')
+            self.molecules.remove('CHOL')
         self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
         # '''_absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
@@ -37,9 +40,7 @@ class SysInfo():
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         #''' '''
-        if 'CHOL' in self.molecules:
-            self.molecules.append('CHL1')
-            self.molecules.remove('CHOL')
+
         if self.times[1] == 'end':
             raise ValueError("Not yet implemented")
         else:
