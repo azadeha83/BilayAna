@@ -4,7 +4,7 @@ from bilana.systeminfo import mysystem
 global mysystem
 from bilana import gromacstoolautomator, lipidmolecules
 
-def create_Eofr_input(self,energyfile,distancefile):
+def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refactored.
     time_pair_to_E = {}
     time_pair_to_r = {}
     with open(energyfile, "r") as efile, open(distancefile, "r") as dfile:
@@ -40,7 +40,7 @@ def create_Eofr_input(self,energyfile,distancefile):
                     dist = time_pair_to_r[time+'_'+respair]
                     print("{: <10} {: <10} {: <10} {: < 10} {: <20.5f}".format(time, i, neib, dist, Etot), file=outfile)
 
-def create_NofScd_input(self, scdfile, neighborfile):
+def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refactored.
     time_resid_to_scd = {}
     neighbors_of_host = {}
     hosts_without_neib = []

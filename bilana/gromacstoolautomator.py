@@ -242,13 +242,27 @@ class Neighbors():
                     #lentailbyfour=len(self.tail_atoms_of[lipidtype])//4                 ### Problem for the half tail t12/t22:
                     #tailhalf12=' '.join(self.tail_atoms_of[lipidtype][:lentailbyfour]+self.tail_atoms_of[lipidtype][2*lentailbyfour:3*lentailbyfour])
                     #tailhalf22=' '.join(self.tail_atoms_of[lipidtype][lentailbyfour:2*lentailbyfour]+self.tail_atoms_of[lipidtype][3*lentailbyfour:])
-                    tailatoms = [x for index in lipidmolecules.tail_atoms_of[lipidtype] for x in index] ##unpacking
+                    tailatomlist = lipidmolecules.tail_atoms_of[lipidtype]
+                    tailatoms = [x for index in tailatomlist for x in index] ##unpacking
                     headatoms = lipidmolecules.head_atoms_of[lipidtype]
-                    selprefixes = [("",r'".*"'),\
-                                   ("h",headatoms),\
-                                   ("t",tailatoms),\
-                                   ("t12",tailhalf12),\
-                                   ("t22",tailhalf22),\
+                    carbons = ['C{} C{} C{} C{}'.format(tailatomlist[0][i],\
+                                                        tailatomlist[0][i+1],\
+                                                        tailatomlist[1][i],\
+                                                        tailatomlist[1][i+1])\
+                               for i in range(0, len(tailatomlist), 2)]
+                    selprefixes = [("", r'".*"'),\
+                                   ("h", headatoms),\
+                                   ("t", tailatoms),\
+                                   ("t12", tailhalf12),\
+                                   ("t22", tailhalf22),\
+                                   ("C1", carbons[0]),\
+                                   ("C2", carbons[1]),\
+                                   ("C3", carbons[2]),\
+                                   ("C4", carbons[3]),\
+                                   ("C5", carbons[4]),\
+                                   ("C6", carbons[5]),\
+                                   ("C7", carbons[6]),\
+                                   ("C8", carbons[7]),\
                                    ]
                     selectionlist = []
                     for item in selprefixes:
@@ -371,11 +385,11 @@ class Energy():
             self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
             self.all_energies = 'all_energies_headtailhalfs.dat'
         elif parts == 'carbons':
-            self.molparts = ['resid_C{}_'.format(i) for i in range(len(lipidmolecules.shortestchain))]
+            self.molparts = ['resid_C{}_'.format(i) for i in range(lipidmolecules.shortestchain/2)]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/10)
-            self.molparts_short = ['C{}_'.format(i) for i in range(len(lipidmolecules.shortestchain))]
-            self.interactions = ['C{0}-C{0}'.format(i) for i in range(len(lipidmolecules.shortestchain))]
+            self.molparts_short = ['C{}_'.format(i) for i in range(lipidmolecules.shortestchain/2)]
+            self.interactions = ['C{0}-C{0}'.format(i) for i in range(lipidmolecules.shortestchain/2)]
             self.all_energies = ["all_energies_carbons.dat"]
         print('\n Calculating for energygroups:', self.molparts)
 
@@ -590,3 +604,18 @@ class Energy():
                                                                             vdw, coul, Etot),\
                                                   file=energyoutput)
 
+    def check_exit_xvgs(self):
+        all_okay = True
+        for resid in range(1, mysystem.NUMBEROFMOLECULES+1):
+            all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
+            n_neibs = len(all_neibs_of_res)
+            if n_neibs % self.denominator == 0:
+                number_of_groupfragments = (n_neibs//self.denominator)
+            else:
+                number_of_groupfragments = (n_neibs//self.denominator)+1
+            for part in range(number_of_groupfragments):
+                xvgfilename = mysystem.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.parts+'.xvg'
+                if not os.path.isfile(xvgfilename):
+                    print('File is missing:', xvgfilename)
+                    all_okay = False
+        print('All okay?', all_okay)
