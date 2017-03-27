@@ -12,3 +12,4 @@ bilana.egg-info/SOURCES.txt
 bilana.egg-info/dependency_links.txt
 bilana.egg-info/top_level.txt
 bilana.egg-info/zip-safe
+scripts/submit_energycalculations

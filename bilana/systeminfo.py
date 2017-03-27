@@ -13,10 +13,10 @@ class SysInfo():
     def __init__(self, inputfile):
         self.system_info = self.read_infofile(inputfile)
         cwd = os.getcwd()
-        os.makedirs(cwd+'datafiles', exist_ok=True)
-        os.makedirs(cwd+'indexfiles', exist_ok=True)
-        os.makedirs(cwd+'tempfiles', exist_ok=True)
-        os.makedirs(cwd+'energyfiles', exist_ok=True)
+        os.makedirs(cwd+'/datafiles', exist_ok=True)
+        os.makedirs(cwd+'/indexfiles', exist_ok=True)
+        os.makedirs(cwd+'/tempfiles', exist_ok=True)
+        os.makedirs(cwd+'/energyfiles', exist_ok=True)
         # ''' general system information '''
         self.system = self.system_info['System']
         self.temperature = self.system_info['Temperature']
@@ -40,7 +40,6 @@ class SysInfo():
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         #''' '''
-
         if self.times[1] == 'end':
             raise ValueError("Not yet implemented")
         else:

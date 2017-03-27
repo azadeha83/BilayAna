@@ -9,5 +9,5 @@ setup(name='bilana',
 #      license='',
       packages=['bilana'],
 #      install_requires=['',],
-#      scripts['',],
+      scripts=['scripts/submit_energycalculations',],
       zip_safe=True)
