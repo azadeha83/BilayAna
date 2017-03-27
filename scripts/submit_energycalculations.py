@@ -2,7 +2,6 @@
 
 import os, sys
 import subprocess
-from bilana.systeminfo import SysInfo
 
 divisor = 10
 startdir = os.getcwd()
@@ -16,7 +15,8 @@ systems_to_calculate_for = ['./{}_{}'.format(systemname,T) for T in Temperatures
 
 for systemdir in systems_to_calculate_for:
     os.chdir(systemdir)
-    mysystem = SysInfo('inputfile')
+    from bilana import systeminfo
+    mysystem = systeminfo.mysystem
     size = mysystem.determine_systemsize_and_number_of_lipids()
     lipids_per_partfloor=size//divisor
     for jobpart in range(divisor):
