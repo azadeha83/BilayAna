@@ -1,6 +1,6 @@
 ''' Gather information about system '''
 
-import sys
+#import sys
 import os 
 
 inputfilename_default = 'inputfile' 
@@ -116,15 +116,15 @@ class SysInfo():
     #    endtime=err[err.index(b'Step')+1]
     #   return int(endtime.decode())
 
-if os.path.isfile(inputfilename_default):
-    inp = inputfilename_default
-else:
-    try:
-        inp = sys.argv[1]
-    except IndexError:
-        inp = input('Specify (relative) path to inputfile\n')
-try:
-    mysystem = SysInfo(inp)
-except FileNotFoundError:
-    print("Inputfile not found.")
-    raise
+# if os.path.isfile(inputfilename_default):
+#     inp = inputfilename_default
+# else:
+#     try:
+#         inp = sys.argv[1]
+#     except IndexError:
+#         inp = input('Specify (relative) path to inputfile\n')
+# try:
+#     mysystem = SysInfo(inp)
+# except FileNotFoundError:
+#     print("Inputfile not found.")
+#     raise

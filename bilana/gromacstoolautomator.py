@@ -8,8 +8,8 @@ from time import localtime, strftime
 
 from bilana import lipidmolecules
 
-from bilana.systeminfo import mysystem
-global mysystem
+#from bilana.systeminfo import mysystem
+#global mysystem
 
 #inputfile = sys.argv[1]
 #mysystem = systeminfo.SysInfo(inputfile)
@@ -19,7 +19,7 @@ gmx_exec = 'gmx' #'gmx_5.0.4_mpi'
 os.environ["GMX_MAXBACKUP"] = "-1"
 
 def exec_gromacs(cmd,inp_str=None): 
-    '''arglist (cmd) is list of arguments like "['gmx cmd','-f','tprfile','-e','en.edr']"
+    '''arglist (cmd) is list of arguments like "['gmx cmd', '-f', 'tprfile', '-e', 'en.edr']"
         inp_str must be encoded!
     '''
     if inp_str is None:
@@ -33,22 +33,22 @@ def exec_gromacs(cmd,inp_str=None):
     proc.stderr.close()
     return out, err
 
-def trajectory_to_gro(overwrite='off', atomlist=None, lipids='all'):
-    os.makedirs(mysystem.datapath+'/grofiles')
+def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
+    os.makedirs(systeminfo.datapath+'/grofiles')
     getcoords = {}
     print('Converting trajectory-file to structure-file...\n')
     if lipids != 'all':
         molecules = [lipids]
     else:
-        if "CHOL" in mysystem.molecules:
-            molecules_new = mysystem.molecules.copy()
+        if "CHOL" in systeminfo.molecules:
+            molecules_new = systeminfo.molecules.copy()
             molecules_new.remove("CHOL")
             #print(molecules_new)
         else:
-            molecules_new = mysystem.molecules
+            molecules_new = systeminfo.molecules
         molecules = molecules_new
     for lipidmolecule in molecules:
-        grofile_output = ''.join([mysystem.datapath, '/grofiles', '/calc_scd_for', str(lipidmolecule), '.gro'])
+        grofile_output = ''.join([systeminfo.datapath, '/grofiles', '/calc_scd_for', str(lipidmolecule), '.gro'])
         sys.stdout.flush()
         if atomlist == None:
             atomlist = lipidmolecules.tail_atoms_of[lipidmolecule]+['P', 'O3']
@@ -58,10 +58,10 @@ def trajectory_to_gro(overwrite='off', atomlist=None, lipids='all'):
             pass
         else:
             gmx_traj_arglist = [\
-                gmx_exec,'trjconv','-s',mysystem.tprpath, '-f',mysystem.trjpath,\
+                gmx_exec,'trjconv','-s',systeminfo.tprpath, '-f',systeminfo.trjpath,\
                 '-o',grofile_output,\
-                '-b', str(mysystem.t_start), '-e', str(mysystem.t_end),\
-                '-dt', str(mysystem.dt),\
+                '-b', str(systeminfo.t_start), '-e', str(systeminfo.t_end),\
+                '-dt', str(systeminfo.dt),\
                 '-pbc', 'whole',\
                 ]
             out,err = exec_gromacs(gmx_traj_arglist,inp_str)      #Creates a gro file containing {timeframe:resid:atoms:xyz}
@@ -77,12 +77,12 @@ def trajectory_to_gro(overwrite='off', atomlist=None, lipids='all'):
                 if 't=' in line:
                     time = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
                     print("...at time {}".format(time), end="\r")
-                    if float(mysystem.t_end) < time:
+                    if float(systeminfo.t_end) < time:
                         print("breaking at", time)
                         break
                 #print("Match",regexp.match(line),line[:15],end='\r')
                 #print("Time match is",float(self.t_start)<=time,end='\r')
-                if float(mysystem.t_start) <= time and regexp.match(line) != None:
+                if float(systeminfo.t_start) <= time and regexp.match(line) != None:
                     #print("Reading data at",time,end='\r')
                     atom = line[9:15].strip()
                     lipidtype = line[5:9]
@@ -181,9 +181,11 @@ class Neighbors():
     ''' All calculations regarding lipid neighbors '''
 
     #global mysystem
-
-    def create_selectionfile_neighborsearch(self,resid):
-        filename="{}/neighbors_of_residue{}".format(mysystem.temppath, resid)
+    def __init__(self, systeminfo):
+        self.mysystem = systeminfo
+        
+    def create_selectionfile_neighborsearch(self, resid):
+        filename="{}/neighbors_of_residue{}".format(self.mysystem.temppath, resid)
         with open(filename,"w") as selection:
             print(\
                 'host =  resid {} and (name P O3);\n'\
@@ -225,12 +227,12 @@ class Neighbors():
         print("\n_____Creating index file____\n")
         #OUTPUT IS:    resindex_all.ndx     | in the cwd!
         resindex_all = open("resindex_all.ndx","w")
-        for i in range(1, mysystem.NUMBEROFMOLECULES+1):
+        for i in range(1, self.mysystem.NUMBEROFMOLECULES+1):
         #for i in range(1,2):
             print("Working on residue {}".format(i), end='\r')
-            selectionfile = mysystem.temppath+'/tmp_selectionfile'
+            selectionfile = self.mysystem.temppath+'/tmp_selectionfile'
             with open(selectionfile,"w") as sf:
-                lipidtype = mysystem.resid_to_lipid[i]
+                lipidtype = self.mysystem.resid_to_lipid[i]
                 if lipidtype  != 'CHL1': 
                     tailhalf12_l = [] ### to get half the tails
                     tailhalf22_l = []
@@ -278,11 +280,11 @@ class Neighbors():
                     #               ";\n"]),\
                     #               ]
                     sf.write(selectionstring)
-                elif mysystem.resid_to_lipid[i] == 'CHL1':
+                elif self.mysystem.resid_to_lipid[i] == 'CHL1':
                     selectionstring = 'resid_{0}=resid {0}  and resname CHL1;\nresid_{0};'.format(str(i))
                     sf.write(selectionstring)
-            outputindex = mysystem.indexpath+"/resid_"+str(i)+".ndx"
-            gmx_select_arglist = [gmx_exec, 'select', '-s', mysystem.gropath, '-sf',\
+            outputindex = self.mysystem.indexpath+"/resid_"+str(i)+".ndx"
+            gmx_select_arglist = [gmx_exec, 'select', '-s', self.mysystem.gropath, '-sf',\
                                   selectionfile, '-on', outputindex,\
                                   ]
             out, err = exec_gromacs(gmx_select_arglist)
@@ -296,8 +298,8 @@ class Neighbors():
                 filecontent = output_index.readlines()
                 resindex_all.write(''.join(filecontent)+'\n\n')
         ### To have whole system indices in one group    
-        make_ndx_output = mysystem.temppath+'/make_ndx_system.ndx' 
-        gmx_make_ndx_arglist = [gmx_exec, 'make_ndx', '-f', mysystem.gropath, '-o', make_ndx_output] 
+        make_ndx_output = self.mysystem.temppath+'/make_ndx_system.ndx' 
+        gmx_make_ndx_arglist = [gmx_exec, 'make_ndx', '-f', self.mysystem.gropath, '-o', make_ndx_output] 
         inp_str = b'keep 0\nq\n'  
         out, err = exec_gromacs(gmx_make_ndx_arglist, inp_str) 
         with open("gmx_make_ndx.log","w") as logfile, open(make_ndx_output, "r") as output:
@@ -311,23 +313,23 @@ class Neighbors():
 
     def determine_neighbors(self, overwrite=True):
         print("\n____Determining neighbors____\n")
-        os.makedirs(mysystem.datapath+'/neighborfiles', exist_ok=True)
+        os.makedirs(self.mysystem.datapath+'/neighborfiles', exist_ok=True)
         with open("neighbor_info","w") as outfile:
             outfile.write('Resid \t Time \t Number_of_neighbors \t List_of_Neighbors \n')
-            for residue in range(1,mysystem.NUMBEROFMOLECULES+1):
+            for residue in range(1, self.mysystem.NUMBEROFMOLECULES+1):
                 print(". . . Working on residue: {} . . .".format(residue), end="\r")
                 sys.stdout.flush()
                 selectionfile = self.create_selectionfile_neighborsearch(residue)
-                indexoutput = '{}/neighbors_of_residue{}.ndx'.format(mysystem.indexpath, residue)
-                datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(mysystem.datapath, residue)
+                indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.mysystem.indexpath, residue)
+                datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.mysystem.datapath, residue)
                 if os.path.isfile(datafileoutput) and overwrite == False:
                     print("Neighbor file of residue {} already exists. Skipping.".format(residue))
                 else:
                     cmdlist=[\
-                        gmx_exec,'select','-s',mysystem.tprpath,'-f',mysystem.trjpath,\
+                        gmx_exec,'select','-s', self.mysystem.tprpath, '-f', self.mysystem.trjpath,\
                         '-sf',selectionfile,'-on',indexoutput,'-oi',datafileoutput,\
-                        '-b',str(mysystem.t_start), '-e', str(mysystem.t_end),\
-                        '-dt', str(mysystem.dt),\
+                        '-b',str(self.mysystem.t_start), '-e', str(self.mysystem.t_end),\
+                        '-dt', str(self.mysystem.dt),\
                         ]
                     out, err = exec_gromacs(cmdlist)
                     with open("gmx_select.log","w") as logfile:
@@ -341,7 +343,7 @@ class Neighbors():
                         time = cols.pop(0)
                         nneibs = cols.pop(0)
                         neibindeces = [int(x) for x in cols]
-                        neibresid = [mysystem.index_to_resid[x] for x in neibindeces]
+                        neibresid = [self.mysystem.index_to_resid[x] for x in neibindeces]
                         residlist = ','.join([str(x) for x in neibresid])
                         print('{} \t {} \t {} \t {}'.format(residue,time,nneibs,residlist), file=outfile)
 
@@ -350,19 +352,16 @@ class Energy():
 
     DENOMINATOR = 40
 
-    def __init__(self, resindex_all, mdp_raw, overwrite=True, startres=1, endres=-1, parts='complete'):
-        #self.mysystem = mysystem#
+    def __init__(self, resindex_all, mdp_raw, systeminfo, overwrite=True, parts='complete'):
         knownparts = ['complete', 'head-tail', 'head-tailhalfs', 'carbons']
         if parts not in knownparts:
             raise ValueError("Part keyword specified is not known.")
-        self.neiblist = Neighbors().get_neighbor_dict()
+        self.neiblist = Neighbors(systeminfo).get_neighbor_dict()
         self.resindex_all = resindex_all
         self.mdp_raw = mdp_raw
         self.overwrite = overwrite
         self.groupblocks = ()
-        self.startres = startres
-        if endres == -1:
-            self.endres = mysystem.NUMBEROFMOLECULES
+        self.mysystem = systeminfo
         if parts == 'complete':
             self.molparts = ["resid_"]
             self.parts = ''
@@ -393,12 +392,16 @@ class Energy():
             self.all_energies = ["all_energies_carbons.dat"]
         print('\n Calculating for energygroups:', self.molparts)
 
-    def run_calculation(self):
+    def run_calculation(self,startres=-1, endres=-1):
         ''' Runs a complete energy calculation with settings from Energy() instance '''
         print('''\n____Rerunning MD for energyfiles,
          yielding xvgtables with relevant energies.____\n
          Caution mdp-file must not have energy_grps indicated!\n''')
-        for res in range(self.startres,self.endres+1): 
+        if startres == -1:
+            startres = 1
+        if endres == -1:
+            endres = self.mysystem.NUMBEROFMOLECULES
+        for res in range(startres,endres+1): 
             print('\n',strftime("%H:%M:%S :", localtime()),'Working on lipid '+str(res)+'...')
             all_neibs_of_res = list(set([neibs for t in self.neiblist[res].keys() for neibs in self.neiblist[res][t]]))
             N_neibs = len(all_neibs_of_res)
@@ -413,7 +416,7 @@ class Energy():
                 print("On fragment",groupfragment)
                 sys.stdout.flush()
                 g_energy_output = ''.join([\
-                    mysystem.energypath, '/xvgtables/energies_residue',\
+                    self.mysystem.energypath, '/xvgtables/energies_residue',\
                     str(res), '_', str(groupfragment), self.parts, '.xvg',\
                     ])
                 if os.path.isfile(g_energy_output) and self.overwrite == False:
@@ -424,10 +427,10 @@ class Energy():
                 self.groupblocks = (groupblockstart, groupblockend)
                 # File in-/outputs
                 groupfragment=str(groupfragment) 
-                mdpout = ''.join([mysystem.energypath, '/mdpfiles/energy_mdp_recalc_resid', str(res), '_', groupfragment, self.parts, '.mdp'])
-                tprout = ''.join([mysystem.energypath, '/tprfiles/mdrerun_resid', str(res), '_', groupfragment, self.parts, '.tpr'])
-                energyf_output = ''.join([mysystem.energypath, '/edrfiles/energyfile_resid', str(res), '_'+groupfragment, self.parts, '.edr'])
-                xvg_out = ''.join([mysystem.energypath, '/xvgtables/energies_residue', str(res), '_', groupfragment, self.parts, '.xvg'])
+                mdpout = ''.join([self.mysystem.energypath, '/mdpfiles/energy_mdp_recalc_resid', str(res), '_', groupfragment, self.parts, '.mdp'])
+                tprout = ''.join([self.mysystem.energypath, '/tprfiles/mdrerun_resid', str(res), '_', groupfragment, self.parts, '.tpr'])
+                energyf_output = ''.join([self.mysystem.energypath, '/edrfiles/energyfile_resid', str(res), '_'+groupfragment, self.parts, '.edr'])
+                xvg_out = ''.join([self.mysystem.energypath, '/xvgtables/energies_residue', str(res), '_', groupfragment, self.parts, '.xvg'])
                 energygroups = self.gather_energygroups(res, all_neibs_of_res)
                 relev_energies = self.get_relev_energies(res, all_neibs_of_res)
                 # Run functions
@@ -442,7 +445,7 @@ class Energy():
         energygroup_indeces=[res]+all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]
         energygroup_list=[]
         for index in energygroup_indeces:
-            if mysystem.resid_to_lipid[index]=='CHL1':
+            if self.mysystem.resid_to_lipid[index]=='CHL1':
                 energygroup_list.append(''.join(["resid_",str(index)]))
             else:
                 for part in self.molparts:
@@ -456,18 +459,18 @@ class Energy():
         for interaction in Etypes:
             counterhost=0 #for the cholesterol as it has just 1 molpart
             for parthost in self.molparts:
-                if mysystem.resid_to_lipid[res]=='CHL1' and counterhost==0:
+                if self.mysystem.resid_to_lipid[res]=='CHL1' and counterhost==0:
                     parthost="resid_"
                     counterhost+=1
-                elif mysystem.resid_to_lipid[res]=='CHL1' and counterhost!=0:
+                elif self.mysystem.resid_to_lipid[res]=='CHL1' and counterhost!=0:
                     continue
                 for neib in all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]:
                     counterneib=0
                     for partneib in self.molparts:
-                        if mysystem.resid_to_lipid[neib]=='CHL1' and counterneib==0:
+                        if self.mysystem.resid_to_lipid[neib]=='CHL1' and counterneib==0:
                             partneib='resid_'
                             counterneib+=1
-                        elif mysystem.resid_to_lipid[neib]=='CHL1' and counterneib!=0:
+                        elif self.mysystem.resid_to_lipid[neib]=='CHL1' and counterneib!=0:
                             continue
                         energyselection.append(''.join([interaction,parthost,str(res),"-",partneib,str(neib)]))
                 #select_energies_coulomb='\n'.join(["Coul-SR:resid_"+str(res)+"-resid_"+str(x) for x in all_N_of_res[groupblockstart:groupblockend]])
@@ -478,7 +481,7 @@ class Energy():
 
     def create_MDP(self, mdp_raw: str, mdpout: str, energygroups: str):
         ''' Create Mdpfile '''
-        os.makedirs(mysystem.energypath+'/mdpfiles', exist_ok=True)
+        os.makedirs(self.mysystem.energypath+'/mdpfiles', exist_ok=True)
         with open(mdpout,"w") as mdpfile_rerun, open(mdp_raw,"r") as mdpfile_raw:
             mdp_raw_content = mdpfile_raw.readlines()
             energygrpline = ''.join(['energygrps\t\t\t=', energygroups, '\n'])
@@ -488,9 +491,9 @@ class Energy():
     def create_TPR(self, mdpoutfile: str, tprout: str):
         ''' Create TPRFILE with GROMPP '''
         print(strftime("%H:%M:%S :", localtime()),'...Creating .tpr-file...')
-        os.makedirs(mysystem.energypath+'/tprfiles', exist_ok=True)
+        os.makedirs(self.mysystem.energypath+'/tprfiles', exist_ok=True)
         grompp_arglist=[gmx_exec, 'grompp', '-f', mdpoutfile, '-p',\
-                        mysystem.toppath, '-c', mysystem.gropath, '-o', tprout,\
+                        self.mysystem.toppath, '-c', self.mysystem.gropath, '-o', tprout,\
                         '-n', self.resindex_all, '-po', mdpoutfile\
                         ]
         out, err = exec_gromacs(grompp_arglist)
@@ -503,11 +506,11 @@ class Energy():
     def do_Energyrun(self, res, groupfragment, tprrerun_in, energyf_out):
         ''' Create ENERGYFILE with mdrun -rerun '''
         print(strftime("%H:%M:%S :", localtime()),'...Rerunning trajectory for energy calculation...')
-        os.makedirs(mysystem.energypath+'/edrfiles', exist_ok=True)
-        os.makedirs(mysystem.energypath+'/logfiles', exist_ok=True)
-        logoutput_file = mysystem.energypath+'/logfiles'+'/mdrerun_resid'+str(res)+self.parts+'frag'+groupfragment+'.log'
+        os.makedirs(self.mysystem.energypath+'/edrfiles', exist_ok=True)
+        os.makedirs(self.mysystem.energypath+'/logfiles', exist_ok=True)
+        logoutput_file = self.mysystem.energypath+'/logfiles'+'/mdrerun_resid'+str(res)+self.parts+'frag'+groupfragment+'.log'
         trajout = 'EMPTY.trr' # As specified in mdpfile, NO .trr-file should be written
-        mdrun_arglist = [gmx_exec, 'mdrun', '-s', tprrerun_in,'-rerun', mysystem.trjpath,\
+        mdrun_arglist = [gmx_exec, 'mdrun', '-s', tprrerun_in,'-rerun', self.mysystem.trjpath,\
                         '-e', energyf_out, '-o', trajout,'-g', logoutput_file,\
                         ]#,'-nt','8']
         out, err = exec_gromacs(mdrun_arglist)
@@ -520,7 +523,7 @@ class Energy():
     def write_XVG(self, energyf_in, tprrerun_in, all_relev_energies, xvg_out):
         ''' Create XVG-TABLE with all relevant energies '''
         print(strftime("%H:%M:%S :", localtime()),'...Extracting all relevant energies from .edr file...')
-        os.makedirs(mysystem.energypath+'/xvgtables', exist_ok=True)
+        os.makedirs(self.mysystem.energypath+'/xvgtables', exist_ok=True)
         g_energy_arglist=[gmx_exec,'energy','-f',energyf_in,\
                           '-s', tprrerun_in,'-o', xvg_out,\
                           ]
@@ -540,9 +543,9 @@ class Energy():
                   .format("Time", "Host", "Neighbor", "Molparts",\
                                            "VdW", "Coul", "Etot"),\
                   file=energyoutput)
-            for resid in range(1, mysystem.NUMBEROFMOLECULES+1):
+            for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
                 print("Working on residue {}".format(resid), end="\r")
-                residtype = mysystem.resid_to_lipid[resid]
+                residtype = self.mysystem.resid_to_lipid[resid]
                 all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
                 n_neibs = len(all_neibs_of_res)
                 if n_neibs % self.denominator == 0:
@@ -554,7 +557,7 @@ class Energy():
                     groupblockstart = part*self.denominator
                     groupblockend = (part+1)*self.denominator
                     neighbors_part_are = all_neibs_of_res[groupblockstart:groupblockend]
-                    xvgfilename = mysystem.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.parts+'.xvg'
+                    xvgfilename = self.mysystem.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.parts+'.xvg'
                     with open(xvgfilename,"r") as xvgfile:
                         res_to_row = {}
                         for energyline in xvgfile: #folderlayout is: time Coul_resHost_resNeib LJ_resHost_resNeib ...
@@ -568,7 +571,7 @@ class Energy():
                             elif '@' not in energyline and '#' not in energyline:     #pick correct energies from energyfile and print
                                 time = float(energyline_cols[0])
                                 for neib in neighbors_part_are:
-                                    neibtype = mysystem.resid_to_lipid[neib]
+                                    neibtype = self.mysystem.resid_to_lipid[neib]
                                     counterhost = 0
                                     for parthost in self.molparts:
                                         parthost = parthost[6:]
@@ -606,7 +609,7 @@ class Energy():
 
     def check_exist_xvgs(self):
         all_okay = True
-        for resid in range(1, mysystem.NUMBEROFMOLECULES+1):
+        for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
             all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
             n_neibs = len(all_neibs_of_res)
             if n_neibs % self.denominator == 0:
@@ -614,7 +617,7 @@ class Energy():
             else:
                 number_of_groupfragments = (n_neibs//self.denominator)+1
             for part in range(number_of_groupfragments):
-                xvgfilename = mysystem.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.parts+'.xvg'
+                xvgfilename = self.mysystem.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.parts+'.xvg'
                 if not os.path.isfile(xvgfilename):
                     print('File is missing:', xvgfilename)
                     all_okay = False

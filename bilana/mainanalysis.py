@@ -8,13 +8,17 @@ import sys
 import numpy as np
 from time import localtime, strftime
 
-from bilana.systeminfo import mysystem
-global mysystem
+#from bilana.systeminfo import mysystem
+#global mysystem
 from bilana import lipidmolecules
 from bilana import gromacstoolautomator as gmxauto
 
 class Scd():
     ''' All about calculating the lipid Scd order parameter '''
+    
+    def __init__(self, systeminfo):
+        self.mysystem = systeminfo
+        
     def scd_of_res(self,res,lipidmolecule,time,calculation_scheme='off',getcoords=None):#, neibstraightness=0,neiblist=None):
         time=float(time)
 #         def calculate_distance(atomcoords1,atomcoords2):    #expect numpy arrays as np.array([x,y,z])
@@ -33,7 +37,7 @@ class Scd():
 #             return tiltangle
              
         if getcoords==None:
-            getcoords=gmxauto.trajectory_to_gro()[0]
+            getcoords=gmxauto.trajectory_to_gro(self.mysystem)[0]
             
         if calculation_scheme=='off':
             scds_of_atoms=[]
@@ -138,7 +142,7 @@ class Scd():
     def create_scdfile(self,include_tilt='off',separate='on',maxdiff=0.0):           
         print("\n_____Extracting Scd values____\n\nTilt inclusion: {}\n".format(include_tilt)) 
         #resid2lipid=self.index_conversion_dict()[1] 
-        getcoords, time = gmxauto.trajectory_to_gro()
+        getcoords, time = gmxauto.trajectory_to_gro(self.mysystem)
         endtime=int(float(time))
         #neiblist=self.find_all_neighbors()
         if include_tilt!='off' and maxdiff==0.0:
@@ -151,13 +155,13 @@ class Scd():
             print("Time \t Residue \t Scd",file=scdfile)
             print(strftime("%H:%M:%S :", localtime()),"Write to file...")
             #endtime=self.determine_traj_length()
-            for t in range(mysystem.t_start, endtime+1, mysystem.dt):                       #the "time" variable should be the last declared time, thus the last read frame!
+            for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):                       #the "time" variable should be the last declared time, thus the last read frame!
                 time=float(t)
                 print("at time {} ...".format(t),end="\r") 
                 sys.stdout.flush()
                 #neibstraightness={}
-                for res in range(1,mysystem.NUMBEROFMOLECULES+1):
-                    lipidmolecule = mysystem.resid_to_lipid[res]
+                for res in range(1,self.mysystem.NUMBEROFMOLECULES+1):
+                    lipidmolecule = self.mysystem.resid_to_lipid[res]
                     totalscd = self.scd_of_res(res, lipidmolecule, time, getcoords)[0]
                     print("{} \t {} \t {} \t {}".format(time,res,lipidmolecule,totalscd),file=scdfile)
         if separate == 'on':
@@ -175,24 +179,24 @@ class Scd():
                 scd=cols[3]
                 keystring=time+'_'+res
                 time_resid_to_scd.update({keystring:scd})
-        for lipid in mysystem.molecules:
+        for lipid in self.mysystem.molecules:
             if scdfile[-4:]=='.dat':
                 scdfile=scdfile[:-4]
             data_output=''.join([scdfile,'_',lipid,'.dat'])
             with open(data_output,"w") as outfile:
                 print("{: <10} {: <10} {: <20}".format("Time","Lipid","Lipid_Scd"),file=outfile)
                 endtime=int(float(time))
-                for i in range(1,mysystem.NUMBEROFMOLECULES+1):
-                    restype = mysystem.resid_to_lipid[i]
+                for i in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+                    restype = self.mysystem.resid_to_lipid[i]
                     if restype != lipid:
                         continue
                     print("Working on residue {} ".format(i),end="\r")
-                    for t in range(mysystem.t_start, endtime+1, mysystem.dt):
+                    for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):
                         time = str(t)+'.0'
                         scd_host=float(time_resid_to_scd[time+'_'+str(i)])
                         print("{: <10}{: <10}{: <20.5f}".format(time,i,scd_host),file=outfile)
 
-def get_neighbor_of(self, hostres, time):
+def get_neighbor_of(hostres, time):
     'returns list of resids of neighbors of host resid; Inputs hostres: Resid host, time: Time as integer'
     time=float(time)
     with open("neighbor_info","r") as ninfo:
@@ -208,11 +212,11 @@ def get_neighbor_of(self, hostres, time):
                     return []
     print(time,"I should never get here...")
 
-def get_res_info(self,info,infofile,res,time):
+def get_res_info(self, info, infofile, res, time):
     'Returns info to residue, infos depend on file input'
     residues=self.get_neighbor_of(res,time)+[str(res)]
     outputdict={}
-    time=''.join([str(time),'.0'])
+    time=float(time)
     with open(infofile,"r") as infofile:
         if info=='scd':
             infofile.readline()
@@ -231,7 +235,7 @@ def get_res_info(self,info,infofile,res,time):
             pass
                   
  
-def calc_avgstructure(self,lipid='DPPC'):
+def calc_avgstructure(self, lipid='DPPC'):
     ncholset=set([])
     file_created={}
     neiblist=self.find_all_neighbors()
@@ -246,7 +250,7 @@ def calc_avgstructure(self,lipid='DPPC'):
     for res in range(1,self.number_of_lipids+1):
         lipidtype=self.resid_to_lipid[res]
         ncholdict.update({res:{}})
-        if lipidtype!=lipid:
+        if lipidtype != lipid:
             continue
         for time in range(self.t_start,int(endtime)+1,1000):
             lipid_time_coords=[]
@@ -259,27 +263,24 @@ def calc_avgstructure(self,lipid='DPPC'):
             if nchol not in ncholdict[res].keys():
                 ncholdict[res].update({nchol:{}})
                 outnames.update({nchol:"avg_structure_"+lipid+str(nchol)+".gro"})
-                
             if not file_created[nchol]:
-                f=open(outnames[nchol],"w")
+                f=open(outnames[nchol], "w")
                 f.write("Title\nXXXX\n")
                 f.close()
                 file_created[nchol]=True
             for atom in lipidatoms:
-                atomcoords=getcoords[(lipidtype,time,res,atom)]
+                atomcoords=getcoords[(lipidtype, time, res, atom)]
                 lipid_time_coords.append(atomcoords)
-            if time==self.t_start:
+            if time == self.t_start:
                 init_geocenter=np.array(self.calculate_geometriccenter(lipid_time_coords))    
-            geocenter=np.array(self.calculate_geometriccenter(lipid_time_coords))    
-            deltageocenter=init_geocenter-geocenter
-            lipid_time_coords=list(np.array(lipid_time_coords)+deltageocenter)    
-            
+            geocenter = np.array(self.calculate_geometriccenter(lipid_time_coords))    
+            deltageocenter = init_geocenter-geocenter
+            lipid_time_coords = list(np.array(lipid_time_coords)+deltageocenter)    
             for atom in lipidatoms:
                 try:
-                    ncholdict[res][nchol][atom]+=[lipid_time_coords[lipidatoms.index(atom)]]
+                    ncholdict[res][nchol][atom] += [lipid_time_coords[lipidatoms.index(atom)]]
                 except KeyError:
                     ncholdict[res][nchol].update({atom:[lipid_time_coords[lipidatoms.index(atom)]]})
-                    
         for Nneib in ncholdict[res].keys():
             with open(outnames[Nneib],"a") as outf:
                 for atom in lipidatoms:
@@ -291,7 +292,6 @@ def calc_avgstructure(self,lipid='DPPC'):
         print(out,err)
         with open(outnames[Nneib],"a") as outf:
             outf.write("   1 1 1")
-    
     #totserial=1
     #with open("avg_structure_"+total+".gro","w") as outf:
     #    outf.write("Title\nXXXX")
@@ -333,11 +333,9 @@ def calc_avgstructure(self,lipid='DPPC'):
     #    #print("\n\n")
     
 ############################################################################################################################
-
-
 ############################################################################################################################
 ############################################################################################################################
-    ############################################################################################################################
+############################################################################################################################
 
 
 def get_orderparamconfigs(self):
@@ -374,11 +372,10 @@ def get_orderparamconfigs(self):
                 tailscd=round(sum(tmpscd)/len(tmpscd),1)
                 if nchol not in scds_of_atoms.keys():
                     scds_of_atoms.update({nchol:{tailscd:[]}})
-                try:                        
+                try:
                     scds_of_atoms[nchol][tailscd].append(tmpscd)
                 except KeyError:
                     scds_of_atoms[nchol].update({tailscd:[tmpscd]})
-                        
     avgscd_pernchol={}
     for nchol in scds_of_atoms.keys():
         outputfname=''.join(["orderconfigurations_",str(nchol),'.dat'])
@@ -394,11 +391,9 @@ def get_orderparamconfigs(self):
                             tmplists[tailscds.index(atomscd)].append(atomscd)
                         except IndexError:
                             tmplists.append([])
-                            tmplists[tailscds.index(atomscd)].append(atomscd)                                
-                
+                            tmplists[tailscds.index(atomscd)].append(atomscd)
                 avgscds=[sum(i)/len(i) for i in tmplists]
                 #avgscds=[scdcarb for item in scdlists for scdcarb in scdlists[scdlists.index(item)]]
-                
                 nsamples=len(scds_of_atoms[nchol][tailscd])
                 if nchol not in avgscd_pernchol.keys():
                     avgscd_pernchol.update({nchol:{tailscd:[]}})
@@ -406,7 +401,6 @@ def get_orderparamconfigs(self):
                     avgscd_pernchol[nchol][tailscd].append(avgscds)
                 except KeyError:
                     avgscd_pernchol[nchol].update({tailscd:[avgscds]})
-                    
                 scdstring=''.join([" {: <15.4} ".format(scdval) for scdval in avgscds])
                 print("{: <10} {} {: <10}".format(tailscd,scdstring,nsamples),file=outf)
     with open("configurational_difference.dat","w") as outf:
@@ -425,7 +419,6 @@ def get_orderparamconfigs(self):
                     print(difflist)
                     scdstring=''.join([" {: <15.4} ".format(scdval) for scdval in difflist[0]])
                     print("{: <10} {: <10} {}".format(i,tailscd,scdstring),file=outf)          
-        
 
 def create_NLip_by_Ntot(self,neighborfile):
     lipid_pairs={}
@@ -468,7 +461,7 @@ def calc_gofr(self):
     return makeselection
 
 def distance_distr(self):
-    ''' ''' 
+    ''' '''
     def calculate_distance(atomcoords1,atomcoords2):    #expect numpy arrays as np.array([x,y,z])
         diffvector=atomcoords2-atomcoords1
         distance=np.linalg.norm(diffvector)
@@ -500,7 +493,6 @@ def distance_distr(self):
                         distances[nchol][atom].append(distance)
                     except KeyError:
                         distances[nchol].update({atom:[distance]})
-    
     with open("Carbondistance_distribution.dat","w") as outf:
         for nchol in distances.keys():
             for atom in distances[nchol].keys():
@@ -536,8 +528,6 @@ def calc_averagedistance(self,distancefile):
         for key in distdata:
             avg=sum(distdata[key])/len(distdata[key])
             print("{0: <5} {1: <20}".format(key,avg),file=outputf) 
-                              
-
 
 #     def create_scdmap(self,scd_distribution,overwrite=False):
 #         grofile_output=self.temppath+'/calc_scd_for'+str(lipidmolecule)+'.gro'

@@ -1,0 +1,3 @@
+[console_scripts]
+submit_energycalcs = bilana.command_line:submit_energycalcs
+
