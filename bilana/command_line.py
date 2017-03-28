@@ -2,55 +2,81 @@ import os, sys
 import subprocess
 from bilana.systeminfo import SysInfo
 
+def write_submitfile(submitout, jobname, ncores=2, mem='2G'):
+    with open(submitout, "w") as sfile:
+        print('#!/bin/bash'
+              '\n#SBATCH -A q0heuer'
+              '\n#SBATCH -p short'
+              '\n#SBATCH --output='+jobname+'.out'
+              '\n#SBATCH --error='+jobname+'.err'
+              '\n#SBATCH --mail-type=fail'
+              '\n#SBATCH --mail-user=f_kell07@wwu.de'
+              '\n#SBATCH --time=2-00:00:00'
+              '\n#SBATCH --ntasks=1'
+              '\n#SBATCH --nodes=1'
+              '\n#SBATCH --cpus-per-task='+str(ncores)+
+              '\n#SBATCH --mem='+str(mem)+
+              '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
+              '\nsrun $@', file=sfile)
+
 def submit_energycalcs():
+    ''' Divides energy run in smaller parts for faster computation '''
     divisor = 10
     startdir = os.getcwd()
     if len(sys.argv) != 6:
         print('Invalid number of input arguments. Specify:\n'
               '<systemname> <lowest T> <highest T> <part of lipid> <jobname>')
+        sys.exit()
     systemname = sys.argv[1]
-    tempstart = sys.argv[2]
-    tempend = sys.argv[3]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
     lipidpart = sys.argv[4]
-    jobname = sys.argv[5]
+    jobname = lipidpart+'_'+sys.argv[5]
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     
     for systemdir in systems_to_calculate_for:
         os.chdir(systemdir)
         mysystem = SysInfo('inputfile')
-        size = mysystem.determine_systemsize_and_number_of_lipids()
+        size = mysystem.number_of_lipids
         lipids_per_partfloor = size//divisor
         for jobpart in range(divisor):
-            start_res = str(jobpart*lipids_per_partfloor)
-            end_res = str((jobpart+1)*lipids_per_partfloor)
+            start_res = str((jobpart*lipids_per_partfloor)+1)
+            end_res = str(((jobpart+1)*lipids_per_partfloor))
             jobscriptname = 'exec_energycalc'+str(jobpart)+'.py'
             with open(jobscriptname, "w") as jobf:
                 print('import os, sys\n'
                         'from bilana import gromacstoolautomator as gmx\n'
-                        'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", '
-                            'startres='+str(start_res)+', endres='+str(end_res)+', parts="'+str(lipidpart)+'")\n'
-                        'myenergy.run_calculation()\n'
+                        'from bilana.systeminfo import SysInfo \n'
+                        'mysystem = SysInfo("inputfile")\n'
+                        'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", mysystem, parts="'+str(lipidpart)+'")\n'
+                        'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
                         'os.remove(sys.argv[0])\n',\
                     file=jobf)
-            cmd=['sbatch', '-J', systemdir+'_'+jobpart+jobname, 'submit.sh','python', jobscriptname]
+            job_filename = str(start_res)+'-'+str(end_res)+'_'+jobname
+            write_submitfile('submit.sh', job_filename)
+            cmd=['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh','python', jobscriptname]
             proc=subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
-        lipids_per_partmod=size % divisor
+        lipids_per_partmod = size % divisor
         if lipids_per_partmod != 0:
             jobscriptname = 'exec_energycalc'+str(divisor)+'.py'
             with open(jobscriptname, "w") as jobf:
+                start_res = str(int(end_res)+1)
+                end_res = str(msysystem.number_of_lipids)
                 print('import os, sys\n'
                         'from bilana import gromacstoolautomator as gmx\n'
-                        'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", '
-                            'startres='+str(end_res+1)+', endres='+str(end_res+1+lipids_per_partmod)+', '
-                            'parts="'+str(lipidpart)+'")\n'
-                        'myenergy.run_calculation()\n'
-                        'os.remove(sys.argv[0]\n',\
+                        'from bilana.systeminfo import SysInfo \n'
+                        'mysystem = SysInfo("inputfile")\n'
+                        'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", mysystem, parts="'+str(lipidpart)+'")\n'
+                        'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
+                        'os.remove(sys.argv[0])\n',\
                     file=jobf)
-            cmd = ['sbatch', '-J', systemdir+'_-1'+jobname, 'submit.sh', 'python', jobscriptname]
+            job_filename = str(start_res)+'-'+str(end_res)+'_'+jobname
+            write_submitfile('submit.sh', job_filename)
+            cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh', 'python', jobscriptname]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
-        print(out.decode(), err.decode())
+            print(out.decode(), err.decode())
         os.chdir(startdir)
