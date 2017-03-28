@@ -1,7 +1,7 @@
 ''' All about creating energy files '''
 
-from bilana.systeminfo import mysystem
-global mysystem
+#from bilana.systeminfo import mysystem
+#global mysystem
 from bilana import gromacstoolautomator, lipidmolecules
 
 def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refactored.
@@ -119,10 +119,10 @@ def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refa
 
 class EofScd():
     ''' All about writing the beloved E(Scd)-files '''
-    def __init__(self, parts, energyfilename, scdfilename):
+    def __init__(self, systeminfo, parts, energyfilename, scdfilename):
         self.energyfilename = energyfilename
         self. scdfilename = scdfilename
-        self.neiblist = gromacstoolautomator.Neighbors().get_neighbor_dict()
+        self.neiblist = gromacstoolautomator.Neighbors(systeminfo).get_neighbor_dict()
         if parts == 'complete':
             self.interactionskey = ['']
             self.parts = ''

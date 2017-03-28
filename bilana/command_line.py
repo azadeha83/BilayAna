@@ -8,12 +8,13 @@ def submit_energycalcs():
     if len(sys.argv) != 6:
         print('Invalid number of input arguments. Specify:\n'
               '<systemname> <lowest T> <highest T> <part of lipid> <jobname>')
+        sys.exit()
     systemname = sys.argv[1]
     tempstart = sys.argv[2]
     tempend = sys.argv[3]
     lipidpart = sys.argv[4]
     jobname = sys.argv[5]
-    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    Temperatures = [T for T in range(int(tempstart), int(tempend)+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     
     for systemdir in systems_to_calculate_for:

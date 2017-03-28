@@ -384,18 +384,18 @@ class Energy():
             self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
             self.all_energies = 'all_energies_headtailhalfs.dat'
         elif parts == 'carbons':
-            self.molparts = ['resid_C{}_'.format(i) for i in range(lipidmolecules.shortestchain/2)]
+            self.molparts = ['resid_C{}_'.format(i) for i in range(lipidmolecules.shortestchain//2)]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/10)
-            self.molparts_short = ['C{}_'.format(i) for i in range(lipidmolecules.shortestchain/2)]
-            self.interactions = ['C{0}-C{0}'.format(i) for i in range(lipidmolecules.shortestchain/2)]
+            self.molparts_short = ['C{}_'.format(i) for i in range(lipidmolecules.shortestchain//2)]
+            self.interactions = ['C{0}-C{0}'.format(i) for i in range(lipidmolecules.shortestchain//2)]
             self.all_energies = ["all_energies_carbons.dat"]
         print('\n Calculating for energygroups:', self.molparts)
 
     def run_calculation(self,startres=-1, endres=-1):
         ''' Runs a complete energy calculation with settings from Energy() instance '''
         print('''\n____Rerunning MD for energyfiles,
-         yielding xvgtables with relevant energies.____\n
+         creating xvgtables with relevant energies.____\n
          Caution mdp-file must not have energy_grps indicated!\n''')
         if startres == -1:
             startres = 1
