@@ -247,11 +247,11 @@ class Neighbors():
                     tailatomlist = lipidmolecules.tail_atoms_of[lipidtype]
                     tailatoms = [x for index in tailatomlist for x in index] ##unpacking
                     headatoms = lipidmolecules.head_atoms_of[lipidtype]
-                    carbons = ['C{} C{} C{} C{}'.format(tailatomlist[0][i],\
+                    carbons = ['{} {} {} {}'.format(tailatomlist[0][i],\
                                                         tailatomlist[0][i+1],\
                                                         tailatomlist[1][i],\
                                                         tailatomlist[1][i+1])\
-                               for i in range(0, len(tailatomlist), 2)]
+                               for i in range(0, len(tailatomlist[0]), 2)]
                     selprefixes = [("", r'".*"'),\
                                    ("h", headatoms),\
                                    ("t", tailatoms),\

@@ -120,6 +120,7 @@ def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refa
 class EofScd():
     ''' All about writing the beloved E(Scd)-files '''
     def __init__(self, systeminfo, parts, energyfilename, scdfilename):
+        self.mysystem = systeminfo
         self.energyfilename = energyfilename
         self. scdfilename = scdfilename
         self.neiblist = gromacstoolautomator.Neighbors(systeminfo).get_neighbor_dict()
@@ -147,10 +148,10 @@ class EofScd():
                         self.interactionskey.append('C{0}_C{1}'.format(i,j))
             self.parts = parts
         self.lipidpairs = []
-        for lipid1 in mysystem.molecules:   # Creates a list of pairs
-            lipid1index = mysystem.molecules.index(lipid1) # Like 'DPPC_DPPC'
-            for lipid2 in mysystem.molecules: 
-                lipid2index = mysystem.molecules.index(lipid2)
+        for lipid1 in self.mysystem.molecules:   # Creates a list of pairs
+            lipid1index = self.mysystem.molecules.index(lipid1) # Like 'DPPC_DPPC'
+            for lipid2 in self.mysystem.molecules: 
+                lipid2index = self.mysystem.molecules.index(lipid2)
                 if lipid2index > lipid1index:  # DPPC_CHOL = CHOL_DPPC
                     break
                 self.lipidpairs.append(''.join([lipid2, '_', lipid1]))
@@ -176,15 +177,15 @@ class EofScd():
                             "Etot", "Evdw",\
                             "Ecoul", "NChol"),\
                   file=outf)
-            for host in range(1, mysystem.NUMBEROFMOLECULES+1):
-                type_host = mysystem.resid_to_lipid[host]
-                for t in range(mysystem.t_start, endtime+1, mysystem.dt):
+            for host in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+                type_host = self.mysystem.resid_to_lipid[host]
+                for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):
                     print("Working on residue {} at {}".format(host, t), end="\r")
                     t = float(t)
                     neighbors = self.neiblist[host][float(t)]
-                    nchol = [mysystem.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
+                    nchol = [self.mysystem.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
                     for neib in neighbors:
-                        type_neib = mysystem.resid_to_lipid[neib]
+                        type_neib = self.mysystem.resid_to_lipid[neib]
                         pair = (''.join([type_host, '_', type_neib]),\
                                 ''.join([type_neib, '_', type_host]))
                         if neib < host or (pair[0] != wantedpair or pair[1] != wantedpair):

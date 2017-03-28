@@ -34,7 +34,6 @@ def submit_energycalcs():
     jobname = lipidpart+'_'+sys.argv[5]
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
-    
     for systemdir in systems_to_calculate_for:
         os.chdir(systemdir)
         mysystem = SysInfo('inputfile')
@@ -64,7 +63,7 @@ def submit_energycalcs():
             jobscriptname = 'exec_energycalc'+str(divisor)+'.py'
             with open(jobscriptname, "w") as jobf:
                 start_res = str(int(end_res)+1)
-                end_res = str(msysystem.number_of_lipids)
+                end_res = str(mysystem.number_of_lipids)
                 print('import os, sys\n'
                         'from bilana import gromacstoolautomator as gmx\n'
                         'from bilana.systeminfo import SysInfo \n'
