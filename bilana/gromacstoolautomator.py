@@ -244,27 +244,41 @@ class Neighbors():
                     #lentailbyfour=len(self.tail_atoms_of[lipidtype])//4                 ### Problem for the half tail t12/t22:
                     #tailhalf12=' '.join(self.tail_atoms_of[lipidtype][:lentailbyfour]+self.tail_atoms_of[lipidtype][2*lentailbyfour:3*lentailbyfour])
                     #tailhalf22=' '.join(self.tail_atoms_of[lipidtype][lentailbyfour:2*lentailbyfour]+self.tail_atoms_of[lipidtype][3*lentailbyfour:])
+
                     tailatomlist = lipidmolecules.tail_atoms_of[lipidtype]
                     tailatoms = [x for index in tailatomlist for x in index] ##unpacking
                     headatoms = lipidmolecules.head_atoms_of[lipidtype]
-                    carbons = ['{} {} {} {}'.format(tailatomlist[0][i],\
-                                                        tailatomlist[0][i+1],\
-                                                        tailatomlist[1][i],\
-                                                        tailatomlist[1][i+1])\
-                               for i in range(0, len(tailatomlist[0]), 2)]
+                    
+                    methylatomslists = []
+                    for tailindex in range(len(lipidmolecules.tailcarbons_of[lipidtype])):
+                        handlinghydr = [iter(lipidmolecules.tailhydr_of[lipidtype][tailindex])]*2
+                        methylgrouplist = [i for i in zip(lipidmolecules.tailcarbons_of[lipidtype][tailindex], zip(*handlinghydr))]# Getting a list of tuples like [C1,(H1,H2),....]
+                        methylgrouplist = [i for tup in methylgrouplist for i in tup]# Unpacking this list
+                        methylgrouplist_unp = []
+                        for particle in methylgrouplist:# get rid of hydr tuples
+                            if isinstance(particle, tuple):
+                                methylgrouplist_unp.extend(particle)
+                            else:
+                                methylgrouplist_unp.append(particle)
+                        methylatomslists.append(methylgrouplist_unp)
+                    methylgroups = [[methylatomslists[0][i:i+3]\
+                                    +methylatomslists[0][i+3:i+6]\
+                                    +methylatomslists[1][i:i+3]\
+                                    +methylatomslists[1][i+3:i+6]]\
+                               for i in range(0, len(methylatomslists[0])-1, 6)]
+                    methylstrings = [' '.join(t) for i in methylgroups for t in i]
                     selprefixes = [("", r'".*"'),\
-                                   ("h", headatoms),\
-                                   ("t", tailatoms),\
+                                   ("h", ' '.join(headatoms)),\
+                                   ("t", ' '.join(tailatoms)),\
                                    ("t12", tailhalf12),\
                                    ("t22", tailhalf22),\
-                                   ("C1", carbons[0]),\
-                                   ("C2", carbons[1]),\
-                                   ("C3", carbons[2]),\
-                                   ("C4", carbons[3]),\
-                                   ("C5", carbons[4]),\
-                                   ("C6", carbons[5]),\
-                                   ("C7", carbons[6]),\
-                                   ("C8", carbons[7]),\
+                                   ("C1", methylstrings[0]),\
+                                   ("C2", methylstrings[1]),\
+                                   ("C3", methylstrings[2]),\
+                                   ("C4", methylstrings[3]),\
+                                   ("C5", methylstrings[4]),\
+                                   ("C6", methylstrings[5]),\
+                                   ("C7", methylstrings[6]),\
                                    ]
                     selectionlist = []
                     for item in selprefixes:
