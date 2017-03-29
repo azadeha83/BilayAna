@@ -31,7 +31,7 @@ def submit_energycalcs():
     tempstart = int(sys.argv[2])
     tempend = int(sys.argv[3])
     lipidpart = sys.argv[4]
-    jobname = lipidpart+'_'+sys.argv[5]
+    jobname = lipidpart[:4]+'_'+sys.argv[5]
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:

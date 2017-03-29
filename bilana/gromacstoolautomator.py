@@ -227,12 +227,12 @@ class Neighbors():
         print("\n_____Creating index file____\n")
         #OUTPUT IS:    resindex_all.ndx     | in the cwd!
         resindex_all = open("resindex_all.ndx","w")
-        for i in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+        for mol in range(1, self.mysystem.NUMBEROFMOLECULES+1):
         #for i in range(1,2):
-            print("Working on residue {}".format(i), end='\r')
+            print("Working on residue {}".format(mol), end='\r')
             selectionfile = self.mysystem.temppath+'/tmp_selectionfile'
             with open(selectionfile,"w") as sf:
-                lipidtype = self.mysystem.resid_to_lipid[i]
+                lipidtype = self.mysystem.resid_to_lipid[mol]
                 if lipidtype  != 'CHL1': 
                     tailhalf12_l = [] ### to get half the tails
                     tailhalf22_l = []
@@ -272,20 +272,20 @@ class Neighbors():
                                    ("t", ' '.join(tailatoms)),\
                                    ("t12", tailhalf12),\
                                    ("t22", tailhalf22),\
-                                   ("C1", methylstrings[0]),\
-                                   ("C2", methylstrings[1]),\
-                                   ("C3", methylstrings[2]),\
-                                   ("C4", methylstrings[3]),\
-                                   ("C5", methylstrings[4]),\
-                                   ("C6", methylstrings[5]),\
-                                   ("C7", methylstrings[6]),\
+                                   ("C0", methylstrings[0]),\
+                                   ("C1", methylstrings[1]),\
+                                   ("C2", methylstrings[2]),\
+                                   ("C3", methylstrings[3]),\
+                                   ("C4", methylstrings[4]),\
+                                   ("C5", methylstrings[5]),\
+                                   ("C6", methylstrings[6]),\
                                    ]
                     selectionlist = []
                     for item in selprefixes:
-                        selectionlist += 'resid_{0}{1}=resid {1} and resname {2} and name {3};\n'\
-                                        .format(item[0], str(i), lipidtype, item[1])
+                        selectionlist += 'resid_{0}_{1}=resid {1} and resname {2} and name {3};\n'\
+                                        .format(item[0], str(mol), lipidtype, item[1])
                     
-                    lastlineitems = ['resid_{}{};\n'.format(item[0], str(i)) for item in selprefixes]
+                    lastlineitems = ['resid_{}_{};\n'.format(item[0], str(mol)) for item in selprefixes]
                     selectionlist += ''.join(lastlineitems)
                     selectionstring=''.join(selectionlist)
                     #selectionlist += [''.join(["resid_h_",\
@@ -294,10 +294,10 @@ class Neighbors():
                     #               ";\n"]),\
                     #               ]
                     sf.write(selectionstring)
-                elif self.mysystem.resid_to_lipid[i] == 'CHL1':
-                    selectionstring = 'resid_{0}=resid {0}  and resname CHL1;\nresid_{0};'.format(str(i))
+                elif self.mysystem.resid_to_lipid[mol] == 'CHL1':
+                    selectionstring = 'resid_{0}=resid {0}  and resname CHL1;\nresid_{0};'.format(str(mol))
                     sf.write(selectionstring)
-            outputindex = self.mysystem.indexpath+"/resid_"+str(i)+".ndx"
+            outputindex = self.mysystem.indexpath+"/resid_"+str(mol)+".ndx"
             gmx_select_arglist = [gmx_exec, 'select', '-s', self.mysystem.gropath, '-sf',\
                                   selectionfile, '-on', outputindex,\
                                   ]
@@ -401,8 +401,10 @@ class Energy():
             self.molparts = ['resid_C{}_'.format(i) for i in range(lipidmolecules.shortestchain//2)]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/10)
-            self.molparts_short = ['C{}_'.format(i) for i in range(lipidmolecules.shortestchain//2)]
-            self.interactions = ['C{0}-C{0}'.format(i) for i in range(lipidmolecules.shortestchain//2)]
+            self.molparts_short = ['C{}_'.format(i) for i in range(7)]
+            self.interactions = ['C{0}-C{0}'.format(i) for i in range(7)]\
+                                +['C{0}-C{1}'.format(i, i+1) for i in range(6)]\
+                                +['C{0}-C{1}'.format(i, i-1) for i in range(1,7)]
             self.all_energies = ["all_energies_carbons.dat"]
         print('\n Calculating for energygroups:', self.molparts)
 
