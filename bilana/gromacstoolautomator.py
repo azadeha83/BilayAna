@@ -228,7 +228,7 @@ class Neighbors():
         #OUTPUT IS:    resindex_all.ndx     | in the cwd!
         resindex_all = open("resindex_all.ndx","w")
         for mol in range(1, self.mysystem.NUMBEROFMOLECULES+1):
-        #for i in range(1,2):
+        #for mol in range(1,2):
             print("Working on residue {}".format(mol), end='\r')
             selectionfile = self.mysystem.temppath+'/tmp_selectionfile'
             with open(selectionfile,"w") as sf:
@@ -283,11 +283,11 @@ class Neighbors():
                     selectionlist = []
                     for item in selprefixes:
                         if item[0] == "":
-                            selectionlist += 'resid_{0}=resid {0} and resname {1} and name {2};\n'\
-                                             .format(str(mol), lipidtype, item[1])
+                            selectionlist += ['resid_{0}=resid {0} and resname {1} and name {2};\n'\
+                                             .format(str(mol), lipidtype, item[1])]
                         else:
-                            selectionlist += 'resid_{0}_{1}=resid {1} and resname {2} and name {3};\n'\
-                                              .format(item[0], str(mol), lipidtype, item[1])
+                            selectionlist += ['resid_{0}_{1}=resid {1} and resname {2} and name {3};\n'\
+                                             .format(item[0], str(mol), lipidtype, item[1])]
                     
                     lastlineitems = ['resid_{}_{};\n'.format(item[0], str(mol)) for item in selprefixes]
                     selectionlist += ''.join(lastlineitems)
