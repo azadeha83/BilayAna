@@ -282,8 +282,12 @@ class Neighbors():
                                    ]
                     selectionlist = []
                     for item in selprefixes:
-                        selectionlist += 'resid_{0}_{1}=resid {1} and resname {2} and name {3};\n'\
-                                        .format(item[0], str(mol), lipidtype, item[1])
+                        if item[0] == "":
+                            selectionlist += 'resid_{0}=resid {0} and resname {1} and name {2};\n'\
+                                             .format(str(mol), lipidtype, item[1])
+                        else:
+                            selectionlist += 'resid_{0}_{1}=resid {1} and resname {2} and name {3};\n'\
+                                              .format(item[0], str(mol), lipidtype, item[1])
                     
                     lastlineitems = ['resid_{}_{};\n'.format(item[0], str(mol)) for item in selprefixes]
                     selectionlist += ''.join(lastlineitems)

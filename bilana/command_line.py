@@ -42,7 +42,8 @@ def submit_energycalcs():
         for jobpart in range(divisor):
             start_res = str((jobpart*lipids_per_partfloor)+1)
             end_res = str(((jobpart+1)*lipids_per_partfloor))
-            jobscriptname = 'exec_energycalc'+str(jobpart)+'.py'
+            job_filenames = str(start_res)+'-'+str(end_res)+'_'+jobname
+            jobscriptname = 'exec_energycalc'+str(job_filenames)+'.py'
             with open(jobscriptname, "w") as jobf:
                 print('import os, sys\n'
                         'from bilana import gromacstoolautomator as gmx\n'
@@ -52,18 +53,18 @@ def submit_energycalcs():
                         'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
                         'os.remove(sys.argv[0])\n',\
                     file=jobf)
-            job_filename = str(start_res)+'-'+str(end_res)+'_'+jobname
-            write_submitfile('submit.sh', job_filename)
+            write_submitfile('submit.sh', job_filenames)
             cmd=['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh','python', jobscriptname]
             proc=subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
         lipids_per_partmod = size % divisor
         if lipids_per_partmod != 0:
-            jobscriptname = 'exec_energycalc'+str(divisor)+'.py'
+            start_res = str(int(end_res)+1)
+            end_res = str(mysystem.number_of_lipids)
+            job_filenames = str(start_res)+'-'+str(end_res)+'_'+jobname
+            jobscriptname = 'exec_energycalc'+str(job_filenames)+'.py'
             with open(jobscriptname, "w") as jobf:
-                start_res = str(int(end_res)+1)
-                end_res = str(mysystem.number_of_lipids)
                 print('import os, sys\n'
                         'from bilana import gromacstoolautomator as gmx\n'
                         'from bilana.systeminfo import SysInfo \n'
@@ -72,8 +73,7 @@ def submit_energycalcs():
                         'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
                         'os.remove(sys.argv[0])\n',\
                     file=jobf)
-            job_filename = str(start_res)+'-'+str(end_res)+'_'+jobname
-            write_submitfile('submit.sh', job_filename)
+            write_submitfile('submit.sh', job_filenames)
             cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh', 'python', jobscriptname]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
