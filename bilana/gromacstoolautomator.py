@@ -289,7 +289,8 @@ class Neighbors():
                             selectionlist += ['resid_{0}_{1}=resid {1} and resname {2} and name {3};\n'\
                                              .format(item[0], str(mol), lipidtype, item[1])]
                     
-                    lastlineitems = ['resid_{}_{};\n'.format(item[0], str(mol)) for item in selprefixes]
+                    lastlineitems = ['resid_{};\n'.format(str(mol))]
+                    lastlineitems += ['resid_{}_{};\n'.format(item[0], str(mol)) for item in selprefixes if item[0] != ""]
                     selectionlist += ''.join(lastlineitems)
                     selectionstring=''.join(selectionlist)
                     #selectionlist += [''.join(["resid_h_",\
@@ -297,6 +298,7 @@ class Neighbors():
                     #               lipidtype," and name ",' '.join(headatoms),\
                     #               ";\n"]),\
                     #               ]
+                    print(selectionstring)
                     sf.write(selectionstring)
                 elif self.mysystem.resid_to_lipid[mol] == 'CHL1':
                     selectionstring = 'resid_{0}=resid {0}  and resname CHL1;\nresid_{0};'.format(str(mol))
