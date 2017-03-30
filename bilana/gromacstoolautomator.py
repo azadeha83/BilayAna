@@ -93,37 +93,36 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
                     getcoords.update({keytuple:coordinates})
     return getcoords, time-1000.0
 
-def radialdistribution(self):
+def radialdistribution(systeminfo, group):
     print("\n_____Calculating radial distribution function ____\n")
-    os.makedirs(self.datapath+'/rdf', exist_ok=True)
-    selectstringP = 'name P;\nname P;\nname O3;'
-    selectstringO3 = 'name O3;\nname P;\nname O3;'
-    selectionfileP = self.temppath+'/selrdfP'
-    selectionfileO3 = self.temppath+'/selrdfO3'
-    outputfileP = self.datapath+'/rdf'+'/rdfhostP.xvg'
-    outputfileO3 = self.datapath+'/rdf'+'/rdfhostO3.xvg'
-    print("...preparing selectionfiles...")
-    with open(selectionfileP,"w") as sfP,open(selectionfileO3,"w") as sfO3:
-        sfP.write(selectstringP)
-        sfO3.write(selectstringO3)
-    g_rdf_arglistP = [gmx_exec,'-nobackup','rdf','-f',self.trjpath,'-s',\
-                      self.tprpath,'-sf',selectionfileP,'-o',\
-                      outputfileP,'-xy',\
+    #groups_to_calculate = ['P','O','COMTAIL','COMHEAD']
+    os.makedirs(systeminfo.datapath+'/rdf', exist_ok=True)
+    if group == 'O3':
+        selectstring = 'name O3;\nname P;\nname O3;'
+        selectionfile = systeminfo.temppath+'/selrdfO3'
+        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostO3.xvg'
+    elif group == 'P':
+        selectstring = 'name P;\nname P;\nname O3;'
+        selectionfile = systeminfo.temppath+'/selrdfP'
+        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostP.xvg'
+    elif group == 'COMTAILXPC':
+        selectstring = 'name P;\nname P;\nname O3;'
+        selectionfile = systeminfo.temppath+'/selrdfP'
+        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostP.xvg'
+    elif group == 'COMHEADXPC':
+        selectstring = 'name O3;\nname P;\nname O3;'
+        selectionfile = systeminfo.temppath+'/selrdfO3'
+        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostO3.xvg'
+    with open(selectionfile, "w") as outfile:
+        print(selectstring, file=outfile)
+            
+    g_rdf_arglist = [gmx_exec, 'rdf', '-f', systeminfo.trjpath, '-s',\
+                      systeminfo.tprpath,'-sf', selectionfile,'-o',\
+                      outputfile,'-xy',\
                       ]
-    print("...first selection...")
-    out, err = self.exec_gromacs(g_rdf_arglistP)
-    with open("gmx_rdfP.log","w") as logfile:
-        logfile.write(err.decode())
-        logfile.write(150*'_')
-        logfile.write(out.decode())
-        logfile.write(150*'_')
-    g_rdf_arglistO3 = [gmx_exec,'-nobackup','rdf','-f',self.trjpath,\
-                       '-s',self.tprpath,'-sf',selectionfileO3,'-o',\
-                       outputfileO3,'-xy',\
-                       ]
-    print("...second selection...")
-    out, err = self.exec_gromacs(g_rdf_arglistO3)
-    with open("gmx_rdfO3.log","w") as logfile:
+    out, err = exec_gromacs(g_rdf_arglist)
+    rdf_log = ''
+    with open(rdf_log, "w") as logfile:
         logfile.write(err.decode())
         logfile.write(150*'_')
         logfile.write(out.decode())
@@ -335,7 +334,7 @@ class Neighbors():
         ''' Creates "neighbor_info" containing all information on lipid arrangement '''
         print("\n____Determining neighbors____\n")
         os.makedirs(self.mysystem.datapath+'/neighborfiles', exist_ok=True)
-        with open("neighbor_info","w") as outfile:
+        with open("neighbor_info", "w") as outfile:
             outfile.write('Resid \t Time \t Number_of_neighbors \t List_of_Neighbors \n')
             for residue in range(1, self.mysystem.NUMBEROFMOLECULES+1):
                 print(". . . Working on residue: {} . . .".format(residue), end="\r")

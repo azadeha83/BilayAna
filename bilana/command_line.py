@@ -22,7 +22,7 @@ def write_submitfile(submitout, jobname, ncores=2, mem='2G'):
               '\nsrun $@', file=sfile)
 
 def submit_energycalcs():
-    ''' Divides energy run in smaller parts for faster computation '''
+    ''' Diviy run in smaller parts for faster computation '''
     divisor = 40
     startdir = os.getcwd()
     if len(sys.argv) != 6:
