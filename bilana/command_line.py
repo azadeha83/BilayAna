@@ -1,6 +1,8 @@
 import os, sys
 import subprocess
 from bilana.systeminfo import SysInfo
+from bilana import gromacstoolautomator as gmx
+from bilana import mainanalysis
 
 def write_submitfile(submitout, jobname, ncores=2, mem='2G'):
     with open(submitout, "w") as sfile:
@@ -79,3 +81,13 @@ def submit_energycalcs():
             out, err = proc.communicate()
             print(out.decode(), err.decode())
         os.chdir(startdir)
+        
+def initialize_system():
+    ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
+    mysystem = SysInfo('inputfile')
+    gmx.Neighbors(mysystem).determine_neighbors()
+    gmx.Neighbors(mysystem).create_indexfile()
+    mainanalysis.Scd(mysystem).create_scdfile()
+    #gmx.trajectory_to_gro(mysystem) Already is included in create_scdfile
+    
+    

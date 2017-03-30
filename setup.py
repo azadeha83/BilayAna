@@ -11,6 +11,7 @@ setup(name='bilana',
       entry_points={
           'console_scripts': [
               'submit_energycalcs = bilana.command_line:submit_energycalcs',
+              'initialize_system = bilana.command_line:initialize_system',
               ]
           },
 #      install_requires=['',],

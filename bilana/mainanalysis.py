@@ -2,7 +2,7 @@
     Specify more here:
         -
  '''
-import re
+#import re
 import os
 import sys 
 import numpy as np
@@ -12,6 +12,7 @@ from time import localtime, strftime
 #global mysystem
 from bilana import lipidmolecules
 from bilana import gromacstoolautomator as gmxauto
+#from bilana import misc
 
 class Scd():
     ''' All about calculating the lipid Scd order parameter '''
@@ -35,24 +36,23 @@ class Scd():
 #             if tiltangle>np.pi/2:
 #                 tiltangle=abs(tiltangle-np.pi)
 #             return tiltangle
-             
         if getcoords==None:
             getcoords=gmxauto.trajectory_to_gro(self.mysystem)[0]
-            
         if calculation_scheme=='off':
             scds_of_atoms=[]
             scds_of_tails=[]
             #scds_of_tails_corrected=[]            
             for tail in lipidmolecules.scd_tail_atoms_of[lipidmolecule]:
                 for atomindex in range(len(tail)-1): ### -1 because last res is not taken (taking index len() implies "range+1") 
-                    atm1,atm2=tail[atomindex],tail[atomindex+1]    ### Attention: In the tail list only Scd-specific (every 2nd) atom is included!! Thus: atomindex-atomindex+1
-                    coords_atm1,coords_atm2=np.array(getcoords[''.join([lipidmolecule,time,res,atm1])]),np.array(getcoords[''.join([lipidmolecule,time,res,atm2])])
-                    diffvector=coords_atm1-coords_atm2
-                    normdiffvector=np.linalg.norm(diffvector)
-                    cos=np.dot(diffvector,[0,0,1])/normdiffvector
+                    atm1, atm2 = tail[atomindex], tail[atomindex+1]    ### Attention: In the tail list only Scd-specific (every 2nd) atom is included!! Thus: atomindex-atomindex+1
+                    coords_atm1, coords_atm2 = np.array(getcoords[''.join([lipidmolecule,time,res,atm1])]),\
+                                                np.array(getcoords[''.join([lipidmolecule,time,res,atm2])])
+                    diffvector = coords_atm1 - coords_atm2
+                    normdiffvector = np.linalg.norm(diffvector)
+                    cos = np.dot(diffvector,[0,0,1])/normdiffvector
                     scds_of_atoms += [0.5 * (3 * cos**2 - 1)]
-                scds_of_tails+=[sum(scds_of_atoms)/len(scds_of_atoms)] 
-            totalscd=sum(scds_of_tails)/len(scds_of_tails)
+                scds_of_tails += [sum(scds_of_atoms)/len(scds_of_atoms)] 
+            totalscd = sum(scds_of_tails)/len(scds_of_tails)
             return (totalscd, )            
 #         elif calculation_scheme=='Length_Based':
 #             tiltangle=calculate_tilt(lipidmolecule, time, res, getcoords)
@@ -139,62 +139,62 @@ class Scd():
 #                 totalscd=sum(scds_of_tails_corrected)/len(scds_of_tails_corrected)
 #             return (totalscd, tiltangle*180/np.pi, straightness)        
 
-    def create_scdfile(self,include_tilt='off',separate='on',maxdiff=0.0):           
+    def create_scdfile(self, include_tilt='off', separate='on', maxdiff=0.0):           
         print("\n_____Extracting Scd values____\n\nTilt inclusion: {}\n".format(include_tilt)) 
         #resid2lipid=self.index_conversion_dict()[1] 
         getcoords, time = gmxauto.trajectory_to_gro(self.mysystem)
-        endtime=int(float(time))
+        endtime = int(float(time))
         #neiblist=self.find_all_neighbors()
-        if include_tilt!='off' and maxdiff==0.0:
-            scd_outputfile=''.join(["scd_distribution",include_tilt,".dat"])
-        elif include_tilt!='off' and maxdiff!=0.0:
-            scd_outputfile=''.join(["scd_distribution",include_tilt,str(maxdiff),".dat"])
+        if include_tilt != 'off' and maxdiff == 0.0:
+            scd_outputfile = 'scd_distribution{}.dat'.format(include_tilt)
+        elif include_tilt != 'off' and maxdiff != 0.0:
+            scd_outputfile = 'scd_distribution{}{}.dat'.format(include_tilt, str(maxdiff))
         else:
-            scd_outputfile='scd_distribution.dat'
-        with open(scd_outputfile,"w") as scdfile:
-            print("Time \t Residue \t Scd",file=scdfile)
-            print(strftime("%H:%M:%S :", localtime()),"Write to file...")
+            scd_outputfile = 'scd_distribution.dat'
+        with open(scd_outputfile, "w") as scdfile:
+            print("Time \t Residue \t Scd", file=scdfile)
+            print(strftime("%H:%M:%S :", localtime()), "Write to file...")
             #endtime=self.determine_traj_length()
             for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):                       #the "time" variable should be the last declared time, thus the last read frame!
-                time=float(t)
-                print("at time {} ...".format(t),end="\r") 
+                time = float(t)
+                print("at time {} ...".format(t), end="\r") 
                 sys.stdout.flush()
                 #neibstraightness={}
-                for res in range(1,self.mysystem.NUMBEROFMOLECULES+1):
+                for res in range(1, self.mysystem.NUMBEROFMOLECULES+1):
                     lipidmolecule = self.mysystem.resid_to_lipid[res]
                     totalscd = self.scd_of_res(res, lipidmolecule, time, getcoords)[0]
-                    print("{} \t {} \t {} \t {}".format(time,res,lipidmolecule,totalscd),file=scdfile)
+                    print("{} \t {} \t {} \t {}".format(time, res, lipidmolecule, totalscd), file=scdfile)
         if separate == 'on':
             self.create_scd_histogram(scd_outputfile)
 
-    def create_scd_histogram(self,scdfile):
+    def create_scd_histogram(self, scdfile):
         #grofile_output=self.temppath+'/calc_scd_for'+str(self.lipidmolecule)+'.gro'      
         time_resid_to_scd={}
         with open(scdfile,"r") as sfile:
             sfile.readline()
             for line in sfile:
-                cols=line.split()
-                time=cols[0]
-                res=cols[1]
-                scd=cols[3]
-                keystring=time+'_'+res
-                time_resid_to_scd.update({keystring:scd})
+                cols = line.split()
+                time = float(cols[0])
+                res = int(cols[1])
+                scd = float(cols[3])
+                keytup = (time, res)
+                time_resid_to_scd.update({keytup:scd})
         for lipid in self.mysystem.molecules:
             if scdfile[-4:]=='.dat':
                 scdfile=scdfile[:-4]
-            data_output=''.join([scdfile,'_',lipid,'.dat'])
+            data_output='{}_{}.dat'.format(scdfile, lipid)
             with open(data_output,"w") as outfile:
                 print("{: <10} {: <10} {: <20}".format("Time","Lipid","Lipid_Scd"),file=outfile)
                 endtime=int(float(time))
-                for i in range(1, self.mysystem.NUMBEROFMOLECULES+1):
-                    restype = self.mysystem.resid_to_lipid[i]
+                for res in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+                    restype = self.mysystem.resid_to_lipid[res]
                     if restype != lipid:
                         continue
-                    print("Working on residue {} ".format(i),end="\r")
+                    print("Working on residue {} ".format(res),end="\r")
                     for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):
-                        time = str(t)+'.0'
-                        scd_host=float(time_resid_to_scd[time+'_'+str(i)])
-                        print("{: <10}{: <10}{: <20.5f}".format(time,i,scd_host),file=outfile)
+                        time = float(t)
+                        scd_host=float(time_resid_to_scd[(time, res)])
+                        print("{: <10}{: <10}{: <20.5f}".format(time, res, scd_host),file=outfile)
 
 def get_neighbor_of(hostres, time):
     'returns list of resids of neighbors of host resid; Inputs hostres: Resid host, time: Time as integer'

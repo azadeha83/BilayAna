@@ -330,6 +330,7 @@ class Neighbors():
         resindex_all.close() 
 
     def determine_neighbors(self, overwrite=True):
+        ''' Creates "neighbor_info" containing all information on lipid arrangement '''
         print("\n____Determining neighbors____\n")
         os.makedirs(self.mysystem.datapath+'/neighborfiles', exist_ok=True)
         with open("neighbor_info","w") as outfile:
@@ -402,7 +403,7 @@ class Energy():
             self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
             self.all_energies = 'all_energies_headtailhalfs.dat'
         elif parts == 'carbons':
-            self.molparts = ['resid_C{}_'.format(i) for i in range(lipidmolecules.shortestchain//2)]
+            self.molparts = ['resid_C{}_'.format(i) for i in range(7)]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/10)
             self.molparts_short = ['C{}_'.format(i) for i in range(7)]
