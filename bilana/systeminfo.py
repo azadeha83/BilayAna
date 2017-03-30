@@ -30,7 +30,7 @@ class SysInfo():
         self.trjpath = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
         self.gropath = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.toppath = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
-        self.tprpath = '{}/tpr/{}_{}'.format(self.mdfilepath, self.system, self.temperature)
+        self.tprpath = '{}/tpr/{}_{}.tpr'.format(self.mdfilepath, self.system, self.temperature)
         # ''' outputpaths (specify _absolute_ paths! '''
         self.indexpath = "{}/indexfiles".format(cwd)
         self.datapath = "{}/datafiles".format(cwd)
