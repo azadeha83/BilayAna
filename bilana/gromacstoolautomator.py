@@ -134,7 +134,7 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
         prefix = regmatch.group(1)
         atomchoice = regmatch.group(2)
         if prefix == None:
-            selectstring = 'name {} resid {}'.format(atomchoice, nchol)
+            selectstring = 'name {} resid {}'.format(atomchoice, nchollist)
         else:
             selprefix = 'mol_com of'
             if atomchoice in lipidmolecules.described_molecules:
@@ -154,7 +154,7 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
         selectdict.update({selection:select_fname})
         with open(select_fname, "w") as selfile:
             print(selectstring, file=selfile)
-    outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel,nchol)
+    outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel, nchol)
     g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
                      '-o', outputfile,'-ref', '-sf', selectdict[ref],\
