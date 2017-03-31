@@ -119,14 +119,16 @@ def radialdistribution(systeminfo, ref, sel):
             selprefix = 'mol_com of'
             if atomchoice in lipidmolecules.described_molecules:
                 if prefix == 'HEAD':
-                    selectstring = '{} name {}'.format(selprefix, ' '.join(lipidmolecules.head_atoms_of[atomchoice]))
+                    atomlist = [lipid for item in lipidmolecules.head_atoms_of[atomchoice] for lipid in item]
+                    selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
                 elif prefix == 'TAIL':
-                    selectstring = '{} name {}'.format(selprefix, ' '.join(lipidmolecules.tail_atoms_of[atomchoice]))
+                    atomlist = [lipid for item in lipidmolecules.tail_atoms_of[atomchoice] for lipid in item]
+                    selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
                 elif prefix == 'COM':
                     selectstring = '{} resname {}'.format(selprefix, atomchoice)
             else:
                 print('Selection invalid, please specify one of',\
-                      lipidmolecules.head_atoms_of.keys())
+                      lipidmolecules.described_molecules)
                 sys.exit()
         select_fname = '{}/selectref_{}'.format(systeminfo.temppath, selection)
         selectdict.update({selection:select_fname})
