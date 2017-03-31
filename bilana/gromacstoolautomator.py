@@ -96,9 +96,9 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
 def get_res_with_nchol(systeminfo, nchol):
     resids_with_ncholneibs= []
     neiblist = Neighbors(systeminfo).get_neighbor_dict()
-    for res in range(1, systeminfo.N):
+    for res in range(1, systeminfo.NUMBEROFMOLECULES):
         nchollist = []
-        for time in range(systeminfo.t_start, max(int(neiblist[res].keys())), systeminfo.mysystem.dt):
+        for time in range(systeminfo.t_start, int(max(neiblist[res].keys())), systeminfo.dt):
             neighbors = neiblist[res][float(time)]
             nchol_is = [systeminfo.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
             nchollist.append(nchol_is)
