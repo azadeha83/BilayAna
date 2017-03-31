@@ -6,7 +6,7 @@ import os
 import sys 
 from time import localtime, strftime
 
-from bilana import lipidmolecules
+from bilana import lipidmolecules, systeminfo
 
 #from bilana.systeminfo import mysystem
 #global mysystem
@@ -93,7 +93,21 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
                     getcoords.update({keytuple:coordinates})
     return getcoords, time-1000.0
 
-def radialdistribution(systeminfo, ref, sel):
+def get_res_with_nchol(systeminfo, nchol):
+    resids_with_ncholneibs= []
+    neiblist = Neighbors(systeminfo).get_neighbor_dict()
+    for res in range(1, systeminfo.N):
+        nchollist = []
+        for time in range(systeminfo.t_start, max(int(neiblist[res].keys())), systeminfo.mysystem.dt):
+            neighbors = neiblist[res][float(time)]
+            nchol_is = [systeminfo.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
+            nchollist.append(nchol_is)
+        avg_nchol = round(sum(nchollist)/len(nchollist))
+        if nchol == avg_nchol:
+            resids_with_ncholneibs.append(res)
+    return resids_with_ncholneibs
+
+def radialdistribution(systeminfo, ref, sel, nchol=-1):
     ''' Calculates the RDF of sel relative to ref.
     As input either:
         atoms (P, O3, ...)
@@ -111,21 +125,26 @@ def radialdistribution(systeminfo, ref, sel):
         if regmatch is None:
             print('Unknown selection. Read documentation.')
             sys.exit()
+        if nchol != -1:
+            resid_list = get_res_with_nchol(systeminfo, nchol)
+            nchol = 'resid {}'.format(' '.join(resid_list))
+        else:
+            nchol = '".*"'
         prefix = regmatch.group(1)
         atomchoice = regmatch.group(2)
-        if prefix == None: 
-            selectstring = 'name {}'.format(atomchoice)
+        if prefix == None:
+            selectstring = 'name {} resid {}'.format(atomchoice, nchol)
         else:
             selprefix = 'mol_com of'
             if atomchoice in lipidmolecules.described_molecules:
                 if prefix == 'HEAD':
-                    atomlist = [lipid for item in lipidmolecules.head_atoms_of[atomchoice] for lipid in item]
-                    selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
+                    atomlist = [atom for item in lipidmolecules.head_atoms_of[atomchoice] for atom in item]
+                    selectstring = '{} resname {} name {} resid {}'.format(selprefix, atomchoice, ' '.join(atomlist), nchol)
                 elif prefix == 'TAIL':
-                    atomlist = [lipid for item in lipidmolecules.tail_atoms_of[atomchoice] for lipid in item]
-                    selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
+                    atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item]
+                    selectstring = '{} resname {} name {} resid {}'.format(selprefix, atomchoice, ' '.join(atomlist), nchol)
                 elif prefix == 'COM':
-                    selectstring = '{} resname {}'.format(selprefix, atomchoice)
+                    selectstring = '{} resname {} resid {}'.format(selprefix, atomchoice, nchol)
             else:
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
@@ -135,10 +154,10 @@ def radialdistribution(systeminfo, ref, sel):
         with open(select_fname, "w") as selfile:
             print(selectstring, file=selfile)
     outputfile = '{}/rdf/rdf_{}-{}.xvg'.format(systeminfo.datapath, ref, sel)
-    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none'\
+    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
-                     '-o', outputfile,'-ref', '-sf', selectdict['ref'],\
-                     '-sel', 'sf', selectdict[sel],\
+                     '-o', outputfile,'-ref', '-sf', selectdict[ref],\
+                     '-sel', '-sf', selectdict[sel],\
                       ]
     out, err = exec_gromacs(g_rdf_arglist)
     rdf_log = 'rdf_{}-{}.log'.format(ref, sel)
