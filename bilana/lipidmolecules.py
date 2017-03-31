@@ -57,6 +57,7 @@ central_atom_of = {\
     'DOPC':'P',\
                 }
 
+described_molecules = ['DPPC', 'DUPC', 'CHL1']
 shortestchain = len(tailcarbons_of['DPPC'])
 
 

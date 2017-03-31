@@ -93,40 +93,56 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
                     getcoords.update({keytuple:coordinates})
     return getcoords, time-1000.0
 
-def radialdistribution(systeminfo, group):
+def radialdistribution(systeminfo, ref, sel):
+    ''' Calculates the RDF of sel relative to ref.
+    As input either:
+        atoms (P, O3, ...)
+        or center of mass (COM) of lipidtype (DPPC, CHL1)
+        or parts of lipid (TAIL, HEAD) of lipidtype 
+    can be specified
+    Example inputs: "COM-DPPC", "TAIL-CHL1", "P" '''
     print("\n_____Calculating radial distribution function ____\n")
     #groups_to_calculate = ['P','O','COMTAIL','COMHEAD']
     os.makedirs(systeminfo.datapath+'/rdf', exist_ok=True)
-    if group == 'O3':
-        selectstring = 'name O3;\nname P;\nname O3;'
-        selectionfile = systeminfo.temppath+'/selrdfO3'
-        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostO3.xvg'
-    elif group == 'P':
-        selectstring = 'name P;\nname P;\nname O3;'
-        selectionfile = systeminfo.temppath+'/selrdfP'
-        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostP.xvg'
-    elif group == 'COMTAILXPC':
-        selectstring = 'name P;\nname P;\nname O3;'
-        selectionfile = systeminfo.temppath+'/selrdfP'
-        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostP.xvg'
-    elif group == 'COMHEADXPC':
-        selectstring = 'name O3;\nname P;\nname O3;'
-        selectionfile = systeminfo.temppath+'/selrdfO3'
-        outputfile = systeminfo.datapath+'/rdf'+'/rdfhostO3.xvg'
-    with open(selectionfile, "w") as outfile:
-        print(selectstring, file=outfile)
-            
-    g_rdf_arglist = [gmx_exec, 'rdf', '-f', systeminfo.trjpath, '-s',\
-                      systeminfo.tprpath,'-sf', selectionfile,'-o',\
-                      outputfile,'-xy',\
+    selectdict = {}
+    myregex = re.compile(r'^(COM|HEAD|TAIL)?-?(\w+)$')
+    for selection in (ref, sel):
+        regmatch = myregex.match(selection)
+        if regmatch is None:
+            print('Unknown selection. Read documentation.')
+            sys.exit()
+        prefix = regmatch.group(1)
+        atomchoice = regmatch.group(2)
+        if prefix == None: 
+            selectstring = 'name {}'.format(atomchoice)
+        else:
+            selprefix = 'mol_com of'
+            if atomchoice in lipidmolecules.described_molecules:
+                if prefix == 'HEAD':
+                    selectstring = '{} name {}'.format(selprefix, ' '.join(lipidmolecules.head_atoms_of[atomchoice]))
+                elif prefix == 'TAIL':
+                    selectstring = '{} name {}'.format(selprefix, ' '.join(lipidmolecules.tail_atoms_of[atomchoice]))
+                elif prefix == 'COM':
+                    selectstring = '{} resname {}'.format(selprefix, atomchoice)
+            else:
+                print('Selection invalid, please specify one of',\
+                      lipidmolecules.head_atoms_of.keys())
+                sys.exit()
+        select_fname = '{}/selectref_{}'.format(systeminfo.temppath, selection)
+        selectdict.update({selection:select_fname})
+        with open(select_fname, "w") as selfile:
+            print(selectstring, file=selfile)
+    outputfile = '{}/rdf/rdf_{}-{}.xvg'.format(systeminfo.datapath, ref, sel)
+    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none'\
+                     '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
+                     '-o', outputfile,'-ref', '-sf', selectdict['ref'],\
+                     '-sel', 'sf', selectdict[sel],\
                       ]
     out, err = exec_gromacs(g_rdf_arglist)
-    rdf_log = ''
+    rdf_log = 'rdf_{}-{}.log'.format(ref, sel)
     with open(rdf_log, "w") as logfile:
-        logfile.write(err.decode())
-        logfile.write(150*'_')
-        logfile.write(out.decode())
-        logfile.write(150*'_')
+        print('STDERR:\n{}\n\nSTDOUT:\n{}'\
+                .format(err.decode(), out.decode()), file=logfile)
 
 def calculate_distance(self):
     print("\n____Calculating distances____\n")
