@@ -149,11 +149,11 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
                 sys.exit()
-        select_fname = '{}/selectref_{}'.format(systeminfo.temppath, selection)
+        select_fname = '{}/selectref_{}{}'.format(systeminfo.temppath, selection, nchol)
         selectdict.update({selection:select_fname})
         with open(select_fname, "w") as selfile:
             print(selectstring, file=selfile)
-    outputfile = '{}/rdf/rdf_{}-{}.xvg'.format(systeminfo.datapath, ref, sel)
+    outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel,nchol)
     g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
                      '-o', outputfile,'-ref', '-sf', selectdict[ref],\
