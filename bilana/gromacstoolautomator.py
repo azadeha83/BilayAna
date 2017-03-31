@@ -96,9 +96,9 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
 def get_res_with_nchol(systeminfo, nchol):
     resids_with_ncholneibs= []
     neiblist = Neighbors(systeminfo).get_neighbor_dict()
-    for res in range(1, systeminfo.N):
+    for res in range(1, systeminfo.NUMBEROFMOLECULES):
         nchollist = []
-        for time in range(systeminfo.t_start, max(int(neiblist[res].keys())), systeminfo.mysystem.dt):
+        for time in range(systeminfo.t_start, int(max(neiblist[res].keys())), systeminfo.dt):
             neighbors = neiblist[res][float(time)]
             nchol_is = [systeminfo.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
             nchollist.append(nchol_is)
@@ -149,11 +149,11 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
                 sys.exit()
-        select_fname = '{}/selectref_{}'.format(systeminfo.temppath, selection)
+        select_fname = '{}/selectref_{}{}'.format(systeminfo.temppath, selection, nchol)
         selectdict.update({selection:select_fname})
         with open(select_fname, "w") as selfile:
             print(selectstring, file=selfile)
-    outputfile = '{}/rdf/rdf_{}-{}.xvg'.format(systeminfo.datapath, ref, sel)
+    outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel,nchol)
     g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
                      '-o', outputfile,'-ref', '-sf', selectdict[ref],\
