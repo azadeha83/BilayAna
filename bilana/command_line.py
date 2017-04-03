@@ -21,29 +21,41 @@ def write_submitfile(submitout, jobname, ncores=2, mem='2G'):
               '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
               '\nsrun $@', file=sfile)
 
+def get_maxdiv(startdiv, numerator):
+    mindiv = numerator // 2
+    if numerator % startdiv != 0:
+        for new_div in range(startdiv, 0, -1):
+            if new_div < mindiv:
+                raise ValueError("Value got to low. Try something higher")
+            if numerator % new_div == 0:
+                return new_div
+    else:
+        return startdiv
+
 def submit_energycalcs():
-    ''' Diviy run in smaller parts for faster computation '''
-    divisor = 40
+    ''' Divide energyruns into smaller parts for faster computation '''
     startdir = os.getcwd()
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 7:
         print('Invalid number of input arguments. Specify:\n'
-              '<systemname> <lowest T> <highest T> <part of lipid> <jobname>')
+              '<systemname> <lowest T> <highest T> <part of lipid> <jobname> <max divisor>')
         sys.exit()
     systemname = sys.argv[1]
     tempstart = int(sys.argv[2])
     tempend = int(sys.argv[3])
     lipidpart = sys.argv[4]
     jobname = lipidpart+'_'+sys.argv[5]
+    startdivisor = sys.argv[6]
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:
         os.chdir(systemdir)
         mysystem = SysInfo('inputfile')
-        size = mysystem.number_of_lipids
-        lipids_per_partfloor = size//divisor
+        systemsize = mysystem.number_of_lipids
+        divisor = get_maxdiv(startdivisor, systemsize)
+        lipids_per_part = systemsize / divisor
         for jobpart in range(divisor):
-            start_res = str((jobpart*lipids_per_partfloor)+1)
-            end_res = str(((jobpart+1)*lipids_per_partfloor))
+            start_res = str((jobpart*lipids_per_part)+1)
+            end_res = str(((jobpart+1)*lipids_per_part))
             job_filenames = str(start_res)+'-'+str(end_res)+'_'+jobname
             jobscriptname = 'exec_energycalc'+str(job_filenames)+'.py'
             with open(jobscriptname, "w") as jobf:
@@ -60,28 +72,30 @@ def submit_energycalcs():
             proc=subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
-        lipids_per_partmod = size % divisor
-        if lipids_per_partmod != 0:
-            start_res = str(int(end_res)+1)
-            end_res = str(mysystem.number_of_lipids)
-            job_filenames = str(start_res)+'-'+str(end_res)+'_'+jobname
-            jobscriptname = 'exec_energycalc'+str(job_filenames)+'.py'
-            with open(jobscriptname, "w") as jobf:
-                print('import os, sys\n'
-                        'from bilana import gromacstoolautomator as gmx\n'
-                        'from bilana.systeminfo import SysInfo \n'
-                        'mysystem = SysInfo("inputfile")\n'
-                        'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", mysystem, parts="'+str(lipidpart)+'")\n'
-                        'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
-                        'os.remove(sys.argv[0])\n',\
-                    file=jobf)
-            write_submitfile('submit.sh', job_filenames)
-            cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh', 'python', jobscriptname]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = proc.communicate()
-            print(out.decode(), err.decode())
+        #=======================================================================
+        # lipids_per_partmod = size % divisor
+        # if lipids_per_partmod != 0:
+        #     start_res = str(int(end_res)+1)
+        #     end_res = str(mysystem.number_of_lipids)
+        #     job_filenames = str(start_res)+'-'+str(end_res)+'_'+jobname
+        #     jobscriptname = 'exec_energycalc'+str(job_filenames)+'.py'
+        #     with open(jobscriptname, "w") as jobf:
+        #         print('import os, sys\n'
+        #                 'from bilana import gromacstoolautomator as gmx\n'
+        #                 'from bilana.systeminfo import SysInfo \n'
+        #                 'mysystem = SysInfo("inputfile")\n'
+        #                 'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", mysystem, parts="'+str(lipidpart)+'")\n'
+        #                 'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
+        #                 'os.remove(sys.argv[0])\n',\
+        #             file=jobf)
+        #     write_submitfile('submit.sh', job_filenames)
+        #     cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh', 'python', jobscriptname]
+        #     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        #     out, err = proc.communicate()
+        #     print(out.decode(), err.decode())
+        #=======================================================================
         os.chdir(startdir)
-        
+
 def initialize_system():
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     mysystem = SysInfo('inputfile')
@@ -90,4 +104,22 @@ def initialize_system():
     mainanalysis.Scd(mysystem).create_scdfile()
     #gmx.trajectory_to_gro(mysystem) Already is included in create_scdfile
     
-    
+def mend_energyruns():
+    ''' Run missing parts of energyruns '''
+    startdir = os.getcwd()
+    if len(sys.argv) != 7:
+        print('Invalid number of input arguments. Specify:\n'
+              '<systemname> <lowest T> <highest T> <part of lipid> <jobname> <max divisor>')
+        sys.exit()
+    systemname = sys.argv[1]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
+    lipidpart = sys.argv[4]
+    jobname = lipidpart+'_'+sys.argv[5]
+    startdivisor = sys.argv[6]
+    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    for systemdir in systems_to_calculate_for:
+        os.chdir(systemdir)
+        
+        os.chdir(startdir)

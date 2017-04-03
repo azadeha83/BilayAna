@@ -127,7 +127,7 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
             sys.exit()
         if nchol != -1:
             resid_list = get_res_with_nchol(systeminfo, nchol)
-            nchollist = 'resid {}'.format(' '.join(resid_list))
+            nchollist = ' '.join(resid_list)
         else:
             nchollist = '".*"'
         prefix = regmatch.group(1)
