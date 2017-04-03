@@ -154,7 +154,7 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
         with open(select_fname, "w") as selfile:
             print(selectstring, file=selfile)
     outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel, nchol)
-    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',\
+    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'xmgrace',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
                      '-o', outputfile,'-ref', '-sf', selectdict[ref],\
                      '-sel', '-sf', selectdict[sel],\
