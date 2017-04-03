@@ -127,14 +127,13 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
             sys.exit()
         if nchol != -1:
             resid_list = get_res_with_nchol(systeminfo, nchol)
-            print(resid_list)
-            nchollist = 'resid {}'.format(' '.join([str(i) for i in resid_list]))
+            nchollist = ' '.join([str(i) for i in resid_list])
         else:
             nchollist = '".*"'
         prefix = regmatch.group(1)
         atomchoice = regmatch.group(2)
         if prefix == None:
-            selectstring = 'name {} resid {}'.format(atomchoice, nchollist)
+            selectstring = 'name {} '.format(atomchoice)
         else:
             selprefix = 'mol_com of'
             if atomchoice in lipidmolecules.described_molecules:
@@ -143,9 +142,9 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
                     selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
                 elif prefix == 'TAIL':
                     atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item]
-                    selectstring = '{} resname {} name {} resid {}'.format(selprefix, atomchoice, ' '.join(atomlist), nchollist)
+                    selectstring = '{} resname {} name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
                 elif prefix == 'COM':
-                    selectstring = '{} resname {} resid {}'.format(selprefix, atomchoice, nchollist)
+                    selectstring = '{} resname {} '.format(selprefix, atomchoice)
             else:
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
