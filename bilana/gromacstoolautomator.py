@@ -34,9 +34,9 @@ def exec_gromacs(cmd,inp_str=None):
     return out, err
 
 def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
-    os.makedirs(systeminfo.datapath+'/grofiles')
+    os.makedirs(systeminfo.datapath+'/grofiles', exist_ok=True)
     getcoords = {}
-    print('Converting trajectory-file to structure-file...\n')
+    print('Converting trajectory-file to structure-file ...\n')
     if lipids != 'all':
         molecules = [lipids]
     else:
@@ -57,6 +57,7 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
         if os.path.isfile(grofile_output) and overwrite=='off':
             pass
         else:
+            print(strftime("%H:%M:%S :", localtime()),"... Start conversion from .trj to .gro ...")
             gmx_traj_arglist = [\
                 gmx_exec,'trjconv','-s',systeminfo.tprpath, '-f',systeminfo.trjpath,\
                 '-o',grofile_output,\
@@ -71,19 +72,19 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
                 logfile.write(out.decode())
                 logfile.write(150*'_')
         with open(grofile_output,"r") as grofile:
-            print(strftime("%H:%M:%S :", localtime()),"...read data output...")
+            print(strftime("%H:%M:%S :", localtime()),"... read data from .gro-file ...")
             regexp = re.compile(r'[\s]*\d+'+lipidmolecule)
             for line in grofile:
                 if 't=' in line:
                     time = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
-                    print("...at time {}".format(time), end="\r")
+                    #print("...at time {}".format(time), end="\r")
                     if float(systeminfo.t_end) < time:
-                        print("breaking at", time)
+                        #print("breaking at", time)
                         break
-                #print("Match",regexp.match(line),line[:15],end='\r')
-                #print("Time match is",float(self.t_start)<=time,end='\r')
+                #print("Match", regexp.match(line), line[:15], end='\n')
+                #print("Time match is", float(systeminfo.t_start)<=time, end='\n')
                 if float(systeminfo.t_start) <= time and regexp.match(line) != None:
-                    #print("Reading data at",time,end='\r')
+                    #print("Reading data at", time, end='\n')
                     atom = line[9:15].strip()
                     lipidtype = line[5:9]
                     if atom not in atomlist and lipidtype not in molecules: continue
@@ -91,6 +92,7 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
                     coordinates = [float(x) for x in line[20:44].split()]
                     keytuple = (str(lipidtype),time,int(resid),str(atom))
                     getcoords.update({keytuple:coordinates})
+        print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
     return getcoords, time-1000.0
 
 def get_res_with_nchol(systeminfo, nchol):
@@ -107,7 +109,7 @@ def get_res_with_nchol(systeminfo, nchol):
             resids_with_ncholneibs.append(res)
     return resids_with_ncholneibs
 
-def radialdistribution(systeminfo, ref, sel, nchol=-1):
+def radialdistribution(systeminfo, ref, sel, nchol=''):
     ''' Calculates the RDF of sel relative to ref.
     As input either:
         atoms (P, O3, ...)
@@ -116,20 +118,16 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
     can be specified
     Example inputs: "COM-DPPC", "TAIL-CHL1", "P" '''
     print("\n_____Calculating radial distribution function ____\n")
+    print("Ref: {}\nSel: {}\nCholesterol neighbor specification: {}\n".format(ref, sel, nchol))
     #groups_to_calculate = ['P','O','COMTAIL','COMHEAD']
     os.makedirs(systeminfo.datapath+'/rdf', exist_ok=True)
     selectdict = {}
     myregex = re.compile(r'^(COM|HEAD|TAIL)?-?(\w+)$')
-    for selection in (ref, sel):
-        regmatch = myregex.match(selection)
+    for selection in (('ref', ref), ('sel', sel)):
+        regmatch = myregex.match(selection[1])
         if regmatch is None:
             print('Unknown selection. Read documentation.')
             sys.exit()
-        if nchol != -1:
-            resid_list = get_res_with_nchol(systeminfo, nchol)
-            nchollist = ' '.join([str(i) for i in resid_list])
-        else:
-            nchollist = '".*"'
         prefix = regmatch.group(1)
         atomchoice = regmatch.group(2)
         if prefix == None:
@@ -142,25 +140,36 @@ def radialdistribution(systeminfo, ref, sel, nchol=-1):
                     selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
                 elif prefix == 'TAIL':
                     atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item]
-                    selectstring = '{} resname {} name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
+                    #============================One Tail only===============================
+                    # atomlist = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0]]
+                    #========================================================================
+                    selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
                 elif prefix == 'COM':
                     selectstring = '{} resname {} '.format(selprefix, atomchoice)
             else:
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
                 sys.exit()
-        select_fname = '{}/selectref_{}{}'.format(systeminfo.temppath, selection, nchol)
-        selectdict.update({selection:select_fname})
+        if nchol != '' and selection[0] == 'ref':
+            residlist_withNchol = get_res_with_nchol(systeminfo, nchol)
+            if not residlist_withNchol:
+                raise ValueError("There is no neighbor with {} cholesterol neighbors.".format(nchol))
+            elif len(residlist_withNchol) < systeminfo.NUMBEROFMOLECULES//10:
+                print("Attention! Only {} lipids taken into account for RDF-calculation.".format(len(residlist_withNchol)))
+            selectstring += ' and resid {}'.format(' '.join([str(i) for i in residlist_withNchol]))
+        select_fname = '{}/selectref_{}{}'.format(systeminfo.temppath, selection[1], nchol)
+        selectdict.update({selection[1]:select_fname})
         with open(select_fname, "w") as selfile:
+            print("Selection for {} is:\n{}\n".format(selection[0], selectstring))
             print(selectstring, file=selfile)
     outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel, nchol)
-    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'xmgrace',\
+    g_rdf_arglist = [gmx_exec, 'rdf',  '-xvg', 'xmgrace',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
                      '-o', outputfile,'-ref', '-sf', selectdict[ref],\
                      '-sel', '-sf', selectdict[sel],\
                       ]
     out, err = exec_gromacs(g_rdf_arglist)
-    rdf_log = 'rdf_{}-{}.log'.format(ref, sel)
+    rdf_log = 'rdf_{}-{}{}.log'.format(ref, sel, nchol)
     with open(rdf_log, "w") as logfile:
         print('STDERR:\n{}\n\nSTDOUT:\n{}'\
                 .format(err.decode(), out.decode()), file=logfile)
@@ -350,7 +359,7 @@ class Neighbors():
                 logfile.write(out.decode())
                 logfile.write(150*'_')
             ##append resid.ndx to resindex_all.ndx
-            with open(outputindex,"r") as output_index:
+            with open(outputindex, "r") as output_index:
                 filecontent = output_index.readlines()
                 resindex_all.write(''.join(filecontent)+'\n\n')
         ### To have whole system indices in one group    
@@ -427,7 +436,7 @@ class Energy():
             self.all_energies = 'all_energies'
             self.interactions = ['']
         elif parts == 'head-tail':
-            self.molparts = ["resid_h_","resid_t_"]
+            self.molparts = ["resid_h_", "resid_t_"]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/2)
             self.molparts_short = ["h_", "t_"]
@@ -451,7 +460,7 @@ class Energy():
             self.all_energies = ["all_energies_carbons.dat"]
         print('\n Calculating for energygroups:', self.molparts)
 
-    def run_calculation(self,startres=-1, endres=-1):
+    def run_calculation(self, startres=-1, endres=-1):
         ''' Runs a complete energy calculation with settings from Energy() instance '''
         print('''\n____Rerunning MD for energyfiles,
          creating xvgtables with relevant energies.____\n
@@ -541,15 +550,52 @@ class Energy():
     def create_MDP(self, mdp_raw: str, mdpout: str, energygroups: str):
         ''' Create Mdpfile '''
         os.makedirs(self.mysystem.energypath+'/mdpfiles', exist_ok=True)
-        with open(mdpout,"w") as mdpfile_rerun, open(mdp_raw,"r") as mdpfile_raw:
-            mdp_raw_content = mdpfile_raw.readlines()
+        with open(mdpout,"w") as mdpfile_rerun:#, open(mdp_raw,"r") as mdpfile_raw:
+            raw_mdp =[x.strip() for x in '''
+            integrator              = md               
+            dt                      = 0.002            
+            nsteps                  =                  
+            nstlog                  = 100000           
+            nstxout                 = 0                
+            nstvout                 = 0                
+            nstfout                 = 0                
+            nstcalcenergy           = 1000             
+            nstenergy               = 100              
+            cutoff-scheme           = Verlet           
+            nstlist                 = 20               
+            rlist                   = 1.2              
+            coulombtype             = pme              
+            rcoulomb                = 1.2              
+            vdwtype                 = Cut-off          
+            vdw-modifier            = Force-switch     
+            rvdw_switch             = 1.0              
+            rvdw                    = 1.2              
+            tcoupl                  = Nose-Hoover      
+            tau_t                   = 1.0               
+            tc-grps                 = System        
+            pcoupl                  = Parrinello-Rahman
+            pcoupltype              = semiisotropic    
+            tau_p                   = 5.0
+            compressibility         = 4.5e-5  4.5e-5   
+            ref_p                   = 1.0     1.0      
+            constraints             = h-bonds          
+            constraint_algorithm    = LINCS            
+            continuation            = yes               
+            nstcomm                 = 100              
+            comm_mode               = linear           
+            refcoord_scaling        = com              
+            '''.split('\n')]
+            raw_mdp.append('ref_t = '+str(self.mysystem.temperature))
+            #mdp_raw_content = mdpfile_raw.readlines()
+            #if not mdp_raw_content:
+            #    raise EOFError(".mdp-file is empty")
             energygrpline = ''.join(['energygrps\t\t\t=', energygroups, '\n'])
-            mdp_raw_content.append(energygrpline)
-            mdpfile_rerun.write('\n'.join(mdp_raw_content)+'\n')
+            raw_mdp.append(energygrpline)
+            mdpfile_rerun.write('\n'.join(raw_mdp)+'\n')
 
     def create_TPR(self, mdpoutfile: str, tprout: str):
         ''' Create TPRFILE with GROMPP '''
-        print(strftime("%H:%M:%S :", localtime()),'...Creating .tpr-file...')
+        print(strftime("%H:%M:%S :", localtime()), '...Creating .tpr-file...')
         os.makedirs(self.mysystem.energypath+'/tprfiles', exist_ok=True)
         grompp_arglist=[gmx_exec, 'grompp', '-f', mdpoutfile, '-p',\
                         self.mysystem.toppath, '-c', self.mysystem.gropath, '-o', tprout,\
@@ -564,11 +610,11 @@ class Energy():
 
     def do_Energyrun(self, res, groupfragment, tprrerun_in, energyf_out):
         ''' Create ENERGYFILE with mdrun -rerun '''
-        print(strftime("%H:%M:%S :", localtime()),'...Rerunning trajectory for energy calculation...')
+        print(strftime("%H:%M:%S :", localtime()), '...Rerunning trajectory for energy calculation...')
         os.makedirs(self.mysystem.energypath+'/edrfiles', exist_ok=True)
         os.makedirs(self.mysystem.energypath+'/logfiles', exist_ok=True)
         logoutput_file = self.mysystem.energypath+'/logfiles'+'/mdrerun_resid'+str(res)+self.parts+'frag'+groupfragment+'.log'
-        trajout = 'EMPTY.trr' # As specified in mdpfile, NO .trr-file should be written
+        trajout = 'EMPTY.trr' # As specified in mdpfile, !NO! .trr-file should be written
         mdrun_arglist = [gmx_exec, 'mdrun', '-s', tprrerun_in,'-rerun', self.mysystem.trjpath,\
                         '-e', energyf_out, '-o', trajout,'-g', logoutput_file,\
                         ]#,'-nt','8']

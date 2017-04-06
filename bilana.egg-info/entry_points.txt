@@ -1,4 +1,5 @@
 [console_scripts]
 initialize_system = bilana.command_line:initialize_system
+mend_energyruns = bilana.command_line:mend_energyruns
 submit_energycalcs = bilana.command_line:submit_energycalcs
 

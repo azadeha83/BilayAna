@@ -20,8 +20,8 @@ class Scd():
     def __init__(self, systeminfo):
         self.mysystem = systeminfo
         
-    def scd_of_res(self,res,lipidmolecule,time,calculation_scheme='off',getcoords=None):#, neibstraightness=0,neiblist=None):
-        time=float(time)
+    def scd_of_res(self, res, lipidmolecule, time, calculation_scheme='off', getcoords=None):#, neibstraightness=0,neiblist=None):
+        time = float(time)
 #         def calculate_distance(atomcoords1,atomcoords2):    #expect numpy arrays as np.array([x,y,z])
 #             diffvector=atomcoords2-atomcoords1
 #             distance=np.linalg.norm(diffvector)
@@ -36,17 +36,18 @@ class Scd():
 #             if tiltangle>np.pi/2:
 #                 tiltangle=abs(tiltangle-np.pi)
 #             return tiltangle
-        if getcoords==None:
-            getcoords=gmxauto.trajectory_to_gro(self.mysystem)[0]
-        if calculation_scheme=='off':
-            scds_of_atoms=[]
-            scds_of_tails=[]
+        if getcoords == None:
+            print("Starting function trajectory to gro.")
+            getcoords = gmxauto.trajectory_to_gro(self.mysystem)[0]
+        if calculation_scheme == 'off':
+            scds_of_atoms = []
+            scds_of_tails = []
             #scds_of_tails_corrected=[]            
             for tail in lipidmolecules.scd_tail_atoms_of[lipidmolecule]:
                 for atomindex in range(len(tail)-1): ### -1 because last res is not taken (taking index len() implies "range+1") 
                     atm1, atm2 = tail[atomindex], tail[atomindex+1]    ### Attention: In the tail list only Scd-specific (every 2nd) atom is included!! Thus: atomindex-atomindex+1
-                    coords_atm1, coords_atm2 = np.array(getcoords[''.join([lipidmolecule,time,res,atm1])]),\
-                                                np.array(getcoords[''.join([lipidmolecule,time,res,atm2])])
+                    coords_atm1, coords_atm2 = np.array(getcoords[(lipidmolecule, time, res, atm1)]),\
+                                                np.array(getcoords[(lipidmolecule, time, res, atm2)])
                     diffvector = coords_atm1 - coords_atm2
                     normdiffvector = np.linalg.norm(diffvector)
                     cos = np.dot(diffvector,[0,0,1])/normdiffvector
@@ -139,10 +140,10 @@ class Scd():
 #                 totalscd=sum(scds_of_tails_corrected)/len(scds_of_tails_corrected)
 #             return (totalscd, tiltangle*180/np.pi, straightness)        
 
-    def create_scdfile(self, include_tilt='off', separate='on', maxdiff=0.0):           
+    def create_scdfile(self, include_tilt='off', separate='on', maxdiff=0.0, overwritegro=False):           
         print("\n_____Extracting Scd values____\n\nTilt inclusion: {}\n".format(include_tilt)) 
         #resid2lipid=self.index_conversion_dict()[1] 
-        getcoords, time = gmxauto.trajectory_to_gro(self.mysystem)
+        grocoords, time = gmxauto.trajectory_to_gro(self.mysystem, overwrite=overwritegro)
         endtime = int(float(time))
         #neiblist=self.find_all_neighbors()
         if include_tilt != 'off' and maxdiff == 0.0:
@@ -161,8 +162,9 @@ class Scd():
                 sys.stdout.flush()
                 #neibstraightness={}
                 for res in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+                    print("on res {} ...".format(res), end="\r") 
                     lipidmolecule = self.mysystem.resid_to_lipid[res]
-                    totalscd = self.scd_of_res(res, lipidmolecule, time, getcoords)[0]
+                    totalscd = self.scd_of_res(res, lipidmolecule, time, getcoords=grocoords)[0]
                     print("{} \t {} \t {} \t {}".format(time, res, lipidmolecule, totalscd), file=scdfile)
         if separate == 'on':
             self.create_scd_histogram(scd_outputfile)

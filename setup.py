@@ -12,8 +12,10 @@ setup(name='bilana',
           'console_scripts': [
               'submit_energycalcs = bilana.command_line:submit_energycalcs',
               'initialize_system = bilana.command_line:initialize_system',
+              'mend_energyruns = bilana.command_line:mend_energyruns',
               ]
           },
+       #package_data={'': ['energy_recalculation.mdp']}
 #      install_requires=['',],
 #      scripts=['scripts/submit_energycalculations',],
       zip_safe=True)
