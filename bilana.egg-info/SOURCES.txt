@@ -1,3 +1,4 @@
+README.txt
 bilana/__init__.py
 bilana/command_line.py
 bilana/energyfilecreator.py
@@ -5,9 +6,8 @@ bilana/gromacstoolautomator.py
 bilana/lipidmolecules.py
 bilana/mainanalysis.py
 bilana/misc.py
+bilana/plotting.py
 bilana/systeminfo.py
-bilana/tester.py
-bilana/testytest.py
 bilana.egg-info/PKG-INFO
 bilana.egg-info/SOURCES.txt
 bilana.egg-info/dependency_links.txt

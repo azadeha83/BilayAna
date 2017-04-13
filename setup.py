@@ -13,6 +13,7 @@ setup(name='bilana',
               'submit_energycalcs = bilana.command_line:submit_energycalcs',
               'initialize_system = bilana.command_line:initialize_system',
               'mend_energyruns = bilana.command_line:mend_energyruns',
+              'temporal_rerun = bilana.command_line:temporal_rerun',
               ]
           },
        #package_data={'': ['energy_recalculation.mdp']}

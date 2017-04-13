@@ -163,14 +163,14 @@ def mend_energyruns():
         print(systemdir)
         os.chdir(systemdir)
         exceeded_jobs = find_exceeded_jobs(os.getcwd())
-        for jobs in exceeded_jobs:
-            lipidpart = jobs[1]
-            jobname = lipidpart+'_'+'mend'+sys.argv[4]
-            jobfile = jobs[0]
-            correct_last_lipid = int(jobs[3])
+        for job in exceeded_jobs:
+            lipidpart = job[1]
+            jobname = lipidpart+'_'+'rest'+sys.argv[4]
+            jobfile = job[0]
+            correct_last_lipid = int(job[3])
             actual_last_lipid = int(find_last_lipid_calculated(jobfile))
             Nmissing_lipids = correct_last_lipid-actual_last_lipid+1
-            Nlipids_calculated = actual_last_lipid-int(jobs[2]) 
+            Nlipids_calculated = actual_last_lipid-int(job[2]) 
             #print("Last lipid was {}. Need to calculate energy for {} lipids and calculated {}. {}".format(actual_last_lipid, Nmissing_lipids, Nlipids_calculated, jobs))
             if Nmissing_lipids > Nlipids_calculated:
                 Nruns = get_minmaxdiv(Nmissing_lipids//Nlipids_calculated, Nmissing_lipids, 1)
@@ -184,10 +184,53 @@ def mend_energyruns():
                 print(start_res, end_res)
                 jobfile_name = str(start_res)+'-'+str(end_res)+'_'+jobname
                 jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
-                write_jobscript(jobscript_name, lipidpart, actual_last_lipid, correct_last_lipid)
+                write_jobscript(jobscript_name, lipidpart, start_res, end_res)
                 write_submitfile('submit.sh', jobfile_name)
-                cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(actual_last_lipid)+'-'+str(correct_last_lipid)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+                cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh','python3', jobscript_name]
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = proc.communicate()
                 print(out.decode(), err.decode())
+            os.remove(job[0][:-3]+'err')
+        os.chdir(startdir)
+
+def temporal_rerun():
+    def find_fkn_resten(dir_to_search):
+        restens = []
+        regex_filenames = re.compile(r'^exec_energycalc(\d+)-(\d+)_(\w+)_resten\.py$')
+        for file in os.listdir(dir_to_search):
+            regmatch = regex_filenames.match(file)
+            if regmatch:
+                startlipid = regmatch.group(1)
+                endlipid = regmatch.group(2)
+                lipidpart = regmatch.group(3)
+                restens.append((file[:-3]+'out', lipidpart, startlipid, endlipid))
+        return restens
+    startdir = os.getcwd()
+    if len(sys.argv) != 5:
+        print('Invalid number of input arguments. Specify:\n'
+              '<systemname> <lowest T> <highest T> <jobname>')
+        sys.exit()
+    systemname = sys.argv[1]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
+    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    for systemdir in systems_to_calculate_for:
+        print(systemdir)
+        os.chdir(systemdir)
+        exceeded_jobs = find_fkn_resten(os.getcwd())
+        for job in exceeded_jobs:
+            lipidpart = job[1]
+            jobname = lipidpart+'_'+'ulti'+sys.argv[4]
+            jobfile = job[0]
+            start_res  = int(job[2])
+            end_res = int(job[3])
+            jobfile_name = str(start_res)+'-'+str(end_res)+'_'+jobname
+            jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
+            write_jobscript(jobscript_name, lipidpart, start_res, end_res)
+            write_submitfile('submit.sh', jobfile_name)
+            cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
         os.chdir(startdir)
