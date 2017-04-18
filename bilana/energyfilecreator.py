@@ -118,7 +118,7 @@ def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refa
                                   nchol, ndppc, ndupc), file=outfile_dupc)
 
 class EofScd():
-    ''' All about writing the beloved E(Scd)-files '''
+    ''' All about writing E(Scd)-files '''
     def __init__(self, systeminfo, parts, energyfilename, scdfilename):
         self.mysystem = systeminfo
         self.energyfilename = energyfilename

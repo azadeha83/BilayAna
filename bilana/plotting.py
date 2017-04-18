@@ -10,13 +10,13 @@ gr = importr('grDevices')
 def bin_data(datatablename, interaction, column='AvgScd', breakl=-0.5, breakh=1.0, breakdx=0.05):
     ''' Discretize data by aggregating specified column '''
     labelbreakh = breakh-breakdx
-    mydf = ro.r('dat <- fread("{0}")'
-                'dat$bin{1} <- cut(dat${1},'
+    mydf = ro.r(\
+                '{0}$bin{1} <- cut(dat${1},'
                                 'breaks=seq({2}, {3}, {4}),'
                                 'labels=seq({2}, {5}, {4}))'
-                'dat[Interaction=="{6}"][,Interaction:=NULL]'
-                'mydf <- dat[,lapply(.SD, mean), by=bin{1}]'
-                'mydf$weight <- dat[,.N,by=bin{1}][N]'
+                '{0}[Interaction=="{6}"][,Interaction:=NULL]'
+                'mydf <- {0}[,lapply(.SD, mean), by=bin{1}]'
+                'mydf$weight <- {0}[,.N,by=bin{1}][N]'
                 'mydf'\
                 .format(datatablename, column, breakl, breakh, breakdx,\
                         labelbreakh, interaction)\
@@ -31,19 +31,25 @@ def merge_data(*args):
     df = ro.r('df <- rbind({})'.format(','.join(args)))
     return df
 
-def temperature_avg(System, Thigh, Tlow):
+def temperature_avg(System, Thigh, Tlow, interaction):
     ''' Average over temperature range '''
-
-def read_EofScd(colgroup, *args):
+    files_to_read = []
+    for sys in System:
+        for temp in range(Tlow, Thigh+1, 10):
+            files_to_read.append('{}_{}'.format(sys, temp))
+    datafiles = read_EofScd(interaction, *files_to_read)
+    for data in datafiles:
+        df_tavg = ro.r('{0}'
+                       ''\
+                    .format(data)) # How to parse the dataframe names??
+    return df_tavg
+        
+def read_EofScd(interaction, *args):
     datafiles = []
-    for file in args:
-        pass
-        #datf = fread(file)
-        #add SysSource 
-        #groupvariable?
-        #bindf = binning_data(datf)
-    df = merge_data(*datafiles)
-    return df   # SysSource type AvgScd Etot Occurrence/weight Nchol
+    for i, file in enumerate(args):
+        ro.r('dat{0} <- fread("{1}")'.format(i, file))
+        datafiles.append(bin_data('dat'+str(i), interaction))
+    return datafiles   # SysSource type AvgScd Etot Occurrence/weight Nchol
 
 def add_specific_geoms():
     ''' Add geoms related to a name??? '''

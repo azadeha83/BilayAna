@@ -726,4 +726,5 @@ class Energy():
                 if not os.path.isfile(xvgfilename):
                     print('File is missing:', xvgfilename)
                     all_okay = False
-        print('All okay?', all_okay)
+        #print('All okay?', all_okay)
+        return all_okay

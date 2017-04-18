@@ -190,7 +190,6 @@ def mend_energyruns():
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = proc.communicate()
                 print(out.decode(), err.decode())
-            os.remove(job[0][:-3]+'err')
         os.chdir(startdir)
 
 def temporal_rerun():
@@ -234,3 +233,45 @@ def temporal_rerun():
             out, err = proc.communicate()
             print(out.decode(), err.decode())
         os.chdir(startdir)
+
+def check_and_write():
+    ''' Check if all energy files exist and write table with all energies '''
+    startdir = os.getcwd()
+    if len(sys.argv) != 6:
+        print('Invalid number of input arguments. Specify:\n'
+              '<systemname> <lowest T> <highest T> <part of lipid> <jobname>')
+        sys.exit()
+    systemname = sys.argv[1]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
+    lipidpart = sys.argv[4]
+    jobname = lipidpart+'_'+sys.argv[5]
+    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    for systemdir in systems_to_calculate_for:
+        os.chdir(systemdir)
+        scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
+        jobfilename = systemdir[2:]+jobname
+        with open(scriptfilename, 'w') as scriptf:
+            print(\
+                'import os, sys'
+                '\nfrom bilana import gromacstoolautomator as gmx'
+                '\nfrom bilana.systeminfo import SysInfo'
+                '\nfrom bilana import energyfilecreator'
+                '\nmysystem = SysInfo("inputfile")'
+                '\nmyenergystate = gmx.Energy(mysystem)'
+                '\nif myenergystate.check_exist_xvgs():'
+                '\n    myenergystate.write_energyfile()'
+                '\n    energyfilecreator.EofScd(mysystem, lipidpart, myenergystate.all_energies, "scd_distribution.dat").create_eofscdfile()'
+                '\nelse:'
+                '\n    raise ValueError("There are .edr files missing.")'
+                '\nos.remove(sys.argv[0])',\
+                file=scriptf)
+            write_submitfile('submit.sh', jobfilename, mem='16G')
+            cmd = ['sbatch', '-J', systemdir[2:]+jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+        os.chdir(startdir)
+    
+
