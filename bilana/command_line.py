@@ -11,7 +11,7 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G'):
               '\n#SBATCH -A q0heuer'
               '\n#SBATCH -p short'
               '\n#SBATCH --output='+jobname+'.out'
-              '\n#SBATCH --error='+jobname+'.err'
+#              '\n#SBATCH --error='+jobname+'.err'
               '\n#SBATCH --mail-type=fail'
               '\n#SBATCH --mail-user=f_kell07@wwu.de'
               '\n#SBATCH --time=2-00:00:00'
@@ -22,13 +22,13 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G'):
               '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
               '\nsrun $@', file=sfile)
 
-def write_jobscript(scriptname, lipidpart, start_res, end_res):
+def write_jobscript(scriptname, lipidpart, start_res, end_res, overwrite=True):
     with open(scriptname, "w") as jobf:
         print('import os, sys\n'
                 'from bilana import gromacstoolautomator as gmx\n'
                 'from bilana.systeminfo import SysInfo \n'
                 'mysystem = SysInfo("inputfile")\n'
-                'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", mysystem, parts="'+str(lipidpart)+'")\n'
+                'myenergy = gmx.Energy(mysystem, "'+str(lipidpart)+'",overwrite='+str(overwrite)+')\n'
                 'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
                 'os.remove(sys.argv[0])\n',\
             file=jobf)
@@ -61,7 +61,7 @@ def get_minmaxdiv(startdiv, numerator, direction=-1):
 def submit_energycalcs():
     ''' Divide energyruns into smaller parts for faster computation '''
     startdir = os.getcwd()
-    if len(sys.argv) != 7:
+    if len(sys.argv) < 7:
         print('Invalid number of input arguments. Specify:\n'
               '<systemname> <lowest T> <highest T> <part of lipid> <jobname> <max divisor>')
         sys.exit()
@@ -71,6 +71,15 @@ def submit_energycalcs():
     lipidpart = sys.argv[4]
     jobname = lipidpart+'_'+sys.argv[5]
     startdivisor = sys.argv[6]
+    try:
+        if sys.argv[7] == 'off':
+            overwrite = False
+        elif sys.argv[7] == 'on':
+            overwrite = True
+        else: 
+            raise ValueError("Value for overwrite key invalid. Choose either 'off' or 'on' ")
+    except IndexError:
+        overwrite = True
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:
@@ -84,35 +93,12 @@ def submit_energycalcs():
             end_res = str(((jobpart+1)*lipids_per_part))
             jobfile_name = str(start_res)+'-'+str(end_res)+'_'+jobname
             jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
-            write_jobscript(jobscript_name, lipidpart, start_res, end_res)
+            write_jobscript(jobscript_name, lipidpart, start_res, end_res, overwrite=overwrite)
             write_submitfile('submit.sh', jobfile_name)
             cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh','python3', jobscript_name]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
-            
-        #=======================================================================
-        # lipids_per_partmod = size % divisor
-        # if lipids_per_partmod != 0:
-        #     start_res = str(int(end_res)+1)
-        #     end_res = str(mysystem.number_of_lipids)
-        #     job_filenames = str(start_res)+'-'+str(end_res)+'_'+jobname
-        #     jobscriptname = 'exec_energycalc'+str(job_filenames)+'.py'
-        #     with open(jobscriptname, "w") as jobf:
-        #         print('import os, sys\n'
-        #                 'from bilana import gromacstoolautomator as gmx\n'
-        #                 'from bilana.systeminfo import SysInfo \n'
-        #                 'mysystem = SysInfo("inputfile")\n'
-        #                 'myenergy = gmx.Energy("resindex_all", "energy_recalculation.mdp", mysystem, parts="'+str(lipidpart)+'")\n'
-        #                 'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
-        #                 'os.remove(sys.argv[0])\n',\
-        #             file=jobf)
-        #     write_submitfile('submit.sh', job_filenames)
-        #     cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh', 'python', jobscriptname]
-        #     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        #     out, err = proc.communicate()
-        #     print(out.decode(), err.decode())
-        #=======================================================================
         os.chdir(startdir)
 
 def initialize_system():
@@ -122,7 +108,7 @@ def initialize_system():
     gmx.Neighbors(mysystem).create_indexfile()
     mainanalysis.Scd(mysystem).create_scdfile()
     #gmx.trajectory_to_gro(mysystem) Already is included in create_scdfile
-    
+
 def mend_energyruns():
     ''' Run missing parts of energyruns '''
     def find_exceeded_jobs(dir_to_search):
@@ -192,47 +178,49 @@ def mend_energyruns():
                 print(out.decode(), err.decode())
         os.chdir(startdir)
 
-def temporal_rerun():
-    def find_fkn_resten(dir_to_search):
-        restens = []
-        regex_filenames = re.compile(r'^exec_energycalc(\d+)-(\d+)_(\w+)_resten\.py$')
-        for file in os.listdir(dir_to_search):
-            regmatch = regex_filenames.match(file)
-            if regmatch:
-                startlipid = regmatch.group(1)
-                endlipid = regmatch.group(2)
-                lipidpart = regmatch.group(3)
-                restens.append((file[:-3]+'out', lipidpart, startlipid, endlipid))
-        return restens
-    startdir = os.getcwd()
-    if len(sys.argv) != 5:
-        print('Invalid number of input arguments. Specify:\n'
-              '<systemname> <lowest T> <highest T> <jobname>')
-        sys.exit()
-    systemname = sys.argv[1]
-    tempstart = int(sys.argv[2])
-    tempend = int(sys.argv[3])
-    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
-    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
-    for systemdir in systems_to_calculate_for:
-        print(systemdir)
-        os.chdir(systemdir)
-        exceeded_jobs = find_fkn_resten(os.getcwd())
-        for job in exceeded_jobs:
-            lipidpart = job[1]
-            jobname = lipidpart+'_'+'ulti'+sys.argv[4]
-            jobfile = job[0]
-            start_res  = int(job[2])
-            end_res = int(job[3])
-            jobfile_name = str(start_res)+'-'+str(end_res)+'_'+jobname
-            jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
-            write_jobscript(jobscript_name, lipidpart, start_res, end_res)
-            write_submitfile('submit.sh', jobfile_name)
-            cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh','python3', jobscript_name]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = proc.communicate()
-            print(out.decode(), err.decode())
-        os.chdir(startdir)
+#===============================================================================
+# def temporal_rerun():
+#     def find_fkn_resten(dir_to_search):
+#         restens = []
+#         regex_filenames = re.compile(r'^exec_energycalc(\d+)-(\d+)_(\w+)_resten\.py$')
+#         for file in os.listdir(dir_to_search):
+#             regmatch = regex_filenames.match(file)
+#             if regmatch:
+#                 startlipid = regmatch.group(1)
+#                 endlipid = regmatch.group(2)
+#                 lipidpart = regmatch.group(3)
+#                 restens.append((file[:-3]+'out', lipidpart, startlipid, endlipid))
+#         return restens
+#     startdir = os.getcwd()
+#     if len(sys.argv) != 5:
+#         print('Invalid number of input arguments. Specify:\n'
+#               '<systemname> <lowest T> <highest T> <jobname>')
+#         sys.exit()
+#     systemname = sys.argv[1]
+#     tempstart = int(sys.argv[2])
+#     tempend = int(sys.argv[3])
+#     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+#     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+#     for systemdir in systems_to_calculate_for:
+#         print(systemdir)
+#         os.chdir(systemdir)
+#         exceeded_jobs = find_fkn_resten(os.getcwd())
+#         for job in exceeded_jobs:
+#             lipidpart = job[1]
+#             jobname = lipidpart+'_'+'ulti'+sys.argv[4]
+#             jobfile = job[0]
+#             start_res  = int(job[2])
+#             end_res = int(job[3])
+#             jobfile_name = str(start_res)+'-'+str(end_res)+'_'+jobname
+#             jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
+#             write_jobscript(jobscript_name, lipidpart, start_res, end_res)
+#             write_submitfile('submit.sh', jobfile_name)
+#             cmd = ['sbatch', '-J', systemdir[2:]+'_'+str(start_res)+'-'+str(end_res)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+#             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+#             out, err = proc.communicate()
+#             print(out.decode(), err.decode())
+#         os.chdir(startdir)
+#===============================================================================
 
 def check_and_write():
     ''' Check if all energy files exist and write table with all energies '''
@@ -250,28 +238,40 @@ def check_and_write():
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:
         os.chdir(systemdir)
+        temperature = systemdir[-3:]
         scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
         jobfilename = systemdir[2:]+jobname
         with open(scriptfilename, 'w') as scriptf:
             print(\
                 'import os, sys'
+                '\nimport subprocess'
                 '\nfrom bilana import gromacstoolautomator as gmx'
                 '\nfrom bilana.systeminfo import SysInfo'
                 '\nfrom bilana import energyfilecreator'
                 '\nmysystem = SysInfo("inputfile")'
-                '\nmyenergystate = gmx.Energy(mysystem)'
+                '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
                 '\nif myenergystate.check_exist_xvgs():'
                 '\n    myenergystate.write_energyfile()'
-                '\n    energyfilecreator.EofScd(mysystem, lipidpart, myenergystate.all_energies, "scd_distribution.dat").create_eofscdfile()'
                 '\nelse:'
-                '\n    raise ValueError("There are .edr files missing.")'
+#                '\n    raise ValueError("There are .edr files missing.")'
+                '\n    print("Submitting missing energy calculations")'
+                '\n    os.chdir("'+startdir+'")'
+                '\n    cmd = ["submit_energycalcs", "'+systemdir[2:-4]+'", "'+temperature+'",'
+                                '"'+temperature+'", "'+lipidpart+'", "en", "40", "off"]'
+                '\n    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)'
+                '\n    out, err = proc.communicate()'
+                '\n    proc.wait()'
+                '\n    proc.stdout.close()'
+                '\n    proc.stderr.close()'
+                '\n    print(out.decode(), err.decode())'
+                '\n    os.chdir("'+systemdir+'")'
                 '\nos.remove(sys.argv[0])',\
                 file=scriptf)
             write_submitfile('submit.sh', jobfilename, mem='16G')
-            cmd = ['sbatch', '-J', systemdir[2:]+jobfilename, 'submit.sh','python3', scriptfilename]
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
         os.chdir(startdir)
-    
+
 

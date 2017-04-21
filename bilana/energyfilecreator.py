@@ -165,7 +165,7 @@ class EofScd():
             self.write_outputfile(timetoenergy, timetoscd, endtime, pair)
 
     def write_outputfile(self, timetoenergy, timetoscd, endtime, wantedpair):
-        outname = ''.join(['Eofscd', wantedpair, self.parts])
+        outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
         with open(outname, "w") as outf:
             print(\
                   '{: ^10}{: ^10}{: ^15}{: ^8}{: ^10}'\
@@ -218,7 +218,8 @@ class EofScd():
         with open(energyfile, "r") as efile:
             efile.readline()
             for line in efile:
-                cols = [x.strip() for x in line.split(',')]
+                #cols = [x.strip() for x in line.split(' ')]
+                cols = line.split()
                 if int(cols[1]) > int(cols[2]):
                     continue
                 time = float(cols[0])

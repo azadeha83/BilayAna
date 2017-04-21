@@ -418,13 +418,12 @@ class Energy():
 
     DENOMINATOR = 40
 
-    def __init__(self, resindex_all, mdp_raw, systeminfo, overwrite=True, parts='complete'):
+    def __init__(self, systeminfo, parts, resindex_all='resindex_all', overwrite=True):
         knownparts = ['complete', 'head-tail', 'head-tailhalfs', 'carbons']
         if parts not in knownparts:
             raise ValueError("Part keyword specified is not known.")
         self.neiblist = Neighbors(systeminfo).get_neighbor_dict()
         self.resindex_all = resindex_all
-        self.mdp_raw = mdp_raw
         self.overwrite = overwrite
         self.groupblocks = ()
         self.mysystem = systeminfo
@@ -433,31 +432,31 @@ class Energy():
             self.parts = ''
             self.denominator = self.DENOMINATOR
             self.molparts_short = [""]
-            self.all_energies = 'all_energies'
-            self.interactions = ['']
+            self.all_energies = 'all_energies.dat'
+            #self.interactions = ['']
         elif parts == 'head-tail':
             self.molparts = ["resid_h_", "resid_t_"]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/2)
             self.molparts_short = ["h_", "t_"]
-            self.interactions = ['head-tail', 'head-head', 'tail-tail']
+            #self.interactions = ['head-tail', 'head-head', 'tail-tail']
             self.all_energies='all_energies_headtail.dat'
         elif parts == 'head-tailhalfs':
             self.molparts = ["resid_h_", "resid_t12_", "resid_t22_"]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/4)
             self.molparts_short = ["h_","t12_","t22_"]
-            self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
+            #self.interactions = ['head-tail12', 'tail12-tail12', 'head-tail22', 'tail22-tail22']
             self.all_energies = 'all_energies_headtailhalfs.dat'
         elif parts == 'carbons':
             self.molparts = ['resid_C{}_'.format(i) for i in range(7)]
             self.parts = parts
             self.denominator = int(self.DENOMINATOR/10)
             self.molparts_short = ['C{}_'.format(i) for i in range(7)]
-            self.interactions = ['C{0}-C{0}'.format(i) for i in range(7)]\
-                                +['C{0}-C{1}'.format(i, i+1) for i in range(6)]\
-                                +['C{0}-C{1}'.format(i, i-1) for i in range(1,7)]
-            self.all_energies = ["all_energies_carbons.dat"]
+            #self.interactions = ['C{0}-C{0}'.format(i) for i in range(7)]\
+            #                    +['C{0}-C{1}'.format(i, i+1) for i in range(6)]\
+            #                    +['C{0}-C{1}'.format(i, i-1) for i in range(1,7)]
+            self.all_energies = "all_energies_carbons.dat"
         print('\n Calculating for energygroups:', self.molparts)
 
     def run_calculation(self, startres=-1, endres=-1):
@@ -502,7 +501,7 @@ class Energy():
                 energygroups = self.gather_energygroups(res, all_neibs_of_res)
                 relev_energies = self.get_relev_energies(res, all_neibs_of_res)
                 # Run functions
-                self.create_MDP(self.mdp_raw, mdpout, energygroups)
+                self.create_MDP(mdpout, energygroups)
                 self.create_TPR(mdpout, tprout)
                 self.do_Energyrun(res, groupfragment, tprout, energyf_output)
                 self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
@@ -522,7 +521,7 @@ class Energy():
         return energygroup_string
 
     def get_relev_energies(self, res, all_neibs_of_res):
-        Etypes=["Coul-SR:","LJ-SR:"]
+        Etypes=["Coul-SR:", "LJ-SR:"]
         energyselection=[]
         for interaction in Etypes:
             counterhost=0 #for the cholesterol as it has just 1 molpart
@@ -547,7 +546,7 @@ class Energy():
         all_relev_energies='\n'.join(energyselection+['\n'])
         return all_relev_energies
 
-    def create_MDP(self, mdp_raw: str, mdpout: str, energygroups: str):
+    def create_MDP(self, mdpout: str, energygroups: str):
         ''' Create Mdpfile '''
         os.makedirs(self.mysystem.energypath+'/mdpfiles', exist_ok=True)
         with open(mdpout,"w") as mdpfile_rerun:#, open(mdp_raw,"r") as mdpfile_raw:
@@ -641,7 +640,7 @@ class Energy():
             logfile.write(100*'_')
 
     def write_energyfile(self):
-        with open(self.all_energies,"w") as energyoutput:
+        with open(self.all_energies, "w") as energyoutput:
             print(\
                   '{: <10}{: <10}{: <10}{: <20}'
                   '{: <20}{: <20}{: <20}'\
@@ -706,8 +705,8 @@ class Energy():
                                             coul = energyline_cols[res_to_row[('Coul', parthost+str(resid), partneib+str(neib))]]
                                             Etot = float(vdw)+float(coul)
                                             print(\
-                                                  '{: <10},{: <10},{: <10},{: <20},'
-                                                  '{: <20},{: <20},{: <20.5f}'
+                                                  '{: <10}{: <10}{: <10}{: <20}'
+                                                  '{: <20}{: <20}{: <20.5f}'
                                                   .format(time, resid, neib, inter,\
                                                                             vdw, coul, Etot),\
                                                   file=energyoutput)
@@ -726,5 +725,6 @@ class Energy():
                 if not os.path.isfile(xvgfilename):
                     print('File is missing:', xvgfilename)
                     all_okay = False
-        #print('All okay?', all_okay)
+        if not all_okay:
+            print('THERE ARE FILES MISSING')
         return all_okay
