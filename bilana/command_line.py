@@ -63,7 +63,7 @@ def submit_energycalcs():
     startdir = os.getcwd()
     if len(sys.argv) < 7:
         print('Invalid number of input arguments. Specify:\n'
-              '<systemname> <lowest T> <highest T> <part of lipid> <jobname> <max divisor>')
+              '<systemname> <lowest T> <highest T> <part of lipid> <jobname> <max divisor> <overwrite: on/off>(opt.)')
         sys.exit()
     systemname = sys.argv[1]
     tempstart = int(sys.argv[2])

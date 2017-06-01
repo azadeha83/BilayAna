@@ -49,7 +49,6 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
         molecules = molecules_new
     for lipidmolecule in molecules:
         grofile_output = ''.join([systeminfo.datapath, '/grofiles', '/calc_scd_for', str(lipidmolecule), '.gro'])
-        sys.stdout.flush()
         if atomlist == None:
             atomlist = lipidmolecules.tail_atoms_of[lipidmolecule]+['P', 'O3']
         print(strftime("%H:%M:%S :", localtime()),"Processing {} ...".format(lipidmolecule))
@@ -180,7 +179,7 @@ def calculate_distance(self):
     os.makedirs(self.datapath+'/distcalc', exist_ok=True)
     for i in range(1,self.NUMBEROFPARTICLES+1):
         all_N_of_res=list(set([neibs for t in neiblist[i].keys() for neibs in neiblist[i][t]]))
-        sys.stdout.flush()
+        
         print("Working on lipid ",i,'...',end='\r')
         neighbors=[str(x) for x in all_N_of_res]
         host=str(i)
@@ -204,7 +203,7 @@ def calculate_distance(self):
         # print("Time \t Host \t Neib \t distance/nm",file=all_distances)
         print("Time \t Host \t Neib \t distance/nm",file=all_distances)
         for resid in range(1,self.NUMBEROFPARTICLES+1):
-            sys.stdout.flush()
+            
             print("Working on residue {}".format(resid), end="\r")
             distancefile = self.datapath+'/distcalc/dist_to_hostresid'+str(resid)+'.xvg'
             with open(distancefile,"r") as dfile:
@@ -384,7 +383,7 @@ class Neighbors():
             outfile.write('Resid \t Time \t Number_of_neighbors \t List_of_Neighbors \n')
             for residue in range(1, self.mysystem.NUMBEROFMOLECULES+1):
                 print(". . . Working on residue: {} . . .".format(residue), end="\r")
-                sys.stdout.flush()
+                
                 selectionfile = self.create_selectionfile_neighborsearch(residue)
                 indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.mysystem.indexpath, residue)
                 datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.mysystem.datapath, residue)
@@ -481,7 +480,7 @@ class Energy():
             print("Needing {} energy run(s)".format(number_of_groupfragments)) 
             for groupfragment in range(number_of_groupfragments):
                 print("On fragment",groupfragment)
-                sys.stdout.flush()
+                
                 g_energy_output = ''.join([\
                     self.mysystem.energypath, '/xvgtables/energies_residue',\
                     str(res), '_', str(groupfragment), self.parts, '.xvg',\

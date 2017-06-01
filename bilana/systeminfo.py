@@ -59,8 +59,8 @@ class SysInfo():
             filecontent = [x.split(': ') for x in [y.strip('\n') for y in inputf.readlines()]] 
             for info in filecontent:
                 if len(info) == 2 and not '#' in info[0]:
-                    system_info.update({info[0]: info[1]})
-                    print("{} : {}".format(info[0], info[1]),"\n")  
+                    system_info.update({info[0].strip(): info[1].strip()})
+                    print("{} : {}".format(info[0].strip(), info[1].strip()),"\n")  
         return system_info
 
     def index_conversion_dict(self): 
