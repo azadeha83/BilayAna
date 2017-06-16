@@ -19,14 +19,19 @@ datatable = importr('data.table')
 gr = importr('grDevices')
 
 #mtcars = data(datasets).fetch('mtcars')['mtcars']
-def standard_plot():
-    ''' Creates a standard EofScd plot '''
 
 class EofScdplots():
     ''' Controls plotting of EofScd plots
         Needs raw_input files with following structure and header: 
             "Time Host Host_Scd Neib Neib_Scd Interaction DeltaScd AvgScd Etot Evdw Ecoul Nchol"
     '''
+    def standard_plot(self):
+        ''' Creates a standard EofScd plot '''
+        tavg = self.temperature_avg(mysys, Tlow, Thigh, pair, interaction, interaction_pair)
+        plot = ggplot2.ggplot(tavg) + ggplot2.aes_string(x='binAvgScd', y='Etot')+ggplot2.geom_point()
+        gr.pdf(file=filename)
+        print(plot)
+        gr.dev_off()
     def bin_raw_data(self, datatablename, interactions_pair, column='AvgScd', breakl=-0.5, breakh=1.0, breakdx=0.05):
         ''' Discretize data by aggregating specified column '''
         labelbreakh = breakh-breakdx
@@ -42,8 +47,9 @@ class EofScdplots():
                             labelbreakh, interactions_pair)\
                     )
         return mydf
-    
-    def merge_data(self, groupname, *args):
+    def weighted_avg(self):
+        ''' Takes waited average from differenct factors '''
+    def merge_data(self, tablename, groupname, *args):
         ''' merges data.tables
             args must be tuple: (data.table-name, framename)
             Something like: groupname = Temperature, arg=(df1, DPPC_CHOL) ...
@@ -53,7 +59,7 @@ class EofScdplots():
             print(arg)
             ro.r('{}${}="{}"'\
                  .format(arg[0], groupname, arg[1]))
-        df = ro.r('df <- rbind({})'.format(','.join([arg[0] for arg in args])))
+        df = ro.r('{} <- rbind({})'.format(tablename, ','.join([arg[0] for arg in args])))
         return df
     
     def read_EofScd(self, dataname, datafile):
@@ -79,9 +85,11 @@ class EofScdplots():
         print(framenames)
         framenames = [(i, i[:-3]) for i in framenames]
         print(framenames)
-        #self.merge_data('temperature', *framenames)
-        df = self.bin_raw_data('df', interaction, column="temperature")
-        return df
+        finalframe = 'df'
+        self.merge_data(finalframe, 'temperature', *framenames)
+        df_final = ro.r('{0} <- subset({0},select=-c(temperature))'
+                        'df_final <- {0}[,lapply(.SD,weighted.mean,w=weight),by=binAvgScd]'.format(finalframe)) 
+        return df_final
 
     def add_specific_geoms(self, plottype):
         ''' Add geoms related to a name??? '''
