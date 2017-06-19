@@ -204,7 +204,7 @@ def calculate_distance(self):
         print("Time \t Host \t Neib \t distance/nm",file=all_distances)
         for resid in range(1,self.NUMBEROFPARTICLES+1):
             
-            print("Working on residue {}".format(resid), end="\r")
+            #print("Working on residue {}".format(resid), end="\r")
             distancefile = self.datapath+'/distcalc/dist_to_hostresid'+str(resid)+'.xvg'
             with open(distancefile,"r") as dfile:
                 res_to_row = {}
@@ -382,7 +382,7 @@ class Neighbors():
         with open("neighbor_info", "w") as outfile:
             outfile.write('Resid \t Time \t Number_of_neighbors \t List_of_Neighbors \n')
             for residue in range(1, self.mysystem.NUMBEROFMOLECULES+1):
-                print(". . . Working on residue: {} . . .".format(residue), end="\r")
+                #print(". . . Working on residue: {} . . .".format(residue), end="\r")
                 
                 selectionfile = self.create_selectionfile_neighborsearch(residue)
                 indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.mysystem.indexpath, residue)
@@ -647,7 +647,7 @@ class Energy():
                                            "VdW", "Coul", "Etot"),\
                   file=energyoutput)
             for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
-                print("Working on residue {}".format(resid), end="\r")
+                #print("Working on residue {}".format(resid), end="\r")
                 residtype = self.mysystem.resid_to_lipid[resid]
                 all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
                 n_neibs = len(all_neibs_of_res)
@@ -656,6 +656,7 @@ class Energy():
                 else:
                     number_of_groupfragments = (n_neibs//self.denominator)+1
                 #print(number_of_groupfragments)
+                print(number_of_groupfragments)
                 for part in range(number_of_groupfragments):
                     groupblockstart = part*self.denominator
                     groupblockend = (part+1)*self.denominator
@@ -726,4 +727,5 @@ class Energy():
                     all_okay = False
         if not all_okay:
             print('THERE ARE FILES MISSING')
+            #raise ValueError('THERE ARE FILES MISSING')
         return all_okay

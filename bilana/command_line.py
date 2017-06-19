@@ -71,6 +71,7 @@ def submit_energycalcs():
     lipidpart = sys.argv[4]
     jobname = lipidpart+'_'+sys.argv[5]
     startdivisor = sys.argv[6]
+    overwrite = True
     try:
         if sys.argv[7] == 'off':
             overwrite = False
@@ -79,7 +80,7 @@ def submit_energycalcs():
         else: 
             raise ValueError("Value for overwrite key invalid. Choose either 'off' or 'on' ")
     except IndexError:
-        overwrite = True
+        pass
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:
@@ -247,11 +248,13 @@ def check_and_write():
                 '\nimport subprocess'
                 '\nfrom bilana import gromacstoolautomator as gmx'
                 '\nfrom bilana.systeminfo import SysInfo'
-                '\nfrom bilana import energyfilecreator'
+                '\nfrom bilana import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
                 '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
                 '\nif myenergystate.check_exist_xvgs():'
                 '\n    myenergystate.write_energyfile()'
+                '\n    efstate = ef.EofScd(mysystem,"'+lipidpart+'", myenergystate.all_energies, "scd_distribution.dat")'
+                '\n    efstate.create_eofscdfile()'
                 '\nelse:'
 #                '\n    raise ValueError("There are .edr files missing.")'
                 '\n    print("Submitting missing energy calculations")'
@@ -267,7 +270,7 @@ def check_and_write():
                 '\n    os.chdir("'+systemdir+'")'
                 '\nos.remove(sys.argv[0])',\
                 file=scriptf)
-            write_submitfile('submit.sh', jobfilename, mem='16G')
+            write_submitfile('submit.sh', jobfilename, mem='32G')
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()

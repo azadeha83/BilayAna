@@ -59,7 +59,7 @@ def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refa
             time = str(float(cols[1]))
             host = cols[0]
             if int(cols[2]) == 0:
-                print(host, "has no neighbors at time", time)
+                #print(host, "has no neighbors at time", time)
                 hosts_without_neib += [time+'_'+host]
                 continue
             neighbors = cols[3]
@@ -86,7 +86,7 @@ def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refa
         endtime = int(float(time))
         for i in range(1, self.NUMBEROFPARTICLES+1):
             restype = self.resid_to_lipid[i]
-            print("Working on residue {} ".format(i), end="\r")
+            #print("Working on residue {} ".format(i), end="\r")
             for t in range(self.t_start, endtime+1, self.dt):
                 time = float(t)
                 if time+'_'+str(i) in hosts_without_neib:
@@ -173,14 +173,14 @@ class EofScd():
                   '{: ^15}{: ^15}'\
                   '{: ^15}{: ^5}'\
                   .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
-                            "Molpart", "DeltaScd", "AvgScd",\
+                            "Interaction", "DeltaScd", "AvgScd",\
                             "Etot", "Evdw",\
                             "Ecoul", "NChol"),\
                   file=outf)
             for host in range(1, self.mysystem.NUMBEROFMOLECULES+1):
                 type_host = self.mysystem.resid_to_lipid[host]
                 for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):
-                    print("Working on residue {} at {}".format(host, t), end="\r")
+                    #print("Working on residue {} at {}".format(host, t), end="\r")
                     t = float(t)
                     neighbors = self.neiblist[host][float(t)]
                     nchol = [self.mysystem.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
@@ -224,7 +224,7 @@ class EofScd():
                     continue
                 time = float(cols[0])
                 respair = (int(cols[1]), int(cols[2]))
-                print(time, respair, end='\r')
+                #print(time, respair, end='\r')
                 Etot = float(cols[6])
                 VDW = float(cols[5])
                 COUL = float(cols[4])

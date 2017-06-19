@@ -10,28 +10,138 @@ Controls all plotting of EofScd:
 1. read_EofScd('name', 'file.dat')
 2. bin_data('name', 'interactions_pair(e.g. w_w)')
 '''
-
+import numpy as np
 import rpy2.robjects.lib.ggplot2 as ggplot2
 import rpy2.robjects as ro
 from rpy2.robjects.packages import importr
+from code import interact
 base = importr('base')
 datatable = importr('data.table')
 gr = importr('grDevices')
 
-#mtcars = data(datasets).fetch('mtcars')['mtcars']
+#possible_interaction = {'complete': 'w_W',\
+#                        'headtail':''}
+
+
+carbonlist = []
+for i in range(7):
+    for j in range(7):
+        if j > i:
+            continue
+        else:
+            carbonlist.append('C{0}_C{1}'.format(i,j))
+
+Tranges = {\
+           'dppc':[290, 360],\
+           'dppc_chol':[290, 350],\
+           'dppc_dupc':[290, 330],\
+           'dppc_dupc_chol':[290, 330],\
+           'dppc_dupc_chol05':[290, 330],\
+           'dppc_dupc_chol40':[290, 330],\
+           'dupc_chol':[270, 330],\
+           }
+interactions = {\
+                'complete':['w_w'],\
+                'head-tail': ['h_h', 'h_t', 'h_w', 't_t', 't_w', 'w_w'],\
+                'head-tailhalfs':['h_h', 'h_t12', 'h_t22', 'h_w',\
+                                    't12_t12', 't12_t22', 't12_w',\
+                                    't22_t22', 't22_w',\
+                                    'w_w'],\
+                'carbons':carbonlist,\
+                }
+
+
 
 class EofScdplots():
     ''' Controls plotting of EofScd plots
         Needs raw_input files with following structure and header: 
             "Time Host Host_Scd Neib Neib_Scd Interaction DeltaScd AvgScd Etot Evdw Ecoul Nchol"
+            
+        --> Bug1: binAvgScd seems not to be numeric!?
     '''
-    def standard_plot(self):
-        ''' Creates a standard EofScd plot '''
-        tavg = self.temperature_avg(mysys, Tlow, Thigh, pair, interaction, interaction_pair)
-        plot = ggplot2.ggplot(tavg) + ggplot2.aes_string(x='binAvgScd', y='Etot')+ggplot2.geom_point()
+    def __init__(self, interaction, systemnames=Tranges.keys()):
+        self.systemnames = systemnames
+        self.Tlow = {}
+        self.Thigh = {}
+        for sys in systemnames:
+            self.Tlow[sys], self.Thigh[sys] = Tranges[sys]
+        self.interaction = interaction
+    def parts_together(self, pair, sysname, filename):
+        '''
+        Plot all interactionpairs together
+        '''
+        tables = {}
+        tablelist = []
+        for interaction_pair in interactions[self.interaction]:
+            tables[sysname] = self.temperature_avg(sysname, pair, interaction_pair)
+            tablelist.append((interaction_pair, interaction_pair))
+        final_table = self.merge_data('final_table', 'Interaction', *tablelist)
+        plot = ggplot2.ggplot(final_table)\
+                + ggplot2.aes_string(x='AvgScd', y='Etot', size='weight', color='Interaction')\
+                + ggplot2.geom_point()\
+                + ggplot2.geom_smooth()\
+                + add_axis('x', 'avgscd', breaks=[-0.4, 1.0, 0.2], pair=pair)\
+                + add_axis('y', 'etot', breaks=[-100, 0, 20], pair=pair)\
+                + ggplot2.theme_light() + my_theme()
         gr.pdf(file=filename)
         print(plot)
         gr.dev_off()
+    def energy_components(self, pair, interaction_pair, filename):
+        '''
+        Plot Vdw and Coulomb separately
+        '''
+        tables = {}
+        tablelist = []
+        for sysname in self.systemnames:
+            tables[sysname] = self.temperature_avg(sysname, pair, interaction_pair)
+            tablelist.append((sysname, sysname))
+        final_table = self.merge_data('final_table', 'System', *tablelist)
+        plot = ggplot2.ggplot(final_table)\
+                + ggplot2.aes_string(x='AvgScd', y='Etot', size='weight', color='System')\
+                + ggplot2.geom_point(ggplot2.aes_string(x='AvgScd', y='Etot', size='weight', color='System'))\
+                + ggplot2.geom_smooth()\
+                + add_axis('x', 'avgscd', breaks=[-0.4, 1.0, 0.2], pair=pair)\
+                + add_axis('y', 'etot', breaks=[-100, 0, 20], pair=pair)\
+                + ggplot2.theme_light() + my_theme()
+        gr.pdf(file=filename)
+        print(plot)
+        gr.dev_off()
+    def all_systems(self, pair, interaction_pair, filename):
+        '''
+        Plot all systems together 
+        '''
+        tables = {}
+        tablelist = []
+        for sysname in self.systemnames:
+            tables[sysname] = self.temperature_avg(sysname, pair, interaction_pair)
+            tablelist.append((sysname, sysname))
+        final_table = self.merge_data('final_table', 'System', *tablelist)
+        plot = ggplot2.ggplot(final_table)\
+                + ggplot2.aes_string(size='weight')\
+                + ggplot2.geom_point(ggplot2.aes_string(x='AvgScd', y='Evdw', color='Red'))\
+                + ggplot2.geom_point(ggplot2.aes_string(x='AvgScd', y='Ecoul', color='Blue'))\
+                + ggplot2.geom_smooth(ggplot2.aes_string(x='AvgScd', y='Evdw', color='Red'))\
+                + ggplot2.geom_smooth(ggplot2.aes_string(x='AvgScd', y='Ecoul', color='Blue'))\
+                + add_axis('x', 'avgscd', breaks=[-0.4, 1.0, 0.2], pair=pair)\
+                + add_axis('y', 'enthalpy', breaks=[-100, 0, 20], pair=pair)\
+                + ggplot2.theme_light() + my_theme()
+        gr.pdf(file=filename)
+        print(plot)
+        gr.dev_off()
+    def standard_plot(self, systemname, pair, interaction_pair, filename):
+        ''' Creates a standard EofScd plot of one system '''
+        tavg = self.temperature_avg(systemname, pair, interaction_pair)
+        plot = ggplot2.ggplot(tavg)\
+                + ggplot2.aes_string(x='AvgScd', y='Etot', size='weight')\
+                + ggplot2.geom_point()\
+                + ggplot2.geom_smooth()\
+                + add_axis('x', 'avgscd', breaks=[-0.4, 1.0, 0.2], pair=pair)\
+                + add_axis('y', 'etot', breaks=[-100, 0, 20], pair=pair)\
+                + ggplot2.theme_light() + my_theme()
+        gr.pdf(file=filename)
+        print(plot)
+        gr.dev_off()
+
     def bin_raw_data(self, datatablename, interactions_pair, column='AvgScd', breakl=-0.5, breakh=1.0, breakdx=0.05):
         ''' Discretize data by aggregating specified column '''
         labelbreakh = breakh-breakdx
@@ -47,8 +157,6 @@ class EofScdplots():
                             labelbreakh, interactions_pair)\
                     )
         return mydf
-    def weighted_avg(self):
-        ''' Takes waited average from differenct factors '''
     def merge_data(self, tablename, groupname, *args):
         ''' merges data.tables
             args must be tuple: (data.table-name, framename)
@@ -61,58 +169,69 @@ class EofScdplots():
                  .format(arg[0], groupname, arg[1]))
         df = ro.r('{} <- rbind({})'.format(tablename, ','.join([arg[0] for arg in args])))
         return df
-    
     def read_EofScd(self, dataname, datafile):
         df = ro.r('{} <- fread("{}")'.format(dataname, datafile))
         return df   # SysSource type AvgScd Etot Occurrence/weight Nchol
     
-    def temperature_avg(self, mysys, Tlow, Thigh, pair, interaction, interaction_pair):
-        ''' Average over temperature range
+    def temperature_avg(self, systemname, pair, interaction_pair):
+        ''' ___ Calculate average over temperature range ___
+        Variables are:
             mysys: Systemname (like dppc_chol)
-            Tlow, Thigh: Temperature range
+            Tlow['sys'], Thigh['sys']: Temperature range
             pair: lipidtype pair (DPPC_DPPC)
             interaction: part of interaction (complete/headtail/headtailhalfs/...)
             interaction_pair: (w_w/h_t/...)
+        Final data.frame structure:
+            "binAvgScd Time Host Host_Scd Neib Neib_Scd DeltaScd AvgScd Etot Evdw Ecoul Nchol weight"
         '''
         framenames = []
-        for temp in range(Tlow, Thigh+1, 10):
-            systemname = '{}_{}'.format(mysys, temp)
-            file_to_read = '{}/Eofscd{}{}.dat'.format(systemname, pair, interaction)
-            self.read_EofScd(systemname, file_to_read)
-            self.bin_raw_data(systemname, interaction_pair)
-            framenames.append(systemname+'fin')
-            print(systemname+'fin')
+        for temp in range(self.Tlow[systemname], self.Thigh[systemname]+1, 10):
+            system = '{}_{}'.format(systemname, temp)
+            file_to_read = '{}/Eofscd{}{}.dat'.format(system, pair, self.interaction)
+            self.read_EofScd(system, file_to_read)
+            self.bin_raw_data(system, interaction_pair)
+            framenames.append(system+'fin')
+            print(system+'fin')
         print(framenames)
         framenames = [(i, i[:-3]) for i in framenames]
         print(framenames)
         finalframe = 'df'
         self.merge_data(finalframe, 'temperature', *framenames)
-        df_final = ro.r('{0} <- subset({0},select=-c(temperature))'
-                        'df_final <- {0}[,lapply(.SD,weighted.mean,w=weight),by=binAvgScd]'.format(finalframe)) 
+        df_final = ro.r('{0} <- subset({0},select=-c(temperature))\n'
+                        '{1} <- {0}[,lapply(.SD,weighted.mean,w=weight),by=binAvgScd]'.format(finalframe, systemname)) 
         return df_final
 
-    def add_specific_geoms(self, plottype):
-        ''' Add geoms related to a name??? '''
-    
-    def add_axislabels(self, scalex=(-0.5, 1, 0.1), scaley=(-100, 0, 10), **kwargs):
-        ''' Axes scales and labels
-            With kwargs  x='time', y='energy' ...
-                    or scalex=(0,100,dt), scaley= ...
-        '''
-        axisdescription = ''
-        axisdescription += ggplot2.scale_x_continuous(kwargs['scalex'])
-        axisdescription += ggplot2.scale_y_continuous(breaks=kwargs['scaley'])
-        return axisdescription
+def add_axis(dim, name, breaks, limits=None, pair=None):
+    ''' Axes scales and labels
+    dim: x/y/z axis
+    breaks: (start, end, bin)
+    limits: (start, end)
+    '''
+    if name == 'avgscd':
+        name = ro.r('expression(bar("S"[CD]))')
+    elif name == 'enthalpy':
+        name = ro.r('expression(paste("H"[{}],"(S"[CD],") / kJ/mol"))'.format(pair))
 
-def add_theme():
+    if limits is None:
+        limits = ro.FloatVector([breaks[0], breaks[1]])
+
+    breaks = ro.FloatVector(np.around(np.arange(breaks[0], breaks[1], breaks[2]), decimals=1))
+    expand = ro.FloatVector([0,0])
+    if dim == 'x':
+        axis = ggplot2.scale_x_continuous(name, limits=limits, breaks=breaks, expand=expand)
+    if dim == 'y':
+        axis = ggplot2.scale_y_continuous(name, limits=limits, breaks=breaks, expand=expand)
+    return axis
+
+
+def my_theme():
     ''' pass theme here '''
-    theme = ggplot2.theme_light()\
-            + ggplot2.theme(**{\
+    theme = ggplot2.theme(**{\
                 'axis.text':        ggplot2.ggplot2.element_text(size=14, colour="black"),\
                 'axis.title':       ggplot2.ggplot2.element_text(size=20),\
                 'axis.ticks':       ggplot2.ggplot2.element_line(size=.5),\
                 'panel.background': ggplot2.ggplot2.element_rect(fill="white"),\
-                'panel.border':     ggplot2.ggplot2.element_rect(colour="black", size=1),\
+                'panel.border':     ggplot2.ggplot2.element_rect(colour="black", size=0.5),\
                 'panel.grid.major': ggplot2.ggplot2.element_line(colour="grey90", size=0.5),\
                 'panel.grid.minor': ggplot2.ggplot2.element_line(colour="grey90", size=0.5),\
                 'legend.title':     ggplot2.ggplot2.element_text(size=20),\
