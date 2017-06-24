@@ -84,4 +84,3 @@ def save_plot(filename, plot, path='NULL', device='pdf', width=15, height=20, un
     ro.r('ggsave({}, plot = {}, device = {}, path = {},'\
          'scale = 1, width = {}, height = {}, units = {},'\
          'dpi = {}, )'.format(filename, plot, device, path, width, height, unit, dpi))
-    
