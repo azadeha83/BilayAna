@@ -108,7 +108,7 @@ def get_res_with_nchol(systeminfo, nchol):
             resids_with_ncholneibs.append(res)
     return resids_with_ncholneibs
 
-def radialdistribution(systeminfo, ref, sel, nchol=''):
+def radialdistribution(systeminfo, ref, sel, nchol=None):
     ''' Calculates the RDF of sel relative to ref.
     As input either:
         atoms (P, O3, ...)
@@ -121,7 +121,7 @@ def radialdistribution(systeminfo, ref, sel, nchol=''):
     #groups_to_calculate = ['P','O','COMTAIL','COMHEAD']
     os.makedirs(systeminfo.datapath+'/rdf', exist_ok=True)
     selectdict = {}
-    myregex = re.compile(r'^(COM|HEAD|TAIL)?-?(\w+)$')
+    myregex = re.compile(r'^(COM|HEAD|TAILS|singleTAIL)?-?(\w+)$')
     for selection in (('ref', ref), ('sel', sel)):
         regmatch = myregex.match(selection[1])
         if regmatch is None:
@@ -137,32 +137,38 @@ def radialdistribution(systeminfo, ref, sel, nchol=''):
                 if prefix == 'HEAD':
                     atomlist = lipidmolecules.head_atoms_of[atomchoice] 
                     selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
-                elif prefix == 'TAIL':
+                elif prefix == 'TAILS':
                     atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item]
                     #============================One Tail only===============================
                     # atomlist = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0]]
                     #========================================================================
                     selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
+                    selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
+                elif prefix == 'singleTAIL':
+                    atomlist1 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0]]
+                    atomlist2 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][1]]
+                    selectstring = '{0} resname {1} and name {2} or {0} resname {1} and name {3}'.format(selprefix, atomchoice, ' '.join(atomlist1), ' '.join(atomlist2))
                 elif prefix == 'COM':
                     selectstring = '{} resname {} '.format(selprefix, atomchoice)
             else:
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
                 sys.exit()
-        if nchol != '' and selection[0] == 'ref':
+        if nchol is not None:# and selection[0] == 'ref':
             residlist_withNchol = get_res_with_nchol(systeminfo, nchol)
             if not residlist_withNchol:
-                raise ValueError("There is no neighbor with {} cholesterol neighbors.".format(nchol))
+                print("Cannot compute rdf: There is no neighbor with {} cholesterol neighbors.".format(nchol))
+                return None
             elif len(residlist_withNchol) < systeminfo.NUMBEROFMOLECULES//10:
                 print("Attention! Only {} lipids taken into account for RDF-calculation.".format(len(residlist_withNchol)))
             selectstring += ' and resid {}'.format(' '.join([str(i) for i in residlist_withNchol]))
-        select_fname = '{}/selectref_{}{}'.format(systeminfo.temppath, selection[1], nchol)
+        select_fname = '{}/select{}_{}{}'.format(systeminfo.temppath, selection[0], selection[1], nchol)
         selectdict.update({selection[1]:select_fname})
         with open(select_fname, "w") as selfile:
             print("Selection for {} is:\n{}\n".format(selection[0], selectstring))
             print(selectstring, file=selfile)
     outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel, nchol)
-    g_rdf_arglist = [gmx_exec, 'rdf',  '-xvg', 'xmgrace',\
+    g_rdf_arglist = [gmx_exec, 'rdf',  '-xvg', 'none',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
                      '-o', outputfile,'-ref', '-sf', selectdict[ref],\
                      '-sel', '-sf', selectdict[sel],\
@@ -382,7 +388,7 @@ class Neighbors():
         with open("neighbor_info", "w") as outfile:
             outfile.write('Resid \t Time \t Number_of_neighbors \t List_of_Neighbors \n')
             for residue in range(1, self.mysystem.NUMBEROFMOLECULES+1):
-                #print(". . . Working on residue: {} . . .".format(residue), end="\r")
+                print(". . . Working on residue: {} . . .".format(residue), end="\r")
                 
                 selectionfile = self.create_selectionfile_neighborsearch(residue)
                 indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.mysystem.indexpath, residue)
@@ -485,9 +491,6 @@ class Energy():
                     self.mysystem.energypath, '/xvgtables/energies_residue',\
                     str(res), '_', str(groupfragment), self.parts, '.xvg',\
                     ])
-                if os.path.isfile(g_energy_output) and self.overwrite == False:
-                    print("Xvgtable for lipid {} part {} already exists. Will skip this calculation.".format(res, groupfragment))
-                    continue
                 groupblockstart = groupfragment*self.denominator
                 groupblockend = (groupfragment+1)*self.denominator
                 self.groupblocks = (groupblockstart, groupblockend)
@@ -502,8 +505,14 @@ class Energy():
                 # Run functions
                 self.create_MDP(mdpout, energygroups)
                 self.create_TPR(mdpout, tprout)
-                self.do_Energyrun(res, groupfragment, tprout, energyf_output)
-                self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
+                if os.path.isfile(energyf_output) and self.overwrite == False:
+                    print("Edrfile for lipid {} part {} already exists. Will skip this calculation.".format(res, groupfragment))
+                else:
+                    self.do_Energyrun(res, groupfragment, tprout, energyf_output)
+                if os.path.isfile(g_energy_output) and self.overwrite == False:
+                    print("Xvgtable for lipid {} part {} already exists. Will skip this calculation.".format(res, groupfragment))
+                else:
+                    self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
         return 'Done'
 
     def gather_energygroups(self, res, all_neibs_of_res):
@@ -639,6 +648,8 @@ class Energy():
             logfile.write(100*'_')
 
     def write_energyfile(self):
+        ''' Creates files: "all_energies_<interaction>.dat '''
+        print('____ Create energy file ____')
         with open(self.all_energies, "w") as energyoutput:
             print(\
                   '{: <10}{: <10}{: <10}{: <20}'
@@ -647,7 +658,7 @@ class Energy():
                                            "VdW", "Coul", "Etot"),\
                   file=energyoutput)
             for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
-                #print("Working on residue {}".format(resid), end="\r")
+                print("Working on residue {}".format(resid), end="\r")
                 residtype = self.mysystem.resid_to_lipid[resid]
                 all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
                 n_neibs = len(all_neibs_of_res)
@@ -656,8 +667,8 @@ class Energy():
                 else:
                     number_of_groupfragments = (n_neibs//self.denominator)+1
                 #print(number_of_groupfragments)
-                print(number_of_groupfragments)
                 for part in range(number_of_groupfragments):
+                    #print(part)
                     groupblockstart = part*self.denominator
                     groupblockend = (part+1)*self.denominator
                     neighbors_part_are = all_neibs_of_res[groupblockstart:groupblockend]
@@ -674,6 +685,8 @@ class Energy():
                                 res_to_row.update({(energytype, host, neib):row})
                             elif '@' not in energyline and '#' not in energyline:     #pick correct energies from energyfile and print
                                 time = float(energyline_cols[0])
+                                if time % self.mysystem.dt != 0:
+                                    continue
                                 for neib in neighbors_part_are:
                                     neibtype = self.mysystem.resid_to_lipid[neib]
                                     counterhost = 0
@@ -701,6 +714,7 @@ class Energy():
                                             else:
                                                 interneib = partneib[:-1]
                                             inter = ''.join([interhost, '_', interneib])
+                                            #print(('LJ', parthost+str(resid), partneib+str(neib)))
                                             vdw = energyline_cols[res_to_row[('LJ', parthost+str(resid), partneib+str(neib))]]
                                             coul = energyline_cols[res_to_row[('Coul', parthost+str(resid), partneib+str(neib))]]
                                             Etot = float(vdw)+float(coul)
@@ -713,18 +727,20 @@ class Energy():
 
     def check_exist_xvgs(self):
         all_okay = True
-        for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
-            all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
-            n_neibs = len(all_neibs_of_res)
-            if n_neibs % self.denominator == 0:
-                number_of_groupfragments = (n_neibs//self.denominator)
-            else:
-                number_of_groupfragments = (n_neibs//self.denominator)+1
-            for part in range(number_of_groupfragments):
-                xvgfilename = self.mysystem.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.parts+'.xvg'
-                if not os.path.isfile(xvgfilename):
-                    print('File is missing:', xvgfilename)
-                    all_okay = False
+        with open("missing_xvgfiles.info", "w") as inffile:
+            print("#Files missing", file=inffile)
+            for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+                all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
+                n_neibs = len(all_neibs_of_res)
+                if n_neibs % self.denominator == 0:
+                    number_of_groupfragments = (n_neibs//self.denominator)
+                else:
+                    number_of_groupfragments = (n_neibs//self.denominator)+1
+                for part in range(number_of_groupfragments):
+                    xvgfilename = self.mysystem.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.parts+'.xvg'
+                    if not os.path.isfile(xvgfilename):
+                        print(xvgfilename, file=inffile)
+                        all_okay = False
         if not all_okay:
             print('THERE ARE FILES MISSING')
             #raise ValueError('THERE ARE FILES MISSING')

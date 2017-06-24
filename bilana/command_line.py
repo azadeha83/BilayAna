@@ -3,24 +3,26 @@ import subprocess
 import re
 from bilana.systeminfo import SysInfo
 from bilana import gromacstoolautomator as gmx
-from bilana import mainanalysis
 
-def write_submitfile(submitout, jobname, ncores=2, mem='4G'):
+def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
+    if prio == False:
+        queue = 'short'
+    elif prio == True:
+        queue = 'prio'
     with open(submitout, "w") as sfile:
         print('#!/bin/bash'
               '\n#SBATCH -A q0heuer'
-              '\n#SBATCH -p short'
-              '\n#SBATCH --output='+jobname+'.out'
-#              '\n#SBATCH --error='+jobname+'.err'
+              '\n#SBATCH -p {queue}'
+              '\n#SBATCH --output={jobname}.out'
               '\n#SBATCH --mail-type=fail'
               '\n#SBATCH --mail-user=f_kell07@wwu.de'
               '\n#SBATCH --time=2-00:00:00'
               '\n#SBATCH --ntasks=1'
               '\n#SBATCH --nodes=1'
-              '\n#SBATCH --cpus-per-task='+str(ncores)+
-              '\n#SBATCH --mem='+str(mem)+
+              '\n#SBATCH --cpus-per-task={ncores}'
+              '\n#SBATCH --mem={mem}'
               '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
-              '\nsrun $@', file=sfile)
+              '\nsrun $@'.format(**locals()), file=sfile)
 
 def write_jobscript(scriptname, lipidpart, start_res, end_res, overwrite=True):
     with open(scriptname, "w") as jobf:
@@ -106,8 +108,8 @@ def initialize_system():
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     mysystem = SysInfo('inputfile')
     gmx.Neighbors(mysystem).determine_neighbors()
-    gmx.Neighbors(mysystem).create_indexfile()
-    mainanalysis.Scd(mysystem).create_scdfile()
+    #gmx.Neighbors(mysystem).create_indexfile()
+    #mainanalysis.Scd(mysystem).create_scdfile()
     #gmx.trajectory_to_gro(mysystem) Already is included in create_scdfile
 
 def mend_energyruns():
@@ -270,7 +272,61 @@ def check_and_write():
                 '\n    os.chdir("'+systemdir+'")'
                 '\nos.remove(sys.argv[0])',\
                 file=scriptf)
-            write_submitfile('submit.sh', jobfilename, mem='32G')
+            write_submitfile('submit.sh', jobfilename, mem='16G')
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+        os.chdir(startdir)
+
+def write_eofscd():
+    ''' Check if all energy files exist and write table with all energies '''
+    startdir = os.getcwd()
+    if len(sys.argv) != 6:
+        print('Invalid number of input arguments. Specify:\n'
+              '<systemname> <lowest T> <highest T> <part of lipid> <jobname>')
+        sys.exit()
+    systemname = sys.argv[1]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
+    lipidpart = sys.argv[4]
+    jobname = lipidpart+'_'+sys.argv[5]
+    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    for systemdir in systems_to_calculate_for:
+        os.chdir(systemdir)
+        temperature = systemdir[-3:]
+        scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
+        jobfilename = systemdir[2:]+jobname
+        with open(scriptfilename, 'w') as scriptf:
+            print(\
+                'import os, sys'
+                '\nimport subprocess'
+                '\nfrom bilana import gromacstoolautomator as gmx'
+                '\nfrom bilana.systeminfo import SysInfo'
+                '\nfrom bilana import energyfilecreator as ef'
+                '\nmysystem = SysInfo("inputfile")'
+                '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
+                '\nif myenergystate.check_exist_xvgs():'
+#                '\n    myenergystate.write_energyfile()'
+                '\n    efstate = ef.EofScd(mysystem,"'+lipidpart+'", myenergystate.all_energies, "scd_distribution.dat")'
+                '\n    efstate.create_eofscdfile()'
+                '\nelse:'
+#                '\n    raise ValueError("There are .edr files missing.")'
+                '\n    print("Submitting missing energy calculations")'
+                '\n    os.chdir("'+startdir+'")'
+                '\n    cmd = ["submit_energycalcs", "'+systemdir[2:-4]+'", "'+temperature+'",'
+                                '"'+temperature+'", "'+lipidpart+'", "en", "40", "off"]'
+                '\n    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)'
+                '\n    out, err = proc.communicate()'
+                '\n    proc.wait()'
+                '\n    proc.stdout.close()'
+                '\n    proc.stderr.close()'
+                '\n    print(out.decode(), err.decode())'
+                '\n    os.chdir("'+systemdir+'")'
+                '\nos.remove(sys.argv[0])',\
+                file=scriptf)
+            write_submitfile('submit.sh', jobfilename, mem='16G', prio=True)
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()

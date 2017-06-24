@@ -14,6 +14,7 @@ setup(name='bilana',
               'initialize_system = bilana.command_line:initialize_system',
               'mend_energyruns = bilana.command_line:mend_energyruns',
               'check_and_write = bilana.command_line:check_and_write',
+              'create_eofscd = bilana.command_line:write_eofscd',
               ]
           },
        #package_data={'': ['energy_recalculation.mdp']}

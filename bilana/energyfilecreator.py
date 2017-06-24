@@ -117,6 +117,7 @@ def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refa
                           .format(time, i, scd_host, float(n_neibs),\
                                   nchol, ndppc, ndupc), file=outfile_dupc)
 
+
 class EofScd():
     ''' All about writing E(Scd)-files '''
     def __init__(self, systeminfo, parts, energyfilename, scdfilename):
@@ -158,15 +159,16 @@ class EofScd():
 
     def create_eofscdfile(self):
         print("______________Creating EofScd input file____________\n")
-        timetoenergy, lasttime1 = self.read_energyinput(self.energyfilename)
-        timetoscd, lasttime2 = self.read_scdinput(self.scdfilename)
-        endtime = int(min(lasttime1, lasttime2))
+#        timetoenergy, lasttime1 = self.read_energyinput(self.energyfilename)
+        timetoscd, endtime = self.read_scdinput(self.scdfilename)
+#        endtime = int(min(lasttime1, lasttime2))
         for pair in self.lipidpairs:
-            self.write_outputfile(timetoenergy, timetoscd, endtime, pair)
+#           self.write_outputfile(timetoenergy, timetoscd, endtime, pair)
+            self.write_output_save_memory(self.energyfilename, timetoscd, pair, endtime)
 
-    def write_outputfile(self, timetoenergy, timetoscd, endtime, wantedpair):
+    def write_output_save_memory(self, energyfile, timetoscd, wantedpair, endtime):
         outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
-        with open(outname, "w") as outf:
+        with open(energyfile, "r") as efile, open(outname, "w") as outf:
             print(\
                   '{: ^10}{: ^10}{: ^15}{: ^8}{: ^10}'\
                   '{: ^15}{: ^15}{: ^15}'\
@@ -177,41 +179,103 @@ class EofScd():
                             "Etot", "Evdw",\
                             "Ecoul", "NChol"),\
                   file=outf)
-            for host in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+            efile.readline()
+            for line in efile:
+                #cols = [x.strip() for x in line.split(' ')]
+                cols = line.split()
+                if int(cols[1]) > int(cols[2]):
+                    continue
+                time = float(cols[0])
+                if time < float(self.mysystem.t_start):
+                    continue
+                elif time > float(endtime):
+                    continue
+                host, neib = int(cols[1]), int(cols[2])
+                neighbors = self.neiblist[host][float(time)]
+                neighbors_neib = self.neiblist[neib][float(time)]
+                if neib not in neighbors:
+                    continue
                 type_host = self.mysystem.resid_to_lipid[host]
-                for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):
-                    #print("Working on residue {} at {}".format(host, t), end="\r")
-                    t = float(t)
-                    neighbors = self.neiblist[host][float(t)]
-                    nchol = [self.mysystem.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
-                    for neib in neighbors:
-                        type_neib = self.mysystem.resid_to_lipid[neib]
-                        pair = (''.join([type_host, '_', type_neib]),\
-                                ''.join([type_neib, '_', type_host]))
-                        if neib < host or (pair[0] != wantedpair or pair[1] != wantedpair):
-                            continue
-                        respair = (host, neib)
-                        #type_neib=self.resid_to_lipid[int(neib)]
-                        #type_pair=type_host+'_'+type_neib
-                        scd_host = timetoscd[(t, host)]
-                        scd_neib = timetoscd[(t, neib)]
-                        delta_scd = abs(scd_host-scd_neib)
-                        avg_scd = (scd_host+scd_neib)/2
-                        for inter in self.interactionskey:
-                            if (t, respair, inter) in timetoenergy.keys():
-                                Etot, VDW, COUL = timetoenergy[(t, respair, inter)]
-                            else:
-                                continue
-                            print(\
-                                  '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'\
-                                  '{: <15}{: <15.5f}{: <15.5f}'\
-                                  '{: <15.5f}{: <15.5f}'\
-                                  '{: <15.5f}{: <5}'\
-                                  .format(t, host, scd_host, neib, scd_neib,\
-                                            inter, delta_scd, avg_scd,\
-                                            float(Etot), float(VDW),\
-                                            float(COUL), nchol),\
-                                  file=outf)
+                type_neib = self.mysystem.resid_to_lipid[neib]
+                type_pair = ('{0}_{1}'.format(type_host, type_neib), '{1}_{0}'.format(type_host, type_neib))
+                if neib < host or (type_pair[0] != wantedpair and type_pair[1] != wantedpair):
+                    continue
+                #print(time, respair, end='\r')
+                Etot = float(cols[6])
+                VDW = float(cols[5])
+                COUL = float(cols[4])
+                interactiontype = cols[3]
+                pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
+                #pair_neibs = [self.mysystem.resid_to_lipid[N] for N in neighbors if N!=neib]\
+                #        +[self.mysystem.resid_to_lipid[N] for N in neighbors_neib if N!=host]
+                nchol = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('CHL1')
+                if nchol > 6:
+                    print(nchol)
+                scd_host = timetoscd[(time, host)]
+                scd_neib = timetoscd[(time, neib)]
+                delta_scd = abs(scd_host-scd_neib)
+                avg_scd = (scd_host+scd_neib)/2
+                print(\
+                      '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'
+                      '{: <15}{: <15.5f}{: <15.5f}'
+                      '{: <15.5f}{: <15.5f}'
+                      '{: <15.5f}{: <5}'
+                      .format(time, host, scd_host, neib, scd_neib,\
+                                interactiontype, delta_scd, avg_scd,\
+                                float(Etot), float(VDW),\
+                                float(COUL), nchol),\
+                      file=outf)
+
+    #=================== DEPRECATED ===================================================
+    # def write_outputfile(self, timetoenergy, timetoscd, endtime, wantedpair):
+    #     outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
+    #     with open(outname, "w") as outf:
+    #         print(\
+    #               '{: ^10}{: ^10}{: ^15}{: ^8}{: ^10}'\
+    #               '{: ^15}{: ^15}{: ^15}'\
+    #               '{: ^15}{: ^15}'\
+    #               '{: ^15}{: ^5}'\
+    #               .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
+    #                         "Interaction", "DeltaScd", "AvgScd",\
+    #                         "Etot", "Evdw",\
+    #                         "Ecoul", "NChol"),\
+    #               file=outf)
+    #         for host in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+    #             type_host = self.mysystem.resid_to_lipid[host]
+    #             for t in range(self.mysystem.t_start, endtime+1, self.mysystem.dt):
+    #                 #print("Working on residue {} at {}".format(host, t), end="\r")
+    #                 t = float(t)
+    #                 neighbors = self.neiblist[host][float(t)]
+    #                 nchol = [self.mysystem.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
+    #                 for neib in neighbors:
+    #                     type_neib = self.mysystem.resid_to_lipid[neib]
+    #                     pair = (''.join([type_host, '_', type_neib]),\
+    #                             ''.join([type_neib, '_', type_host]))
+    #                     if neib < host or (pair[0] != wantedpair or pair[1] != wantedpair):
+    #                         continue
+    #                     respair = (host, neib)
+    #                     #type_neib=self.resid_to_lipid[int(neib)]
+    #                     #type_pair=type_host+'_'+type_neib
+    #                     scd_host = timetoscd[(t, host)]
+    #                     scd_neib = timetoscd[(t, neib)]
+    #                     delta_scd = abs(scd_host-scd_neib)
+    #                     avg_scd = (scd_host+scd_neib)/2
+    #                     for inter in self.interactionskey:
+    #                         if (t, respair, inter) in timetoenergy.keys():
+    #                             Etot, VDW, COUL = timetoenergy[(t, respair, inter)]
+    #                         else:
+    #                             continue
+    #                         print(\
+    #                               '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'\
+    #                               '{: <15}{: <15.5f}{: <15.5f}'\
+    #                               '{: <15.5f}{: <15.5f}'\
+    #                               '{: <15.5f}{: <5}'\
+    #                               .format(t, host, scd_host, neib, scd_neib,\
+    #                                         inter, delta_scd, avg_scd,\
+    #                                         float(Etot), float(VDW),\
+    #                                         float(COUL), nchol),\
+    #                               file=outf)
+    #===========================================================================
 
     def read_energyinput(self, energyfile):
         timetoenergy = {}
