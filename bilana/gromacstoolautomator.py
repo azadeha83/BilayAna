@@ -113,15 +113,15 @@ def radialdistribution(systeminfo, ref, sel, nchol=None):
     As input either:
         atoms (P, O3, ...)
         or center of mass (COM) of lipidtype (DPPC, CHL1)
-        or parts of lipid (TAIL, HEAD) of lipidtype 
+        or parts of lipid (TAILS, HEAD, TAIL1[->single Tail]) of lipidtype (DPPC/DUPC)
     can be specified
-    Example inputs: "COM-DPPC", "TAIL-CHL1", "P" '''
+    Example inputs: "COM-DPPC", "TAIL1-DPPC", "P" '''
     print("\n_____Calculating radial distribution function ____\n")
     print("Ref: {}\nSel: {}\nCholesterol neighbor specification: {}\n".format(ref, sel, nchol))
     #groups_to_calculate = ['P','O','COMTAIL','COMHEAD']
     os.makedirs(systeminfo.datapath+'/rdf', exist_ok=True)
     selectdict = {}
-    myregex = re.compile(r'^(COM|HEAD|TAILS|singleTAIL)?-?(\w+)$')
+    myregex = re.compile(r'^(P|COM|HEAD|TAILS|TAIL1|TAIL1HALFTOP|TAIL1HALFBOT|TAILHALFSTOP|TAILHALFSBOT)?-?(\w+)$')
     for selection in (('ref', ref), ('sel', sel)):
         regmatch = myregex.match(selection[1])
         if regmatch is None:
@@ -143,18 +143,33 @@ def radialdistribution(systeminfo, ref, sel, nchol=None):
                     # atomlist = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0]]
                     #========================================================================
                     selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
-                    selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
-                elif prefix == 'singleTAIL':
+                elif prefix == 'TAIL1':
                     atomlist1 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0]]
-                    atomlist2 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][1]]
-                    selectstring = '{0} resname {1} and name {2} or {0} resname {1} and name {3}'.format(selprefix, atomchoice, ' '.join(atomlist1), ' '.join(atomlist2))
+                    #atomlist2 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][1]]
+                    #selectstring = '{0} resname {1} and name {2} or {0} resname {1} and name {3}'.format(selprefix, atomchoice, ' '.join(atomlist1), ' '.join(atomlist2))
+                    selectstring = '{0} resname {1} and name {2}'.format(selprefix, atomchoice, ' '.join(atomlist1))
                 elif prefix == 'COM':
                     selectstring = '{} resname {} '.format(selprefix, atomchoice)
+                elif prefix == 'TAIL1HALFTOP':
+                    Ntailatoms = len(lipidmolecules.tail_atoms_of[atomchoice][0])
+                    atomlist1 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0][:Ntailatoms//2]]
+                    selectstring = '{0} resname {1} and name {2}'.format(selprefix, atomchoice, ' '.join(atomlist1))
+                elif prefix == 'TAIL1HALFBOT':
+                    Ntailatoms = len(lipidmolecules.tail_atoms_of[atomchoice][0])
+                    atomlist1 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0][Ntailatoms//2:]]
+                    selectstring = '{0} resname {1} and name {2}'.format(selprefix, atomchoice, ' '.join(atomlist1))
+                elif prefix == 'TAILHALFSTOP':
+                    atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item[:len(item)//2]]
+                    selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
+                elif prefix == 'TAILHALFSBOT':
+                    Ntailatoms = len(lipidmolecules.tail_atoms_of[atomchoice][0])
+                    atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item[len(item)//2:]]
+                    selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
             else:
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
                 sys.exit()
-        if nchol is not None:# and selection[0] == 'ref':
+        if nchol is not None and selection[0] == 'ref':
             residlist_withNchol = get_res_with_nchol(systeminfo, nchol)
             if not residlist_withNchol:
                 print("Cannot compute rdf: There is no neighbor with {} cholesterol neighbors.".format(nchol))
@@ -168,7 +183,7 @@ def radialdistribution(systeminfo, ref, sel, nchol=None):
             print("Selection for {} is:\n{}\n".format(selection[0], selectstring))
             print(selectstring, file=selfile)
     outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel, nchol)
-    g_rdf_arglist = [gmx_exec, 'rdf',  '-xvg', 'none',\
+    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',\
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
                      '-o', outputfile,'-ref', '-sf', selectdict[ref],\
                      '-sel', '-sf', selectdict[sel],\

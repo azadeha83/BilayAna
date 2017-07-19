@@ -186,7 +186,7 @@ class EofScd():
                 if int(cols[1]) > int(cols[2]):
                     continue
                 time = float(cols[0])
-                if time < float(self.mysystem.t_start):
+                if time < float(self.mysystem.t_start) or time % self.mysystem.dt != 0:
                     continue
                 elif time > float(endtime):
                     continue
@@ -202,15 +202,13 @@ class EofScd():
                     continue
                 #print(time, respair, end='\r')
                 Etot = float(cols[6])
-                VDW = float(cols[5])
-                COUL = float(cols[4])
+                COUL = float(cols[5])
+                VDW = float(cols[4])
                 interactiontype = cols[3]
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
                 #pair_neibs = [self.mysystem.resid_to_lipid[N] for N in neighbors if N!=neib]\
                 #        +[self.mysystem.resid_to_lipid[N] for N in neighbors_neib if N!=host]
                 nchol = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('CHL1')
-                if nchol > 6:
-                    print(nchol)
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
                 delta_scd = abs(scd_host-scd_neib)
