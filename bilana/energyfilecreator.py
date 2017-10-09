@@ -39,83 +39,40 @@ def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refa
                     Etot = time_pair_to_E[time+'_'+respair]
                     dist = time_pair_to_r[time+'_'+respair]
                     print("{: <10} {: <10} {: <10} {: < 10} {: <20.5f}".format(time, i, neib, dist, Etot), file=outfile)
+class NofScd():
+    def __init__(self, systeminfo):
+        self.systeminfo = systeminfo
+    def create_NofScd_input(self, scdfile, neighborfile):
+        time_to_scd, endtime1 = read_scdinput(scdfile)
+        time_to_neiblist, hosts_without_neib = read_neighborinput(neighborfile)
+        
+        with open("Nofscd.dat","w") as outfile:
+            print(\
+                '{: <10}{: <10}{: <15}{: <20}{: <20}'\
+                '{: <10}{: <10}{: <10}'\
+                .format("Time", "Host", "Lipid_type", "Host_Scd", "Ntot",\
+                           "Chol", "DPPC", "DUPC"), file=outfile)
 
-def create_NofScd_input(self, scdfile, neighborfile):   # Ugly! Needs to be refactored.
-    time_resid_to_scd = {}
-    neighbors_of_host = {}
-    hosts_without_neib = []
-    with open(scdfile, "r") as sfile, open(neighborfile, "r") as nfile:
-        sfile.readline()
-        nfile.readline()
-        for line in sfile:
-            cols = line.split()
-            time = cols[0]
-            res = cols[1]
-            scd = cols[3]
-            keystring = time+'_'+res
-            time_resid_to_scd.update({keystring:scd})
-        for line in nfile:
-            cols = line.split()
-            time = str(float(cols[1]))
-            host = cols[0]
-            if int(cols[2]) == 0:
-                #print(host, "has no neighbors at time", time)
-                hosts_without_neib += [time+'_'+host]
-                continue
-            neighbors = cols[3]
-            keystring = time+'_'+host
-            neighbors_of_host.update({keystring:neighbors})
-    with open("Nofscd_dppc.dat","w") as outfile_dppc,\
-        open("Nofscd_chol.dat","w") as outfile_chol,\
-        open("Nofscd_dupc.dat","w") as outfile_dupc:
-        print(\
-            '{: <10} {: <10} {: <20} {: <20}'\
-            '{: <10} {: <10} {: <10}'\
-            .format("Time", "Host", "Host_Scd", "N Neighbor",\
-                       "N Chol", "N DPPC", "N DUPC"), file=outfile_dppc)
-        print(\
-            '{: <10} {: <10} {: <20} {: <20}'\
-            '{: <10} {: <10} {: <10}'\
-            .format("Time", "Host", "Host_Scd", "N Neighbor",\
-                       "N Chol", "N DPPC", "N DUPC"), file=outfile_chol)
-        print(\
-            '{: <10} {: <10} {: <20} {: <20}'\
-            '{: <10} {: <10} {: <10}'\
-            .format("Time", "Host", "Host_Scd", "N Neighbor",\
-                       "N Chol", "N DPPC", "N DUPC"), file=outfile_dupc)
-        endtime = int(float(time))
-        for i in range(1, self.NUMBEROFPARTICLES+1):
-            restype = self.resid_to_lipid[i]
-            #print("Working on residue {} ".format(i), end="\r")
-            for t in range(self.t_start, endtime+1, self.dt):
-                time = float(t)
-                if time+'_'+str(i) in hosts_without_neib:
-                    continue
-                n_neibs = len(neighbors_of_host[time+'_'+str(i)].split(','))
-                neibindexlist = neighbors_of_host[time+'_'+str(i)].split(',')
-                neibtypelist = [self.resid_to_lipid[int(resid)] for resid in neibindexlist]
-                nchol = neibtypelist.count('CHL1')
-                ndppc = neibtypelist.count('DPPC')
-                ndupc = neibtypelist.count('DUPC')
-                scd_host = float(time_resid_to_scd[time+'_'+str(i)])
-                if restype == 'DPPC':
+            for i in range(1, self.systeminfo.NUMBEROFMOLECULES+1):
+                host_type = self.systeminfo.resid_to_lipid[i]
+                #print("Working on residue {} ".format(i), end="\r")
+                for t in range(self.systeminfo.t_start, int(endtime1)+1, self.systeminfo.dt):
+                    time = float(t)
+                    if (time, i) in hosts_without_neib:
+                        continue
+                    neibindexlist = time_to_neiblist[(time, i)].split(',')
+                    n_neibs = len(neibindexlist)
+                    neibtypelist = [self.systeminfo.resid_to_lipid[int(resid)] for resid in neibindexlist]
+                    nchol = neibtypelist.count('CHL1')
+                    ndppc = neibtypelist.count('DPPC')
+                    ndupc = neibtypelist.count('DUPC')
+                    scd_host = float(time_to_scd[(time, i)])
                     print(\
-                          '{: <10}{: <10}{: <20.5f}{: <20.5f}'\
-                          '{: <10}{: <10}{: <10}'\
-                          .format(time, i, scd_host, float(n_neibs),\
-                                  nchol, ndppc, ndupc), file=outfile_dppc)
-                elif restype == 'CHL1':
-                    print(\
-                          '{: <10}{: <10}{: <20.5f}{: <20.5f}'\
-                          '{: <10}{: <10}{: <10}'\
-                          .format(time, i, scd_host, float(n_neibs),\
-                                  nchol, ndppc, ndupc), file=outfile_chol)
-                elif restype == 'DUPC':
-                    print(\
-                          '{: <10}{: <10}{: <20.5f}{: <20.5f}'\
-                          '{: <10}{: <10}{: <10}'\
-                          .format(time, i, scd_host, float(n_neibs),\
-                                  nchol, ndppc, ndupc), file=outfile_dupc)
+                              '{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}'\
+                              '{: <10}{: <10}{: <10}'\
+                              .format(time, i, host_type, scd_host, float(n_neibs),\
+                                      nchol, ndppc, ndupc), file=outfile)
+
 
 
 class EofScd():
@@ -160,7 +117,7 @@ class EofScd():
     def create_eofscdfile(self):
         print("______________Creating EofScd input file____________\n")
 #        timetoenergy, lasttime1 = self.read_energyinput(self.energyfilename)
-        timetoscd, endtime = self.read_scdinput(self.scdfilename)
+        timetoscd, endtime = read_scdinput(self.scdfilename)
 #        endtime = int(min(lasttime1, lasttime2))
         for pair in self.lipidpairs:
 #           self.write_outputfile(timetoenergy, timetoscd, endtime, pair)
@@ -170,14 +127,14 @@ class EofScd():
         outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
         with open(energyfile, "r") as efile, open(outname, "w") as outf:
             print(\
-                  '{: ^10}{: ^10}{: ^15}{: ^8}{: ^10}'\
-                  '{: ^15}{: ^15}{: ^15}'\
+                  '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
+                  '{: ^15}{: ^18}{: ^15}'\
                   '{: ^15}{: ^15}'\
-                  '{: ^15}{: ^5}'\
+                  '{: ^15}{: ^7}{: ^7}{: ^10}'\
                   .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
                             "Interaction", "DeltaScd", "AvgScd",\
                             "Etot", "Evdw",\
-                            "Ecoul", "NChol"),\
+                            "Ecoul", "NChol", "NDPPC","Ntot" ),\
                   file=outf)
             efile.readline()
             for line in efile:
@@ -206,9 +163,14 @@ class EofScd():
                 VDW = float(cols[4])
                 interactiontype = cols[3]
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
+                #new_pair_neibs =list( (set(neighbors) & set(neighbors_neib)) - set([host]) - set([neib]))
+                #new_nchol = [self.mysystem.resid_to_lipid[N] for N in new_pair_neibs].count('CHL1')
+                #new_ntot = len(new_pair_neibs)
                 #pair_neibs = [self.mysystem.resid_to_lipid[N] for N in neighbors if N!=neib]\
                 #        +[self.mysystem.resid_to_lipid[N] for N in neighbors_neib if N!=host]
                 nchol = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('CHL1')
+                ndppc = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('DPPC')
+                ntot = len(pair_neibs)
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
                 delta_scd = abs(scd_host-scd_neib)
@@ -217,11 +179,11 @@ class EofScd():
                       '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'
                       '{: <15}{: <15.5f}{: <15.5f}'
                       '{: <15.5f}{: <15.5f}'
-                      '{: <15.5f}{: <5}'
+                      '{: <15.5f}{: <5}{: <5}{: <5}'
                       .format(time, host, scd_host, neib, scd_neib,\
                                 interactiontype, delta_scd, avg_scd,\
                                 float(Etot), float(VDW),\
-                                float(COUL), nchol),\
+                                float(COUL), nchol, ndppc, ntot),\
                       file=outf)
 
     #=================== DEPRECATED ===================================================
@@ -274,36 +236,51 @@ class EofScd():
     #                                         float(COUL), nchol),\
     #                               file=outf)
     #===========================================================================
-
-    def read_energyinput(self, energyfile):
-        timetoenergy = {}
-        with open(energyfile, "r") as efile:
-            efile.readline()
-            for line in efile:
-                #cols = [x.strip() for x in line.split(' ')]
-                cols = line.split()
-                if int(cols[1]) > int(cols[2]):
-                    continue
-                time = float(cols[0])
-                respair = (int(cols[1]), int(cols[2]))
-                #print(time, respair, end='\r')
-                Etot = float(cols[6])
-                VDW = float(cols[5])
-                COUL = float(cols[4])
-                inttype = cols[3]
-                timetoenergy.update({(time, respair, inttype):(Etot, VDW, COUL)})
-        return timetoenergy, time
-
-    def read_scdinput(self, scdfile):
-        timetoscd = {}
-        with open(scdfile, "r") as sfile:
-            sfile.readline()
-            for line in sfile:
-                cols = line.split()
-                time = float(cols[0])
-                res = int(cols[1])
-                scd = float(cols[3])
-                timetoscd.update({(time, res):scd})
-        return timetoscd, time
+def read_energyinput(energyfile):
+    timetoenergy = {}
+    with open(energyfile, "r") as efile:
+        efile.readline()
+        for line in efile:
+            #cols = [x.strip() for x in line.split(' ')]
+            cols = line.split()
+            if int(cols[1]) > int(cols[2]):
+                continue
+            time = float(cols[0])
+            respair = (int(cols[1]), int(cols[2]))
+            #print(time, respair, end='\r')
+            Etot = float(cols[6])
+            VDW = float(cols[5])
+            COUL = float(cols[4])
+            inttype = cols[3]
+            timetoenergy.update({(time, respair, inttype):(Etot, VDW, COUL)})
+    return timetoenergy, time
+def read_scdinput(scdfile):
+    timetoscd = {}
+    with open(scdfile, "r") as sfile:
+        sfile.readline()
+        for line in sfile:
+            cols = line.split()
+            time = float(cols[0])
+            res = int(cols[1])
+            scd = float(cols[3])
+            timetoscd.update({(time, res):scd})
+    return timetoscd, time
+###################################
+def read_neighborinput(neighborfile):
+    neighbors_of_host = {}
+    hosts_without_neib = []
+    with open(neighborfile, "r") as nfile:
+        nfile.readline()
+        for line in nfile:
+            cols = line.split()
+            time = float(cols[1])
+            host = int(cols[0])
+            if int(cols[2]) == 0:
+                #print(host, "has no neighbors at time", time)
+                hosts_without_neib += [(time, host)]
+                continue
+            neighbors = cols[3]
+            neighbors_of_host.update({(time, host):neighbors})
+    return neighbors_of_host, hosts_without_neib
 ###################################
 

@@ -7,12 +7,24 @@ import os
 import sys 
 import numpy as np
 from time import localtime, strftime
+from bilana.energyfilecreator import read_scdinput
 
 #from bilana.systeminfo import mysystem
 #global mysystem
 from bilana import lipidmolecules
 from bilana import gromacstoolautomator as gmxauto
+from bilana.systeminfo import SysInfo
+import bisect
 #from bilana import misc
+
+class AutoVivification(dict):
+    """Implementation of perl's autovivification feature."""
+    def __getitem__(self, item):
+        try:
+            return dict.__getitem__(self, item)
+        except KeyError:
+            value = self[item] = type(self)()
+            return value
 
 class Scd():
     ''' All about calculating the lipid Scd order parameter '''
@@ -456,11 +468,6 @@ def create_NLip_by_Ntot(self,neighborfile):
         for time in sorted(lipid_pairs['DPPC_DPPC'].keys()):
             print(time,0.5*len(lipid_pairs['DPPC_DPPC'][time]),file=pdppc)
 
-def calc_gofr(self):
-    print("\n_____Calculating radial distribution function ____\n")
-    os.makedirs(self.datapath+'/rdf',exist_ok=True)
-    makeselection=1
-    return makeselection
 
 def distance_distr(self):
     ''' '''
@@ -500,6 +507,140 @@ def distance_distr(self):
             for atom in distances[nchol].keys():
                 meandistance=np.mean(distances[nchol][atom])
                 print("{: <10}{: <10}{: <10}".format(str(nchol)+str(atom[1:2]),atom[2:],meandistance),file=outf)
+
+
+
+def calc_neighbor_distribution(minscd, maxscd, write='on', binwidth=0.2, count_type='Ntot',
+                               outfilename="p-N.dat",
+                               neibfilename='neighbor_info',
+                               scdfilename='scd_distribution.dat',
+                               pair_type='single'):
+    '''
+        Calculates p(N) for lipids of type, exhibiting order around scdval+-0.1
+    '''
+    systeminfo = SysInfo('inputfile')
+    timetoscd, maxtime = read_scdinput(scdfilename)
+    resid2lipid = systeminfo.resid_to_lipid
+    if pair_type == 'pair':
+        neiblist = gmxauto.Neighbors(systeminfo).get_neighbor_dict()
+    scdvallist = np.arange(minscd, maxscd+binwidth, binwidth)
+    pofn = dict()
+    typeset = set()
+    with open(neibfilename, "r") as nfile:
+        nfile.readline()
+        for line in nfile:
+            cols = line.split()
+            resid = int(cols[0])
+            time = float(cols[1])
+            if time > maxtime:
+                continue
+            scdval = timetoscd[(time, resid)]
+            ltype = resid2lipid[resid]
+            if pair_type == 'single':
+                typeset |= {ltype}
+                if count_type == 'Ntot':
+                    ntot = int(cols[2])
+                else:
+                    try:
+                        neibs = cols[3]
+                        ntot = int([resid2lipid[int(i)] for i in cols[3].split(',')].count(count_type))
+                    except IndexError:
+                        ntot = 0
+                scdbin = round(scdvallist[bisect.bisect_right(scdvallist[:-1], scdval)], 2) - round(binwidth/2, 2)
+                #print("COMPARE:",scdval, scdvallist, bisect.bisect_right(scdvallist[:-1], scdval), scdbin)
+                #print(scdbin, scdval)
+                if scdbin not in pofn.keys():
+                    pofn[scdbin] = {}
+                if ltype not in list(pofn[scdbin].keys()):
+                    pofn[scdbin][ltype] = {}
+                    #print("HERE", pofn[scdbin], ltype, pofn[scdbin][ltype])
+                if ntot not in pofn[scdbin][ltype].keys():
+                    pofn[scdbin][ltype][ntot] = 1
+                else:
+                    pofn[scdbin][ltype][ntot] += 1
+            elif pair_type == 'pair':
+                neibs = cols[3].split(',')
+                for neib in neibs:
+                    if neib <= resid:
+                        continue
+                    neibscd = timetoscd[(time, neib)]
+                    neibtype = resid2lipid[neib]
+                    avgscd = (scdval+neibscd)/2
+                    pair = '{}_{}'.format(ltype, neibtype)
+                    typeset |= {pair}
+                    pair_neighbors = list(set(neibs) + set(neiblist[neib]) - set(neib) - set(resid))
+                    if count_type == 'Ntot':
+                        pair_ntot = len(pair_neighbors)
+                    else:
+                        pair_ntot = [resid2lipid[int(i)] for i in pair_neighbors].count(count_type)
+                    scdbin = round(scdvallist[bisect.bisect_right(scdvallist, avgscd)], 2) - (binwidth/2)
+                    if scdbin not in pofn.keys():
+                        pofn[scdbin] = {}
+                    if ltype not in pofn[scdbin].keys():
+                        pofn[scdbin][pair] = {}
+                    if ntot not in pofn[scdbin][pair].keys():
+                        pofn[scdbin][pair][pair_ntot] = 1
+                    else:
+                        pofn[scdbin][pair][pair_ntot] += 1
+    if write == 'on':
+        write_pofn_file(outfilename, pofn, typeset, count_type=count_type)
+    return pofn, typeset
+
+def write_pofn_file(outfilename, pofn, typeset, averageing='off', count_type='Ntot'):
+    with open(outfilename, "w") as outf:
+        print("{: <10}{: <5}{: <20}".format('Scd', count_type, ' '.join(sorted(typeset))), file=outf)
+        for scdval in sorted(pofn.keys()):
+            #ltypes = pofn[scdval].keys()
+            keyset = set()
+            for ltype in sorted(typeset):
+                try:
+                    keyset |= set(pofn[scdval][ltype].keys())
+                except KeyError:
+                    continue
+            for N in sorted(keyset):
+                values = []
+                for lipidtype in sorted(typeset):
+                    try:
+                        if averageing == 'off':
+                            values += [str(pofn[scdval][lipidtype][N])]
+                        else:
+                            values += [str(round(np.mean(pofn[scdval][lipidtype][N])))]
+                    except KeyError:
+                        values += ['0']
+                print("{: <10}{: <5}{: <20}".format(round(scdval, 2), N, ' '.join(values)), file=outf)
+
+def pofn_Tavg(Membsystem, Trange, outfilename, count_type='Ntot'):
+    ''' '''
+    Tmin, Tmax, Tstep = Trange
+    temperatures = [T for T in range(Tmin, Tmax+1, Tstep)]
+    new_pofn = AutoVivification()
+    for T in temperatures:
+        os.chdir(Membsystem+'_'+str(T))
+        pofn_T, typeset = calc_neighbor_distribution(0.0, 1.0, count_type=count_type, write='off')
+        for scdval in sorted(pofn_T.keys()):
+            keyset = set()
+            for ltype in sorted(typeset):
+                try:
+                    keyset |= set(pofn_T[scdval][ltype].keys())
+                except KeyError:
+                    continue
+            for N in sorted(keyset):
+                for lipidtype in sorted(typeset):
+                    try:
+                        freq = pofn_T[scdval][lipidtype][N]
+                    except KeyError:
+                        freq = 0
+                    #print(freq)
+                    try:
+                        new_pofn[scdval][lipidtype][N].append(freq)
+                        print(new_pofn[scdval][lipidtype][N])
+                    except AttributeError:
+                        new_pofn[scdval][lipidtype][N] = []
+                        print(new_pofn[scdval][lipidtype][N])
+                        new_pofn[scdval][lipidtype][N].append(freq)
+        os.chdir("../")
+    write_pofn_file(outfilename, new_pofn, typeset, averageing='on')
+
 
 def calc_averagedistance(self,distancefile):
     distdata={}

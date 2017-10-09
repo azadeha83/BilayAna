@@ -5,8 +5,9 @@ import re
 import os
 import sys 
 from time import localtime, strftime
-
-from bilana import lipidmolecules, systeminfo
+import numpy as np
+from bilana import lipidmolecules #,systeminfo
+import bisect
 
 #from bilana.systeminfo import mysystem
 #global mysystem
@@ -50,7 +51,7 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
     for lipidmolecule in molecules:
         grofile_output = ''.join([systeminfo.datapath, '/grofiles', '/calc_scd_for', str(lipidmolecule), '.gro'])
         if atomlist == None:
-            atomlist = lipidmolecules.tail_atoms_of[lipidmolecule]+['P', 'O3']
+            atomlist = lipidmolecules.scd_tail_atoms_of[lipidmolecule]+['P', 'O3']
         print(strftime("%H:%M:%S :", localtime()),"Processing {} ...".format(lipidmolecule))
         inp_str = str(lipidmolecule).encode()
         if os.path.isfile(grofile_output) and overwrite=='off':
@@ -108,7 +109,211 @@ def get_res_with_nchol(systeminfo, nchol):
             resids_with_ncholneibs.append(res)
     return resids_with_ncholneibs
 
-def radialdistribution(systeminfo, ref, sel, nchol=None):
+
+class calc_rdf_selfimplementation():
+    ''' '''
+    def __init__(self, _systeminfo, ref, sel, nchol='off', outfname='rdf.dat', binwidth = 0.008, overwrite='off'):
+        self.sysinfo = _systeminfo
+        self.ref = ref
+        self.sel = sel 
+        self.nchol = nchol
+        self.binwidth = binwidth
+        self.overwrite = overwrite
+        self.outname = outfname
+        if nchol != 'off':
+            self.neiblist = Neighbors(_systeminfo).get_neighbor_dict()
+    def run(self):
+        rdf = self.calc_rdf()
+        self.write_to_file(rdf, self.outname)
+    def write_to_file(self, rdf, outputfilename):
+        ''' '''
+        print("Writing data to file")
+        with open(outputfilename, "w") as outf:
+            # for i in np.arange(min(rdf.keys), max(rdf.keys)+self.binwidth, self.binwidth):
+            for r in sorted(rdf.keys()):
+                print('{: <10.3f}{: <10}'.format(r, rdf[r]), file=outf)
+    def produce_gro(self, grofilename='/traj_complete.gro'):
+        print(strftime("%H:%M:%S :", localtime()), 'Converting trajectory-file to structure-file ...\n')
+        os.makedirs(self.sysinfo.datapath+'/grofiles', exist_ok=True)
+        grofile_output = ''.join([self.sysinfo.datapath, '/grofiles/', grofilename])
+        print(grofile_output, self.overwrite)
+        if os.path.isfile(grofile_output) and self.overwrite=='off':
+            print("File already exists.")
+        else:
+            print(strftime("%H:%M:%S :", localtime()),"... Start conversion from .trj to .gro ...")
+            print(self.sysinfo.molecules)
+            sorted_mols = []
+            if 'DPPC' in self.sysinfo.molecules:
+                sorted_mols.append('DPPC')
+            if 'DUPC' in self.sysinfo.molecules:
+                sorted_mols.append('DUPC')
+            if 'CHL1' in self.sysinfo.molecules:
+                sorted_mols.append('CHL1')
+            inp_str = str('_'.join(sorted_mols)+'\n').encode()
+            gmx_traj_arglist = [\
+                gmx_exec,'trjconv','-s', self.sysinfo.tprpath, '-f', self.sysinfo.trjpath,\
+                '-o',grofile_output,'-n','index.ndx',\
+                '-b', str(self.sysinfo.t_start), '-e', str(self.sysinfo.t_end),\
+                '-dt', str(self.sysinfo.dt),\
+                '-pbc', 'whole',\
+                ]
+            try:
+                out, err = exec_gromacs(gmx_traj_arglist, inp_str)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                with open("gmx_traj_compl.log","w") as logfile:
+                    logfile.write(err.decode())
+                    logfile.write(150*'_')
+                    logfile.write(out.decode())
+                    logfile.write(150*'_')
+        return grofile_output
+    @staticmethod
+    def calc_distance(coord1, coord2, box_vectors):
+        ''' '''
+        def create_pbc_copies(coord, boxvectors):
+            ''' '''
+            pbc_copies = []
+            mirror_image_vectors = [
+                                    (1, 1, 0), (1, 0, 0), (1, -1, 0),
+                                    (0, 1, 0), (0, -1, 0),
+                                    (-1, 1, 0), (-1, 0, 0), (-1, -1, 0),
+                                    ]
+            for vec in mirror_image_vectors:
+                vec = np.array(vec[:2])
+                pbc_translation = vec*boxvectors[:2]
+                pbc_copy = coord[:2] + pbc_translation
+                pbc_copies.append(pbc_copy)
+            return pbc_copies
+        distances = []
+        coords = [np.array(coord2[:2])]
+        rmax = min(box_vectors[:2])/2
+        #print("RMAX", rmax)
+        for xyz in create_pbc_copies(coord2, box_vectors): coords.append(xyz)
+        for coord_partner in coords:
+            distance = np.round(np.linalg.norm(coord_partner-coord1[:2]), 5)
+            if distance <= rmax:
+                distances.append(distance)
+            #distances.append(distance)
+        #print("DISTANCES", distances)
+        if len(distances) > 1:
+            return min(distances)
+            #raise ValueError("More than one distance smaller rmax")
+        elif len(distances) == 0:
+            return None
+        return distances[0]
+        #return min(distances)
+    def process_frame(self, grofile, time):
+        '''  '''
+        binwidth = self.binwidth
+        ref = self.ref
+        sel = self.sel
+        gofr = {}
+        #===========================RESNR|NAME==========ATMNR=============IND=======X=========Y============Z=======
+        #regexp = re.compile(r'([\s,\d]{5})[\w,\s]{5}([\d,\w,\s]{5})[\s*\d+]{5}(-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
+        regexp = re.compile(r'^([\s,\d]{5})([\w,\s]{5})([\d,\w,\s]{5})([\s*\d+]{5})\s*(-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
+        #regexp = re.compile(r'([\s,\d]{})[\w,\s*]{}[([\d,\w]{1,4})]{}[\s*\d+]{}(-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
+        regexp_boxline = re.compile(r'^\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s*$')
+        #rmax = 100
+        coordlist_ref = [[], []]
+        coordlist_sel = [[], []]
+        for line in grofile:
+            match = regexp.match(line)
+            if match:
+                atomname = match.group(3).strip()
+                xyz = np.array([float(i) for i in match.group(5).split()])
+                #if xyz[2] < 4:
+                    #continue
+                resid = match.group(1).strip()
+                if atomname == ref:
+                    if self.nchol != 'off':
+                        neibs = self.neiblist[int(resid)][float(time)]
+                        neibs_chol = [self.sysinfo.resid_to_lipid[N] for N in neibs].count('CHL1')
+                        if neibs_chol == self.nchol:
+                            if xyz[2] < 4:
+                                coordlist_ref[0].append(xyz)
+                            else:
+                                coordlist_ref[1].append(xyz)
+                    else:
+                        if xyz[2] < 4:
+                            coordlist_ref[0].append(xyz)
+                        else:
+                            coordlist_ref[1].append(xyz)
+                if atomname == sel:
+                    if xyz[2] < 4:
+                        coordlist_sel[0].append(xyz)
+                    else:
+                        coordlist_sel[1].append(xyz)
+                    #coordlist_sel.append(xyz)
+            elif regexp_boxline.match(line):
+                boxvector = [float(i) for i in line.split()]
+                rmax = min(boxvector[:2])/2
+                break
+            else:
+                continue
+        histog = {}
+        histog_list = np.arange(0, rmax+binwidth, binwidth)
+        for i in histog_list: histog[i] = 0
+        for leaflet in range(2):
+            for coord1 in coordlist_ref[leaflet]:
+                for coord2 in coordlist_sel[leaflet]:
+                    if (coord1 == coord2).all():
+                        continue
+                    distance = self.calc_distance(coord1, coord2, boxvector)
+                    if distance is None:
+                        continue
+                    interval = histog_list[bisect.bisect_right(histog_list, distance)]
+                    histog[interval] += 1
+        NumRefAtm = len(coordlist_ref[0])
+        NumSelAtm = len(coordlist_sel[0])
+        print("LENGTH DIFF:", len(coordlist_ref[0]), len(coordlist_ref[1]) )
+        #Boxvolume = (4/3)*(np.pi)*rmax**3
+        Boxvolume = np.pi*(rmax**2)
+        if self.ref == self.sel:
+            Rho_zero = (NumSelAtm-1)/Boxvolume
+        else:
+            Rho_zero = NumSelAtm/Boxvolume
+        for r in histog_list:
+            #Volume_bin = (4/3)*(np.pi)*(((r+binwidth)**3)-(r**3))           # Volume of bin
+            Volume_bin = np.pi*(((r+binwidth)**2)-(r**2))
+            #AvgRefPerVol = NumRefAtm / Volume
+            a = histog[r]/(NumRefAtm*Volume_bin*Rho_zero)
+            #b = histog[r]/(NumRefAtm*Volume_bin*Rho_zero)
+            #c = histog[r]/(NumRefAtm*Rho_zero)
+            #d = histog[r]/(NumRefAtm*Volume*AvgNumPart)
+            #print("r: {}\tN(r): {}\nVolume: {}\nNumRefAtm: {}\tNumSelAtm: {}\nRho: {}".format(r, histog[r], Volume_bin, NumRefAtm, NumSelAtm, Rho_zero))
+            #print("{: <10.3f}{: <10.3f}{: <10.3f}{: <10.3f}".format(a))
+            print(r, a)
+            gofr[r] = a
+        return gofr
+    def calc_rdf(self):
+        ''' '''
+        grofile_output = self.produce_gro()
+        gofr_all_frames = {}
+        with open(grofile_output,"r") as grofile:
+            print(strftime("%H:%M:%S :", localtime()),"... read data from .gro-file ...")
+            for line in grofile:
+                if 't=' in line:
+                    time = float(line[line.index('t=')+2:].strip())
+                    print(time)
+                    if float(self.sysinfo.t_end) < time:
+                    #if time > 20000.:
+                        break
+                    else:
+                        gofr_frame = self.process_frame(grofile, time)
+                        for r in gofr_frame.keys():
+                            try:
+                                gofr_all_frames[r].append(gofr_frame[r])
+                            except KeyError:
+                                gofr_all_frames[r] = []
+                                gofr_all_frames[r].append(gofr_frame[r])
+        for r in sorted(gofr_all_frames.keys()):
+            gval = np.mean(gofr_all_frames[r])
+            gofr_all_frames[r] = gval
+            print(r, gval)
+        return gofr_all_frames
+
+def radialdistribution(systeminfo, ref, sel,):
     ''' Calculates the RDF of sel relative to ref.
     As input either:
         atoms (P, O3, ...)
@@ -117,11 +322,11 @@ def radialdistribution(systeminfo, ref, sel, nchol=None):
     can be specified
     Example inputs: "COM-DPPC", "TAIL1-DPPC", "P" '''
     print("\n_____Calculating radial distribution function ____\n")
-    print("Ref: {}\nSel: {}\nCholesterol neighbor specification: {}\n".format(ref, sel, nchol))
+    print("Ref: {}\nSel: {}\n\n".format(ref, sel))
     #groups_to_calculate = ['P','O','COMTAIL','COMHEAD']
     os.makedirs(systeminfo.datapath+'/rdf', exist_ok=True)
     selectdict = {}
-    myregex = re.compile(r'^(P|COM|HEAD|TAILS|TAIL1|TAIL1HALFTOP|TAIL1HALFBOT|TAILHALFSTOP|TAILHALFSBOT)?-?(\w+)$')
+    myregex = re.compile(r'^(COM|HEAD|TAILS|TAIL1|TAIL1HALFTOP|TAIL1HALFBOT|TAILHALFSTOP|TAILHALFSBOT)?-?(\w+)$')
     for selection in (('ref', ref), ('sel', sel)):
         regmatch = myregex.match(selection[1])
         if regmatch is None:
@@ -130,7 +335,7 @@ def radialdistribution(systeminfo, ref, sel, nchol=None):
         prefix = regmatch.group(1)
         atomchoice = regmatch.group(2)
         if prefix == None:
-            selectstring = 'name {} '.format(atomchoice)
+            selectstring = 'name {} and z<4'.format(atomchoice)
         else:
             selprefix = 'mol_com of'
             if atomchoice in lipidmolecules.described_molecules:
@@ -169,27 +374,30 @@ def radialdistribution(systeminfo, ref, sel, nchol=None):
                 print('Selection invalid, please specify one of',\
                       lipidmolecules.described_molecules)
                 sys.exit()
-        if nchol is not None and selection[0] == 'ref':
-            residlist_withNchol = get_res_with_nchol(systeminfo, nchol)
-            if not residlist_withNchol:
-                print("Cannot compute rdf: There is no neighbor with {} cholesterol neighbors.".format(nchol))
-                return None
-            elif len(residlist_withNchol) < systeminfo.NUMBEROFMOLECULES//10:
-                print("Attention! Only {} lipids taken into account for RDF-calculation.".format(len(residlist_withNchol)))
-            selectstring += ' and resid {}'.format(' '.join([str(i) for i in residlist_withNchol]))
-        select_fname = '{}/select{}_{}{}'.format(systeminfo.temppath, selection[0], selection[1], nchol)
+        #=======================================================================
+        # if nchol is not None and selection[0] == 'ref':
+        #     residlist_withNchol = get_res_with_nchol(systeminfo, nchol)
+        #     if not residlist_withNchol:
+        #         print("Cannot compute rdf: There is no neighbor with {} cholesterol neighbors.".format(nchol))
+        #         return None
+        #     elif len(residlist_withNchol) < systeminfo.NUMBEROFMOLECULES//10:
+        #         print("Attention! Only {} lipids taken into account for RDF-calculation.".format(len(residlist_withNchol)))
+        #     selectstring += ' and resid {}'.format(' '.join([str(i) for i in residlist_withNchol]))
+        #=======================================================================
+        select_fname = '{}/select{}_{}'.format(systeminfo.temppath, selection[0], selection[1])
         selectdict.update({selection[1]:select_fname})
         with open(select_fname, "w") as selfile:
             print("Selection for {} is:\n{}\n".format(selection[0], selectstring))
             print(selectstring, file=selfile)
-    outputfile = '{}/rdf/rdf_{}-{}{}.xvg'.format(systeminfo.datapath, ref, sel, nchol)
-    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',\
-                     '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,\
-                     '-o', outputfile,'-ref', '-sf', selectdict[ref],\
-                     '-sel', '-sf', selectdict[sel],\
+    outputfile = '{}/rdf/rdf_{}-{}.xvg'.format(systeminfo.datapath, ref, sel)
+    outputfile_cn = '{}/rdf/nr_{}-{}.xvg'.format(systeminfo.datapath, ref, sel)
+    g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',
+                     '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,
+                     '-o', outputfile,'-ref', '-sf', selectdict[ref],
+                     '-sel', '-sf', selectdict[sel], '-cn', outputfile_cn,
                       ]
     out, err = exec_gromacs(g_rdf_arglist)
-    rdf_log = 'rdf_{}-{}{}.log'.format(ref, sel, nchol)
+    rdf_log = 'rdf_{}-{}.log'.format(ref, sel)
     with open(rdf_log, "w") as logfile:
         print('STDERR:\n{}\n\nSTDOUT:\n{}'\
                 .format(err.decode(), out.decode()), file=logfile)
