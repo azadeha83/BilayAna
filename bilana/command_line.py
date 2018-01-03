@@ -105,12 +105,18 @@ def submit_energycalcs():
             print(out.decode(), err.decode())
         os.chdir(startdir)
 
-def initialize_system():
+def initialize_system(refatoms=False):
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     mysystem = SysInfo('inputfile')
-    gmx.Neighbors(mysystem).determine_neighbors()
+    if refatoms is False:
+        gmx.Neighbors(mysystem).determine_neighbors()
+    else:
+        gmx.Neighbors(mysystem).determine_neighbors(refatoms=refatoms)
     gmx.Neighbors(mysystem).create_indexfile()
     mainanalysis.Scd(mysystem).create_scdfile()
+    mainanalysis.create_leaflet_assignment_file(mysystem)
+    if os.path.isfile("initialize.sh"):
+        subprocess.call("./initialize.sh")
     #gmx.trajectory_to_gro(mysystem) Already is included in create_scdfile
 
 def mend_energyruns():

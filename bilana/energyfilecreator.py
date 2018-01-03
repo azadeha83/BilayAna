@@ -38,7 +38,7 @@ def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refa
                     respair = str(i)+'-'+str(neib)
                     Etot = time_pair_to_E[time+'_'+respair]
                     dist = time_pair_to_r[time+'_'+respair]
-                    print("{: <10} {: <10} {: <10} {: < 10} {: <20.5f}".format(time, i, neib, dist, Etot), file=outfile)
+                    print("{: <10} {: <10} {: <10} {: <10} {: <20.5f}".format(time, i, neib, dist, Etot), file=outfile)
 class NofScd():
     def __init__(self, systeminfo):
         self.systeminfo = systeminfo
@@ -123,6 +123,12 @@ class EofScd():
 #           self.write_outputfile(timetoenergy, timetoscd, endtime, pair)
             self.write_output_save_memory(self.energyfilename, timetoscd, pair, endtime)
 
+    def create_selfinteractionfile(self):
+        print("______________Creating EofScd input file____________\n")
+        timetoscd, endtime = read_scdinput(self.scdfilename)
+        for lipid in self.mysystem.molecules:
+            self.write_output_selfinteraction(self.energyfilename, lipid, timetoscd, endtime)
+
     def write_output_save_memory(self, energyfile, timetoscd, wantedpair, endtime):
         outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
         with open(energyfile, "r") as efile, open(outname, "w") as outf:
@@ -186,6 +192,48 @@ class EofScd():
                                 float(COUL), nchol, ndppc, ntot),\
                       file=outf)
 
+    def write_output_selfinteraction(self, energyfile, lipid, timetoscd, endtime):
+        outname = ''.join(['Eofscd_self', lipid, self.parts, '.dat'])
+        with open(energyfile, "r") as efile, open(outname, "w") as outf:
+            print(\
+                  '{: ^8}{: ^8}{: ^15}'
+                  '{: ^15}{: ^15}{: ^15}'
+                  '{: ^15}{: ^15}{: ^15}{: ^15}'\
+                  .format("Time", "Host", "Host_Scd", 
+                            "Etot",  "Evdw_tot", "Ecoul_tot",
+                            "Evdw_SR", "Evdw_14", "Ecoul_SR", "Ecoul_14",
+                            ),
+                  file=outf)
+            efile.readline()
+            for line in efile:
+                #cols = [x.strip() for x in line.split(' ')]
+                cols = line.split()
+                host = int(cols[1])
+                type_host = self.mysystem.resid_to_lipid[host]
+                time = float(cols[0])
+                Etot = float(cols[2])
+                coul_sr = float(cols[4])
+                vdw_sr = float(cols[3])
+                coul_14 = float(cols[6])
+                vdw_14 = float(cols[5])
+                coul_tot = float(cols[8])
+                vdw_tot = float(cols[7])
+                if type_host != lipid:
+                    continue
+                if time < float(self.mysystem.t_start) or time % self.mysystem.dt != 0:
+                    continue
+                elif time > float(endtime):
+                    continue
+                scd_host = timetoscd[(time, host)]
+                print(\
+                      '{: <10}{: <10}{: <15.5f}'
+                      '{: <15.5f}{: <15.5f}{: <15.5f}'
+                      '{: <15.5f}{: <15.5f}{: <15.5f}{: <15.5f}'
+                      .format(time, host, scd_host,
+                                Etot, vdw_tot, coul_tot,
+                                vdw_sr, vdw_14, coul_sr, coul_14),
+                      file=outf)
+
     #=================== DEPRECATED ===================================================
     # def write_outputfile(self, timetoenergy, timetoscd, endtime, wantedpair):
     #     outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
@@ -236,6 +284,9 @@ class EofScd():
     #                                         float(COUL), nchol),\
     #                               file=outf)
     #===========================================================================
+
+    
+
 def read_energyinput(energyfile):
     timetoenergy = {}
     with open(energyfile, "r") as efile:

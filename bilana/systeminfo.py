@@ -20,6 +20,7 @@ class SysInfo():
         # ''' general system information '''
         self.system = self.system_info['System']
         self.temperature = self.system_info['Temperature']
+        self.cutoff = float(self.system_info['cutoff'])
         self.molecules = [x.upper() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
         if 'CHOL' in self.molecules:    # This must be declared immediately !!!
             self.molecules.append('CHL1')
@@ -49,6 +50,7 @@ class SysInfo():
         print('Total number of atoms: {}\nNumber of lipids: {}\n\n'.format(self.system_size, self.number_of_lipids))
         if self.NUMBEROFMOLECULES == 'all':
             self.NUMBEROFMOLECULES = self.number_of_lipids
+        self.res_to_leaflet = self.assign_res_to_leaflet()
 
     def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
@@ -108,6 +110,24 @@ class SysInfo():
                 print('Something went wrong! Some resids are missing...')
         return system_size, number_of_lipids
 
+    def assign_res_to_leaflet(self):
+        '''
+            Reads file leaflet_assignment created with function mainanalysis.create_leaflet_assignment_file
+            and returns dictionary res:leaflet_ind
+        '''
+        outdict = dict()
+        try:
+            with open("leaflet_assignment.dat", "r") as lfile:
+                header = lfile.readline()
+                for line in lfile:
+                    cols = line.split()
+                    res = int(cols[0])
+                    leaflet = int(cols[1])
+                    outdict[res] = leaflet
+        except FileNotFoundError:
+            print('WARNING: File "leaflet_assignment.dat" does not exist.\n'
+                  'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
+        return outdict
     #def determine_traj_length(self):
     #    trjpath=self.trjpath
     #    gmxarglist=[gmx_exec,'check','-f',trjpath]
