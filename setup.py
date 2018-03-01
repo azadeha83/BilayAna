@@ -1,20 +1,21 @@
 from setuptools import setup
 
-setup(name='bilana',
+setup(name='src',
       version='1.0',
       description='Analyse lipid bilayer systems',
 #      url='',
       author='Fabian Keller',
       author_email='fabiankeller@wwu.de',
 #      license='',
-      packages=['bilana'],
+      packages=['src'],
       entry_points={
           'console_scripts': [
-              'submit_energycalcs = bilana.command_line:submit_energycalcs',
-              'initialize_system = bilana.command_line:initialize_system',
-              'mend_energyruns = bilana.command_line:mend_energyruns',
-              'check_and_write = bilana.command_line:check_and_write',
-              'create_eofscd = bilana.command_line:write_eofscd',
+              'submit_energycalcs = src.command_line:submit_energycalcs',
+              'initialize_system = src.command_line:initialize_system',
+              'mend_energyruns = src.command_line:mend_energyruns',
+              'check_and_write = src.command_line:check_and_write',
+              'write_eofscd = src.command_line:write_eofscd',
+              'write_nofscd = src.command_line:write_nofscd'
               ]
           },
        #package_data={'': ['energy_recalculation.mdp']}

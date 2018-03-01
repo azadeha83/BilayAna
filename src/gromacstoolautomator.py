@@ -3,14 +3,14 @@
 import subprocess
 import re
 import os
-import sys 
+#import sys 
 from time import localtime, strftime
 import time as Time
 import numpy as np
-from bilana import lipidmolecules #,systeminfo
+from src import lipidmolecules #,systeminfo
 import bisect
 
-#from bilana.systeminfo import mysystem
+#from src.systeminfo import mysystem
 #global mysystem
 
 #inputfile = sys.argv[1]
@@ -713,17 +713,18 @@ class Neighbors():
                     'neibs;'\
                     .format(resid, self.cutoff), file=selection)
             if refatoms == 'onetail':
-                print(
-                    'host = resid {0} and name C34 C24 O3;\n'
-                    'allOAtoms = resname CHL1 and name O3 and not host;\n'
-                    'allTail1Atoms = resname DPPC DUPC and name C34 and not host;\n'
-                    'allTail2Atoms = resname DPPC DUPC and name C24 and not host;\n'
-                    'neibOs = allOAtoms and within {1} of host;\n'
-                    'neibTail1 = allTail1Atoms and within {1} of host;\n'
-                    'neibTail2 = allTail2Atoms and within {1} of host;\n'
-                    'neibs = neibOs or (neibTail1 and neibTail2);\n'
-                    'neibs;'\
-                    .format(resid, self.cutoff), file=selection)
+                raise ValueError("It's not working like this, as the index is compared and so no lipid is selected")
+                #print(
+                #    'host = resid {0} and name C34 C24 O3;\n'
+                #    'allOAtoms = resname CHL1 and name O3 and not host;\n'
+                #    'allTail1Atoms = resname DPPC DUPC and name C34 and not host;\n'
+                #    'allTail2Atoms = resname DPPC DUPC and name C24 and not host;\n'
+                #    'neibOs = allOAtoms and within {1} of host;\n'
+                #    'neibTail1 = allTail1Atoms and within {1} of host;\n'
+                #    'neibTail2 = allTail2Atoms and within {1} of host;\n'
+                #    'neibs = neibOs or (neibTail1 and neibTail2);\n'
+                #    'neibs;'\
+                #    .format(resid, self.cutoff), file=selection)
         return filename
 
     def get_neighbor_dict(self, verbose='off'):
@@ -743,11 +744,13 @@ class Neighbors():
                     neibdict.update({resid:{}})
                 try:
                     neiblist = [int(x) for x in cols[3].split(',')]
+                    neiblist = list(set(neiblist))
                     neibdict[resid].update({time:neiblist})
                 except IndexError:
                     neibdict[resid].update({time:[]})
                     if verbose == 'on':
                         print("No neighbors of residue {} at time {}.".format(cols[0],cols[1])) 
+        #print(neibdict)
         return neibdict
 
     def create_indexfile(self):
@@ -892,6 +895,8 @@ class Neighbors():
                         time = cols.pop(0)
                         nneibs = cols.pop(0)
                         neibindeces = [int(x) for x in cols]
+                        #print("index: ", neibindeces)
+                        #print("dict: ", self.mysystem.index_to_resid.keys())
                         neibresid = [self.mysystem.index_to_resid[x] for x in neibindeces]
                         residlist = ','.join([str(x) for x in neibresid])
                         print('{} \t {} \t {} \t {}'.format(residue,time,nneibs,residlist), file=outfile)
@@ -1237,7 +1242,7 @@ class Energy():
                                     continue
                                 #for neib in neighbors_part_are:
                                 for neib in all_neibs_of_res:
-                                    if self.mysystem.system == 'dppc_dupc_chol' and ((int(host) == 372 and neib == 242) or (int(host) == 242 and neib == 372)):
+                                    if self.mysystem.system == 'dppc_dupc_chol25' and ((int(host) == 372 and neib == 242) or (int(host) == 242 and neib == 372)):
                                         continue
                                     neibtype = self.mysystem.resid_to_lipid[neib]
                                     counterhost = 0

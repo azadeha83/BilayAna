@@ -1,9 +1,9 @@
 import os, sys
 import subprocess
 import re
-from bilana.systeminfo import SysInfo
-from bilana import gromacstoolautomator as gmx
-from bilana import mainanalysis
+from src.systeminfo import SysInfo
+#from src import gromacstoolautomator as gmx
+#from src import mainanalysis
 
 def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
     if prio == False:
@@ -28,8 +28,8 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
 def write_jobscript(scriptname, lipidpart, start_res, end_res, overwrite=True):
     with open(scriptname, "w") as jobf:
         print('import os, sys\n'
-                'from bilana import gromacstoolautomator as gmx\n'
-                'from bilana.systeminfo import SysInfo \n'
+                'from src import gromacstoolautomator as gmx\n'
+                'from src.systeminfo import SysInfo \n'
                 'mysystem = SysInfo("inputfile")\n'
                 'myenergy = gmx.Energy(mysystem, "'+str(lipidpart)+'",overwrite='+str(overwrite)+')\n'
                 'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
@@ -105,19 +105,53 @@ def submit_energycalcs():
             print(out.decode(), err.decode())
         os.chdir(startdir)
 
-def initialize_system(refatoms=False):
+def initialize_system():
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
-    mysystem = SysInfo('inputfile')
-    if refatoms is False:
-        gmx.Neighbors(mysystem).determine_neighbors()
-    else:
-        gmx.Neighbors(mysystem).determine_neighbors(refatoms=refatoms)
-    gmx.Neighbors(mysystem).create_indexfile()
-    mainanalysis.Scd(mysystem).create_scdfile()
-    mainanalysis.create_leaflet_assignment_file(mysystem)
-    if os.path.isfile("initialize.sh"):
-        subprocess.call("./initialize.sh")
-    #gmx.trajectory_to_gro(mysystem) Already is included in create_scdfile
+    startdir = os.getcwd()
+    if len(sys.argv) < 4 or len(sys.argv) > 6:
+        print('Invalid number of input arguments. Specify:\n'
+              '<systemname> <lowest T> <highest T> <jobname> <refatoms=False>')
+        sys.exit()
+    systemname = sys.argv[1]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
+    jobname = sys.argv[4]
+    try:
+        refatoms = sys.argv[5]
+    except IndexError:
+        refatoms = False
+    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    for systemdir in systems_to_calculate_for:
+        os.chdir(systemdir)
+        scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
+        jobfilename = systemdir[2:]+jobname
+        with open(scriptfilename, 'w') as scriptf:
+            print(\
+                'import os, sys'
+                '\nimport subprocess'
+                '\nfrom src import gromacstoolautomator as gmx'
+                '\nfrom src import mainanalysis'
+                '\nfrom src.systeminfo import SysInfo'
+                '\nmysystem = SysInfo("inputfile")'
+                '\n#if {0}:'
+                '\n#    gmx.Neighbors(mysystem).determine_neighbors()'
+                '\n#else:'
+                '\n#    gmx.Neighbors(mysystem).determine_neighbors(refatoms={0})'
+                '\n#gmx.Neighbors(mysystem).create_indexfile()'
+                '\nmainanalysis.Scd(mysystem).create_scdfile()'
+                '\nmainanalysis.create_leaflet_assignment_file(mysystem)'
+                '\nif os.path.isfile("initialize.sh"):'
+                '\n    subprocess.call("./initialize.sh")'
+                '\nos.remove(sys.argv[0])'.format(refatoms),\
+                file=scriptf)
+            write_submitfile('submit.sh', jobfilename, mem='32G', prio=False)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+        os.chdir(startdir)
+
 
 def mend_energyruns():
     ''' Run missing parts of energyruns '''
@@ -255,9 +289,9 @@ def check_and_write():
             print(\
                 'import os, sys'
                 '\nimport subprocess'
-                '\nfrom bilana import gromacstoolautomator as gmx'
-                '\nfrom bilana.systeminfo import SysInfo'
-                '\nfrom bilana import energyfilecreator as ef'
+                '\nfrom src import gromacstoolautomator as gmx'
+                '\nfrom src.systeminfo import SysInfo'
+                '\nfrom src import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
                 '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
                 '\nif myenergystate.check_exist_xvgs():'
@@ -309,9 +343,9 @@ def write_eofscd():
             print(\
                 'import os, sys'
                 '\nimport subprocess'
-                '\nfrom bilana import gromacstoolautomator as gmx'
-                '\nfrom bilana.systeminfo import SysInfo'
-                '\nfrom bilana import energyfilecreator as ef'
+                '\nfrom src import gromacstoolautomator as gmx'
+                '\nfrom src.systeminfo import SysInfo'
+                '\nfrom src import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
                 '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
                 '\nif myenergystate.check_exist_xvgs():'
@@ -339,5 +373,45 @@ def write_eofscd():
             out, err = proc.communicate()
             print(out.decode(), err.decode())
         os.chdir(startdir)
+        
+def write_nofscd():
+    ''' Check if all energy files exist and write table with all energies '''
+    startdir = os.getcwd()
+    if len(sys.argv) != 5:
+        print('Invalid number of input arguments. Specify:\n'
+              '<systemname> <lowest T> <highest T> <jobname>')
+        sys.exit()
+    systemname = sys.argv[1]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
+    jobname = sys.argv[4]
+    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    for systemdir in systems_to_calculate_for:
+        os.chdir(systemdir)
+        scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
+        jobfilename = systemdir[2:]+jobname
+        with open(scriptfilename, 'w') as scriptf:
+            print(\
+                '\nimport os, sys'
+                '\nfrom src.systeminfo import SysInfo'
+                '\nfrom src import energyfilecreator as ef'
+                '\nmysystem = SysInfo("inputfile")'
+                '\nefstate = ef.NofScd(mysystem)'
+                '\nefstate.create_NofScd_input("scd_distribution.dat", "neighbor_info")'
+                '\nos.remove(sys.argv[0])',\
+                file=scriptf)
+            write_submitfile('submit.sh', jobfilename, mem='8G', prio=True)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+        os.chdir(startdir)
+
+
+
+
+
+
 
 

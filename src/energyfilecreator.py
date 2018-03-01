@@ -1,8 +1,8 @@
 ''' All about creating energy files '''
 
-#from bilana.systeminfo import mysystem
+#from src.systeminfo import mysystem
 #global mysystem
-from bilana import gromacstoolautomator, lipidmolecules
+from src import gromacstoolautomator, lipidmolecules
 
 def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refactored.
     time_pair_to_E = {}
@@ -60,7 +60,7 @@ class NofScd():
                     time = float(t)
                     if (time, i) in hosts_without_neib:
                         continue
-                    neibindexlist = time_to_neiblist[(time, i)].split(',')
+                    neibindexlist = list(set(time_to_neiblist[(time, i)].split(',')))
                     n_neibs = len(neibindexlist)
                     neibtypelist = [self.systeminfo.resid_to_lipid[int(resid)] for resid in neibindexlist]
                     nchol = neibtypelist.count('CHL1')

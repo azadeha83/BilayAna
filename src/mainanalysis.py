@@ -5,19 +5,39 @@
 import os
 import sys 
 import numpy as np
+import pprint
 import re
 from time import localtime, strftime
-from bilana.common import AutoVivification
-from bilana.energyfilecreator import read_scdinput
+from src.common import AutoVivification
+from src.energyfilecreator import read_scdinput
 
-#from bilana.systeminfo import mysystem
+#from src.systeminfo import mysystem
 #global mysystem
-from bilana import lipidmolecules
-from bilana import gromacstoolautomator as gmxauto
-from bilana.systeminfo import SysInfo
+from src import lipidmolecules
+from src import gromacstoolautomator as gmxauto
+from src.systeminfo import SysInfo
 import bisect
-#from bilana import misc
+#from src import misc
 
+
+
+pp = pprint.PrettyPrinter()
+
+def is_neighbor_in_leaflet(systeminfo_inst):
+    ''' Searches for interleaflet neighborhood '''
+    leaflet_assign = systeminfo_inst.res_to_leaflet
+    nlipids = systeminfo_inst.NUMBEROFMOLECULES
+    neiblist = gmxauto.Neighbors(systeminfo_inst).get_neighbor_dict()
+    host_has_interleafletneib = []
+    for host in range(1, nlipids+1):
+        neibs_times = neiblist[host]
+        host_leaflet = leaflet_assign[host]
+        for t in neibs_times:
+            for neib in neibs_times[t]:
+                neib_leaflet = leaflet_assign[neib]
+                if neib_leaflet != host_leaflet:
+                    host_has_interleafletneib.append([host, neib])
+    pp.pprint(host_has_interleafletneib)
 
 class Scd():
     ''' All about calculating the lipid Scd order parameter '''

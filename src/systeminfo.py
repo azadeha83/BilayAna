@@ -1,14 +1,22 @@
-''' Gather information about system '''
+''' Gather information about system 
+    1. Reads in an inputfile
+    2. Contains information of:
+        - Creates all needed folders, if not present
+        - Paths of mdfiles
+        - System size: Number of molecules and particles
+        - Types of lipids
+        - MD times to consider
+        - Reads information about which lipid lies in which leaflet
+        - Conversion dictionaries: resid to type and index to resid
+'''
 
-#import sys
 import os 
-
 inputfilename_default = 'inputfile' 
 
 class SysInfo():
     ''' Gather all relevant information about the system to analyse '''
 
-    NUMBEROFMOLECULES = 'all' #'all'
+    NUMBEROFMOLECULES = 'all'
 
     def __init__(self, inputfile):
         self.system_info = self.read_infofile(inputfile)
@@ -26,7 +34,7 @@ class SysInfo():
             self.molecules.append('CHL1')
             self.molecules.remove('CHOL')
         self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
-        # '''_absolute_ paths to  md-files  '''
+        # ''' absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
         self.trjpath = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
         self.gropath = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
@@ -40,21 +48,24 @@ class SysInfo():
         # ''' Dictionaries '''
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
-        #''' '''
-        if self.times[1] == 'end':
-            raise ValueError("Not yet implemented")
+        self.res_to_leaflet = self.assign_res_to_leaflet()
+        #''' Time information '''
+        if self.times[1] == 'inf':
+            self.t_end = 1000000000 # Ugly but works
         else:
             self.t_end = int(self.times[1])
-            self.t_start = int(self.times[0])
-            self.dt = int(self.times[2])
-        print('Total number of atoms: {}\nNumber of lipids: {}\n\n'.format(self.system_size, self.number_of_lipids))
+        self.t_start = int(self.times[0])
+        self.dt = int(self.times[2])
+        print('Total number of atoms: {}\nNumber of lipids: {}\n\n'
+              .format(self.system_size, self.number_of_lipids))
+        # ''' Size Info '''
         if self.NUMBEROFMOLECULES == 'all':
             self.NUMBEROFMOLECULES = self.number_of_lipids
-        self.res_to_leaflet = self.assign_res_to_leaflet()
 
     def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
-        Input arguments are not checked for validity - double check yourself'''
+            Input arguments are not checked for validity - double check yourself
+        '''
         system_info = {}
         with open(inputfname,"r") as inputf:
             # Creates a list like [[system,dppc_chol],[temperature,290]]
@@ -66,8 +77,11 @@ class SysInfo():
         return system_info
 
     def index_conversion_dict(self): 
-        ''' returns a dictionary for conversion from index to resid as well as resid to molecule'''
+        ''' returns a dictionary for conversion
+            from index to resid as well as resid to molecule
+        '''
         grofile = self.gropath
+        #print(grofile)
         in2res = {}
         res2mol = {}
         with open(grofile,"r") as fgro:
@@ -77,12 +91,14 @@ class SysInfo():
             for lines in fgro:
                 resid = int(float(lines[:5].strip()))
                 lipid = lines[5:9]
-                atom = lines[10:15].strip()
+                #atom = lines[10:15].strip()
                 ind = int(float(lines[15:20].strip()))
-                if lipid == 'DPPC' or lipid == 'DUPC' and atom == 'P':
+                #print(resid, lipid, atom, ind)
+                if lipid == 'DPPC' or lipid == 'DUPC':# and atom == 'P':
+                    #print(resid, lipid, atom, ind)
                     in2res.update({ind:resid})
                     res2mol.update({resid:lipid})
-                elif lipid == 'CHL1' and atom == 'O3':
+                elif lipid == 'CHL1':# and atom == 'O3':
                     in2res.update({ind:resid})
                     res2mol.update({resid:lipid})
         return in2res, res2mol
@@ -112,13 +128,14 @@ class SysInfo():
 
     def assign_res_to_leaflet(self):
         '''
-            Reads file leaflet_assignment created with function mainanalysis.create_leaflet_assignment_file
+            Reads file leaflet_assignment created with function
+            mainanalysis.create_leaflet_assignment_file
             and returns dictionary res:leaflet_ind
         '''
         outdict = dict()
         try:
             with open("leaflet_assignment.dat", "r") as lfile:
-                header = lfile.readline()
+                lfile.readline()
                 for line in lfile:
                     cols = line.split()
                     res = int(cols[0])
@@ -136,15 +153,4 @@ class SysInfo():
     #    endtime=err[err.index(b'Step')+1]
     #   return int(endtime.decode())
 
-# if os.path.isfile(inputfilename_default):
-#     inp = inputfilename_default
-# else:
-#     try:
-#         inp = sys.argv[1]
-#     except IndexError:
-#         inp = input('Specify (relative) path to inputfile\n')
-# try:
-#     mysystem = SysInfo(inp)
-# except FileNotFoundError:
-#     print("Inputfile not found.")
-#     raise
+
