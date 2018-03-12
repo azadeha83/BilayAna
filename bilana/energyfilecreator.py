@@ -2,7 +2,7 @@
 
 #from src.systeminfo import mysystem
 #global mysystem
-from src import gromacstoolautomator, lipidmolecules
+from bilana import gromacstoolautomator, lipidmolecules
 
 def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refactored.
     time_pair_to_E = {}

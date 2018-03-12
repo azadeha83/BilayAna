@@ -7,7 +7,7 @@ import os
 from time import localtime, strftime
 import time as Time
 import numpy as np
-from src import lipidmolecules #,systeminfo
+from bilana import lipidmolecules #,systeminfo
 import bisect
 
 #from src.systeminfo import mysystem
@@ -34,6 +34,39 @@ def exec_gromacs(cmd,inp_str=None):
     proc.stdout.close()
     proc.stderr.close()
     return out, err
+def produce_gro(mysystem, grofilename='/traj_complete.gro'):
+    ''' Converts trajectory .trr or .xtc (binary) file to .gro (ASCII) file '''
+    print(strftime("%H:%M:%S :", localtime()), 'Converting trajectory-file to structure-file ...\n')
+    os.makedirs(mysystem.datapath+'/grofiles', exist_ok=True)
+    grofile_output = ''.join([mysystem.datapath, '/grofiles/', grofilename])
+    print(strftime("%H:%M:%S :", localtime()),"... Start conversion from .trj to .gro ...")
+    print(mysystem.molecules)
+    sorted_mols = []
+    if 'DPPC' in mysystem.molecules:
+        sorted_mols.append('DPPC')
+    if 'DUPC' in mysystem.molecules:
+        sorted_mols.append('DUPC')
+    if 'CHL1' in mysystem.molecules:
+        sorted_mols.append('CHL1')
+    inp_str = str('_'.join(sorted_mols)+'\n').encode()
+    gmx_traj_arglist = [
+        gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
+        '-o', grofile_output, '-n', 'index.ndx',
+        '-b', str(mysystem.t_start), #'-e', str(self.sysinfo.t_end),
+        '-dt', str(mysystem.dt),
+        '-pbc', 'whole',
+        ]
+    try:
+        out, err = exec_gromacs(gmx_traj_arglist, inp_str)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        with open("gmx_traj_compl.log","w") as logfile:
+            logfile.write(err.decode())
+            logfile.write(150*'_')
+            logfile.write(out.decode())
+            logfile.write(150*'_')
+    return grofile_output
 
 def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
     os.makedirs(systeminfo.datapath+'/grofiles', exist_ok=True)
@@ -166,43 +199,6 @@ class calc_rdf_selfimplementation():
             # for i in np.arange(min(rdf.keys), max(rdf.keys)+self.binwidth, self.binwidth):
             for r in sorted(rdf.keys()):
                 print('{: <10.3f}{: <10}'.format(r, rdf[r]), file=outf)
-    def produce_gro(self, grofilename='/traj_complete.gro'):
-        ''' Converts trajectory .trr or .xtc file to textbased .gro file '''
-        print(strftime("%H:%M:%S :", localtime()), 'Converting trajectory-file to structure-file ...\n')
-        os.makedirs(self.sysinfo.datapath+'/grofiles', exist_ok=True)
-        grofile_output = ''.join([self.sysinfo.datapath, '/grofiles/', grofilename])
-        print(grofile_output, self.overwrite)
-        if os.path.isfile(grofile_output) and not self.overwrite:
-            print("File already exists.")
-        else:
-            print(strftime("%H:%M:%S :", localtime()),"... Start conversion from .trj to .gro ...")
-            print(self.sysinfo.molecules)
-            sorted_mols = []
-            if 'DPPC' in self.sysinfo.molecules:
-                sorted_mols.append('DPPC')
-            if 'DUPC' in self.sysinfo.molecules:
-                sorted_mols.append('DUPC')
-            if 'CHL1' in self.sysinfo.molecules:
-                sorted_mols.append('CHL1')
-            inp_str = str('_'.join(sorted_mols)+'\n').encode()
-            gmx_traj_arglist = [
-                gmx_exec, 'trjconv', '-s', self.sysinfo.tprpath, '-f', self.sysinfo.trjpath,
-                '-o', grofile_output, '-n', 'index.ndx',
-                '-b', str(self.sysinfo.t_start), #'-e', str(self.sysinfo.t_end),
-                '-dt', str(self.sysinfo.dt),
-                '-pbc', 'whole',
-                ]
-            try:
-                out, err = exec_gromacs(gmx_traj_arglist, inp_str)
-            except KeyboardInterrupt:
-                pass
-            finally:
-                with open("gmx_traj_compl.log","w") as logfile:
-                    logfile.write(err.decode())
-                    logfile.write(150*'_')
-                    logfile.write(out.decode())
-                    logfile.write(150*'_')
-        return grofile_output
     @staticmethod
     def calc_distance(coord1, coord2, box_vectors, dim):
         def create_pbc_copies(coord, boxvectors, dim):
@@ -470,7 +466,7 @@ class calc_rdf_selfimplementation():
         return gofr
     def calc_rdf(self):
         if self.grofile is None:
-            grofile_output = self.produce_gro()
+            grofile_output = produce_gro(self.sysinfo)
         else:
             grofile_output = self.grofile
         gofr_all_frames = {}
@@ -687,10 +683,10 @@ class Neighbors():
         self.cutoff = systeminfo.cutoff
 
 
-    def create_selectionfile_neighborsearch(self, resid, refatoms='PP'):
+    def create_selectionfile_neighborsearch(self, resid, refatoms='P'):
         filename="{}/neighbors_of_residue{}".format(self.mysystem.temppath, resid)
         with open(filename,"w") as selection:
-            if refatoms == 'PP':
+            if refatoms == 'P':
                 print(\
                     'host =  resid {0} and (name P O3);\n'
                     'allOAtoms = resname CHL1 and name O3 and not host;\n'
@@ -700,7 +696,7 @@ class Neighbors():
                     'neibs = neibPs or neibOs;\n'
                     'neibs;'\
                     .format(resid, self.cutoff), file=selection)
-            if refatoms == 'bothtails':
+            elif refatoms == 'bothtails':
                 print(
                     'host = resid {0} and name C34 C24 O3;\n'
                     'allOAtoms = resname CHL1 and name O3 and not host;\n'
@@ -712,7 +708,7 @@ class Neighbors():
                     'neibs = neibOs or neibTail1 or neibTail2;\n'
                     'neibs;'\
                     .format(resid, self.cutoff), file=selection)
-            if refatoms == 'onetail':
+            elif refatoms == 'onetail':
                 raise ValueError("It's not working like this, as the index is compared and so no lipid is selected")
                 #print(
                 #    'host = resid {0} and name C34 C24 O3;\n'
@@ -725,6 +721,8 @@ class Neighbors():
                 #    'neibs = neibOs or (neibTail1 and neibTail2);\n'
                 #    'neibs;'\
                 #    .format(resid, self.cutoff), file=selection)
+            else:
+                raise ValueError("Wrong input for refatoms with: {}".format(refatoms))
         return filename
 
     def get_neighbor_dict(self, verbose='off'):
@@ -862,7 +860,7 @@ class Neighbors():
             resindex_all.write(''.join(filecontent)+"\n\n")
         resindex_all.close() 
 
-    def determine_neighbors(self, refatoms='PP', overwrite=True):
+    def determine_neighbors(self, refatoms='P', overwrite=True):
         ''' Creates "neighbor_info" containing all information on lipid arrangement '''
         print("\n____Determining neighbors____\n")
         os.makedirs(self.mysystem.datapath+'/neighborfiles', exist_ok=True)
@@ -870,7 +868,6 @@ class Neighbors():
             outfile.write('Resid \t Time \t Number_of_neighbors \t List_of_Neighbors \n')
             for residue in range(1, self.mysystem.NUMBEROFMOLECULES+1):
                 print(". . . Working on residue: {} . . .".format(residue), end="\r")
-                
                 selectionfile = self.create_selectionfile_neighborsearch(residue, refatoms=refatoms)
                 indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.mysystem.indexpath, residue)
                 datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.mysystem.datapath, residue)

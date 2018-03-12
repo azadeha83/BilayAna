@@ -1,14 +1,14 @@
 import os, sys
 import subprocess
 import re
-from src.systeminfo import SysInfo
+from bilana.systeminfo import SysInfo
 #from src import gromacstoolautomator as gmx
 #from src import mainanalysis
 
 def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
-    if prio == False:
+    if not prio:
         queue = 'short'
-    elif prio == True:
+    else:
         queue = 'prio'
     with open(submitout, "w") as sfile:
         print('#!/bin/bash'
@@ -28,8 +28,8 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
 def write_jobscript(scriptname, lipidpart, start_res, end_res, overwrite=True):
     with open(scriptname, "w") as jobf:
         print('import os, sys\n'
-                'from src import gromacstoolautomator as gmx\n'
-                'from src.systeminfo import SysInfo \n'
+                'from bilana import gromacstoolautomator as gmx\n'
+                'from bilana.systeminfo import SysInfo \n'
                 'mysystem = SysInfo("inputfile")\n'
                 'myenergy = gmx.Energy(mysystem, "'+str(lipidpart)+'",overwrite='+str(overwrite)+')\n'
                 'myenergy.run_calculation(startres='+str(start_res)+', endres='+str(end_res)+')\n'
@@ -130,22 +130,23 @@ def initialize_system():
             print(\
                 'import os, sys'
                 '\nimport subprocess'
-                '\nfrom src import gromacstoolautomator as gmx'
-                '\nfrom src import mainanalysis'
-                '\nfrom src.systeminfo import SysInfo'
+                '\nfrom bilana import gromacstoolautomator as gmx'
+                '\nfrom bilana import mainanalysis'
+                '\nfrom bilana.systeminfo import SysInfo'
                 '\nmysystem = SysInfo("inputfile")'
-                '\n#if {0}:'
-                '\n#    gmx.Neighbors(mysystem).determine_neighbors()'
-                '\n#else:'
-                '\n#    gmx.Neighbors(mysystem).determine_neighbors(refatoms={0})'
-                '\n#gmx.Neighbors(mysystem).create_indexfile()'
+                '\nif not {0}:#Take default'
+                '\n    gmx.Neighbors(mysystem).determine_neighbors()'
+                '\nelse:'
+                '\n    gmx.Neighbors(mysystem).determine_neighbors(refatoms={0})'
+                '\ngmx.Neighbors(mysystem).create_indexfile()'
+                '\ngmx.produce_gro(mysystem)'
                 '\nmainanalysis.Scd(mysystem).create_scdfile()'
                 '\nmainanalysis.create_leaflet_assignment_file(mysystem)'
                 '\nif os.path.isfile("initialize.sh"):'
                 '\n    subprocess.call("./initialize.sh")'
                 '\nos.remove(sys.argv[0])'.format(refatoms),\
                 file=scriptf)
-            write_submitfile('submit.sh', jobfilename, mem='32G', prio=False)
+            write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
@@ -289,9 +290,9 @@ def check_and_write():
             print(\
                 'import os, sys'
                 '\nimport subprocess'
-                '\nfrom src import gromacstoolautomator as gmx'
-                '\nfrom src.systeminfo import SysInfo'
-                '\nfrom src import energyfilecreator as ef'
+                '\nfrom bilana import gromacstoolautomator as gmx'
+                '\nfrom bilana.systeminfo import SysInfo'
+                '\nfrom bilana import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
                 '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
                 '\nif myenergystate.check_exist_xvgs():'
@@ -343,9 +344,9 @@ def write_eofscd():
             print(\
                 'import os, sys'
                 '\nimport subprocess'
-                '\nfrom src import gromacstoolautomator as gmx'
-                '\nfrom src.systeminfo import SysInfo'
-                '\nfrom src import energyfilecreator as ef'
+                '\nfrom bilana import gromacstoolautomator as gmx'
+                '\nfrom bilana.systeminfo import SysInfo'
+                '\nfrom bilana import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
                 '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
                 '\nif myenergystate.check_exist_xvgs():'
@@ -394,8 +395,8 @@ def write_nofscd():
         with open(scriptfilename, 'w') as scriptf:
             print(\
                 '\nimport os, sys'
-                '\nfrom src.systeminfo import SysInfo'
-                '\nfrom src import energyfilecreator as ef'
+                '\nfrom bilana.systeminfo import SysInfo'
+                '\nfrom bilana import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
                 '\nefstate = ef.NofScd(mysystem)'
                 '\nefstate.create_NofScd_input("scd_distribution.dat", "neighbor_info")'

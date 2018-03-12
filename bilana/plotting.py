@@ -20,6 +20,7 @@ from rpy2.robjects.lib.ggplot2 import aes_string
 
 base = importr('base')
 datatable = importr('data.table')
+zoo = importr('zoo')
 gr = importr('grDevices')
 
 carbonlist = []
@@ -74,9 +75,9 @@ Tranges_high = {\
            'dupc_chol10':[330,],
            'dupc_chol20':[i for i in range(300, 330+1, 10)],
            'dupc_chol30':[330],
-           'dppc':[330, 360],
-           'dupc':[290, 330],
            #====================================================================
+           # 'dppc':[330, 360],
+           # 'dupc':[290, 330],
            # 'dppc_chol20':[330, 350],
            # 'dppc_chol10':[330, 350],
            # 'dppc_chol30':[330, 350],
@@ -138,7 +139,7 @@ def add_axis(dim, name, breaks, limits=None, pair=None):
             limits = ro.FloatVector([breaks[0], breaks[1]])
         else:
             limits = ro.FloatVector(limits)
-        breaks = ro.FloatVector(np.around(np.arange(breaks[0], breaks[1]+1, breaks[2]), decimals=1))
+        breaks = ro.FloatVector(np.around(np.arange(breaks[0], breaks[1]+1, breaks[2]), decimals=2))
     expand = ro.FloatVector([0,0])
     if dim == 'x':
         axis = ggplot2.scale_x_continuous(name, limits=limits, breaks=breaks, expand=expand)
@@ -177,11 +178,12 @@ def merge_data(tablename, groupname, *args):
         args must be tuple: (data.table-name, frame-specifier)
         Something like: groupname = Temperature, arg=(df1, DPPC_CHOL) ...
      '''
-    print('Merging data . . .')
+    print('Merging data . . .', tablename, groupname, args)
     for arg in args:
         #print(arg)
-        #print("Mergedata:", ro.r(arg[0]))
-        ro.r('{0}${1}="{2}"'.format(arg[0], groupname, arg[1]))
+        print("Mergedata:", ro.r(arg[0]))
+        data = ro.r('{0}${1}="{2}"'.format(arg[0], groupname, arg[1]))
+        #print(data)
     all_frames = ','.join([arg[0] for arg in args])
     #print("All frames:", all_frames)
     df = ro.r('{} <- rbind({})'.format(tablename, all_frames))
@@ -276,21 +278,35 @@ def p_of_N(datafilename, lipidtype, outputfilename, count_type='Ntot'):
 
 class Noft():
     ''' All around Noft data '''
-    def plot(self, systemname, outputfilename, lipid, neighbor):
+    @staticmethod
+    def plot(systemname, outputfilename, lipid, neighbor):
         ''' Plot N(t) '''
         framenames = []
-        for temp in self.temperatures[systemname]:
+        temperatures = {}
+        temperatures[systemname] = Tranges_whole[systemname] 
+        for temp in temperatures[systemname]:
             print("At temperature:", temp)
             system = '{}_{}'.format(systemname, temp)
             print(system)
-            file_to_read = '{}/Nofscd.dat'.format(system)
+            file_to_read='{}/Nofscd.dat'.format(system)
             if os.path.exists(file_to_read):
                 df = read_datafile(system, file_to_read)
-                ro.r('{0}$Time = {0}$Time/1000'
-                     '{0}[,lapply(.SD,mean),by=list(Time, {1})]'
-                     '{0}'.format(systemname, lipid )
-                     )
+                print(df)   
+                df = ro.r('\n{0}$Time = {0}$Time/1000'
+                          '\n{0} <- {0}[Lipid_type == "{1}"]'
+                          '\n{0}[,Lipid_type:=NULL]'
+                          '\n{0} <- {0}[,lapply(.SD, mean),by=Time]'
+                          '\n{0} <- data.table(rollmean({0}, 150))'
+                          '\n{0}'.format(system, lipid))
                 print(df)
+               # if lipid:
+               #     df = ro.r('{0}[Lipid_type == {1}]'
+               #         '\n{0}[,Lipid_type:=NULL]'
+               #         '\n{0} <- data.table(rollmean({0}, 100))'
+               #         '\n{0}'.format(system, lipid))
+               #     print(df)
+               # else:
+               #     raise NotImplementedError('Specify a lipid please')
             else:
                 print("File {} does not exist".format(file_to_read))
                 return None
@@ -300,8 +316,12 @@ class Noft():
         dat = merge_data('dat', 'temperature', *framenames)
         print(dat)
         plot = ggplot2.ggplot(dat)\
-                + ggplot2.aes_string(x='Time', y='{}/Ntot'.format(neighbor))\
+                + ggplot2.aes_string(x='Time', y='{}/Ntot'.format(neighbor), color='temperature')\
                 + ggplot2.geom_point()\
+                + ggplot2.guides(color=ggplot2.guide_legend('T / K'))\
+                + add_axis('x', 'Time / ns', breaks=[0, 2600, 500])\
+                + add_axis('y', 'N_{}/Ntot'.format(neighbor), breaks=[0.3, 0.55, 0.05])\
+                + ggplot2.ggtitle('Segregation process in {}'.format(systemname))\
                 + ggplot2.theme_light() + my_theme()
         print(plot)
         gr.pdf(outputfilename)
@@ -484,9 +504,9 @@ class RDF():
                 dt = merge_data('dt', 'NChol', *framespecifiers)
                 aes = ggplot2.aes_string(x='V1', y='V2', color='NChol')
             else:
-                datafile_name = '{0}_{1}/datafiles/rdf/rdf_{3}-{2}-{4}-{2}None.xvg'\
-                                    .format(system, temp, lipid, interaction[0], interaction[1])
-                outputfile_name = 'rdf_{0}_{1}_{2}_{3}{4}.pdf'.format(system, temp, lipid, *interaction)
+                datafile_name = '{0}_{1}/datafiles/rdf/rdf_{2}-{3}.xvg'\
+                                    .format(system, temp, interaction[0], interaction[1])
+                outputfile_name = 'rdf_{0}_{1}_{2}{3}.pdf'.format(system, temp, *interaction)
                 dt = ro.r('{0} <- fread("{1}")'
                               '\n{0}<-{0}[V1>0.1]'
                               #'\n{0}$V2 <- {0}$V2/max({0}$V2)'
@@ -495,7 +515,7 @@ class RDF():
         plot = ggplot2.ggplot(dt)\
                 + aes\
                 + ggplot2.geom_point(alpha='0.6')\
-                + add_axis('x', 'distance r / nm', breaks=[0.0, 3.5, 0.5])\
+                + add_axis('x', 'distance r / nm', breaks=[0.0, 3.5, 0.5], limits=[0.0, 3.7])\
                 + ggplot2.scale_y_continuous(name='g(r)')\
                 + ggplot2.theme_light() + my_theme()\
     #            + ggplot2.geom_smooth(se='False', span='0.01', n=900)\
@@ -625,6 +645,7 @@ class Cholesterol_inputplots():
                 + ggplot2.geom_point(ggplot2.aes_string(size='weight'))\
                 + add_axis('x', "Number of cholesterol neighbors", breaks=[0, 4, 1], limits=[-0.2, 4.2])\
                 + add_axis('y', 'enthalpy', breaks=[-30, -10, 5])\
+                + ggplot2.geom_smooth(se=False, method='lm', formula='y ~ x ')\
                 + guide\
                 + ggplot2.ggtitle('CHOL-CHOL interaction')\
                 + ggplot2.scale_size("weight")\
@@ -641,7 +662,62 @@ class Cholesterol_inputplots():
         print(plot)
         gr.dev_off()
         ro.r('rm(list=ls(all=TRUE))')
-    def plot_N_chol(self, systemname, filename, averaging=True):
+    def fit_H(self, systemname, filename, fit_degree=1):
+        ''' 
+            Outputs fit coefficient summary for CHOL-CHOL interaction
+            and plot with respective fit
+            
+        '''
+        tavg = self.temperature_avg(systemname, systemname, datatype='H')
+        print("TAVG", tavg)
+        if len(tavg[1]) == 0:
+            return
+        fit = ro.r('fit <- lm({0}$Etot ~ poly({0}$NChol, degree={1}, raw=TRUE))'
+                   '\nsummary(fit)'.format(systemname, fit_degree)
+                   )
+        with open('{}_H_{}_deg{}_polyfit.dat'.format(systemname, 'CHL1_CHL1', fit_degree), "w") as fitf:
+            print(fit, file=fitf)
+        plot = ggplot2.ggplot(tavg)\
+                + ggplot2.aes_string(x='NChol', y='Etot')\
+                + ggplot2.geom_point()\
+                + ggplot2.geom_smooth(method='lm', se=False, fullrange=True, formula='y~poly(x, degree={})'.format(fit_degree))\
+                + ggplot2.theme_light() + my_theme()
+        print(plot)
+        gr.pdf(filename)
+        print(plot)
+        gr.dev_off()
+    def fit_N(self, systemname, filename, fit_degree=1):
+        ''' 
+            Outputs fit coefficient summary
+            for N_CHOL and plot with respective fit 
+        '''
+        data = self.temperature_avg(systemname, systemname, datatype='N', averaging=False)
+        print("TAVG", data)
+        if len(data[1]) == 0:
+            return
+        data = ro.r('{0} <- {0}[,lapply(.SD, mean), by=list(Chol, temperature)]'.format(systemname))
+        fits = []
+        for Nc in range(5):
+            fit = ro.r('{0}$temperature <- as.numeric({0}$temperature)'
+                       '\n{0}{2} <- {0}[Chol == {2}]' 
+                       '\nfit <- lm({0}{2}$Ntot ~ poly({0}{2}$temperature, degree={1}, raw=TRUE))'
+                       '\nsummary(fit)'.format(systemname, fit_degree, Nc)
+                       )
+            fits.append(fit)
+            with open('{}_N_{}_Nc{}_deg{}_polyfit.dat'.format(systemname, 'CHL1', Nc, fit_degree,), "w") as fitf:
+                print(fit, file=fitf)
+        plot = ggplot2.ggplot(data)\
+                + ggplot2.aes_string(x='as.numeric(temperature)', y='Ntot', color='factor(Chol)')\
+                + ggplot2.geom_point()\
+                + ggplot2.guides(color=ggplot2.guide_legend('NChol'))\
+                + ggplot2.geom_smooth(method='lm', se=False, fullrange=True, formula='y~poly(x, degree={})'.format(fit_degree))\
+                + ggplot2.theme_light() + my_theme()
+        print(plot)
+        gr.pdf(filename)
+        print(plot)
+        gr.dev_off()
+        ro.r('rm(list=ls(all=TRUE))')
+    def plot_N_chol(self, systemname, filename, neib='Ntot', averaging=False):
         ''' N(nchol) for host cholesterol '''
         if isinstance(systemname, list):
             tablelist = []
@@ -650,21 +726,29 @@ class Cholesterol_inputplots():
                 print(tavg)
                 tablelist.append((syst, syst))
             tavg = merge_data('final_table', 'System', *tablelist)
-            aes =  ggplot2.aes_string(x='Chol', y='Ntot', color='System')
+            aes =  ggplot2.aes_string(x='Chol', y=neib, color='factor(temperature)', shape='System')
+            guide = ggplot2.guides(color=ggplot2.guide_legend("T / K"))
             #yname ="N CHOL neighbors"
-            yname = 'Ntot'
         else:
             tavg = self.temperature_avg(systemname, systemname, datatype='N', averaging=averaging)
             print(tavg)
-            aes =  ggplot2.aes_string(x='Chol', y='DPPC')
-            yname = 'Number of DPPC neighbors'
+            aes =  ggplot2.aes_string(x='Chol', y=neib, color="factor(temperature)")
+            guide = ggplot2.guides(color=ggplot2.guide_legend("T / K"))
         if tavg is None:
             return
+        if neib == 'Ntot':
+            yname = 'N'
+            axis = add_axis('y', yname, breaks=[3.0, 7.5, 0.5], limits=[2.6, 7.7])
+        else:
+            yname = '{} neighbors'.format(neib)
+            #axis = add_axis('y', yname, breaks=[3.0, 4.0, 0.5], limits=[2.6, 4.2])
+            axis = add_axis('y', yname, breaks=[3.0, 7.5, 0.5], limits=[2.6, 7.7])
         #guide =  ggplot2.guides()
         plot = ggplot2.ggplot(tavg)\
             + aes\
-            + ggplot2.scale_x_continuous('Number of cholesterol neighbors')\
-            + add_axis('y', yname, breaks=[3.0, 7.0, 0.5], limits=[3.3, 7.2])\
+            + ggplot2.scale_x_continuous('CHOL neighbors')\
+            + axis\
+            + guide\
             + ggplot2.geom_point(ggplot2.aes_string(size='weight'), alpha=0.8)\
             + ggplot2.guides(size=False)\
             + ggplot2.scale_size()\
@@ -712,6 +796,7 @@ class Cholesterol_inputplots():
         print("Framenames:", framenames)
         dt = merge_data(outputtable, 'temperature', *framenames)
         print("MERGED DATA:", dt)
+        dt = ro.r('{0}$temperature <- as.numeric({0}$temperature)'.format(systemname))
         #=======================================================================
         # if averaging == False:
         #     print("NO AVERAGE")
@@ -725,6 +810,7 @@ class Cholesterol_inputplots():
                                 '\n{0} <- {0}[Lipid_type=="{1}"]\n'
                                 '\n{0} <- {0}[,Lipid_type:=NULL]\n'
                                 '\nweightdata <- {0}'
+                                '\n{0} <- {0}[,lapply(.SD,mean),by=list(Chol, temperature)]'
                                 '\n{0}$weight  <- weightdata[,.N,by=list(Chol, temperature)][,N]'
                                 '\n{0}$weight <- {0}$weight/sum({0}$weight)'
                                 '\ninsignificant <- 0.01*max({0}$weight)\n'
@@ -952,20 +1038,52 @@ class NofScdplots():
             elif self.temperature_set == 'high':
                 self.temperatures[syst] = Tranges_high[syst]
 
-    def fit(self, systemname, lipid,):
+    def fit(self, systemname, lipid, fit_degree=1, nchol=None):
         ''' Returns fit parameters '''
-        self.temperature_avg(systemname, systemname, lipid, averaging=False)
-        fit = ro.r('fit <- lm(Ntot ~ poly(Host_Scd, as.numeric(temperature), degree=1, raw=TRUE), data={0})'
-                   '\nsummary(fit)'.format(systemname))
-        with open("{}_nofscd_{}_fit.dat".format(systemname, lipid), "w") as fitf:
-            print(fit, file=fitf)
-        ro.r('rm(list=ls(all=TRUE))')
+        dat = self.temperature_avg(systemname, systemname, lipid, averaging=False)
+        if nchol is not None:
+            for Nc in range(0, 5):
+                filename = '{}_nofscd_c{}_{}_deg{}fit.pdf'.format(systemname, Nc, lipid, fit_degree)
+                fit = ro.r('dat{2} <- {0}[Chol=={2}]'
+                           'fit <- lm(Ntot ~ poly(Host_Scd, as.numeric(temperature), degree={1}, raw=TRUE), data=dat{2})'
+                           '\nsummary(fit)'.format(systemname, fit_degree, Nc))
+                with open("{}_nofscd_chol{}_{}_deg{}_fit.dat".format(systemname, Nc, lipid, fit_degree), "w") as fitf:
+                    print(fit, file=fitf)
+                plot = ggplot2.ggplot(dat)\
+                    + ggplot2.aes_string(x='Host_Scd', y='Ntot', z='temperature', color="factor(Chol")\
+                    + ggplot2.geom_point()\
+                    + ggplot2.geom_smooth(se=False, fullrange=True, method='lm', formula='y ~ poly(x, z, degree={}, raw=True'.format(fit_degree))\
+                    + add_axis('x', 'scd', breaks=[-0.3, 1.0, 0.2])\
+                    + ggplot2.ggtitle('Neighbors of '+ str(lipid))\
+                    + ggplot2.theme_light() + my_theme()
+                    #+ add_axis('y', yname, breaks=[3.0, 4.5, 0.5])\
+                gr.pdf(file=filename, width=10, height=7)
+                print(plot)
+                gr.dev_off()
+                ro.r('rm(list=ls(all=TRUE))')
+        else:
+            filename = '{}_nofscd_{}_deg{}fit.pdf'.format(systemname, lipid, fit_degree)
+            fit = ro.r(
+                       'fit <- lm(Ntot ~ poly(Host_Scd, as.numeric(temperature), degree={1}, raw=TRUE), data=dat{0})'
+                       '\nsummary(fit)'.format(systemname, fit_degree))
+            with open("{}_nofscd_{}_deg{}_fit.dat".format(systemname, lipid, fit_degree), "w") as fitf:
+                print(fit, file=fitf)
+            plot = ggplot2.ggplot(dat)\
+                + ggplot2.aes_string(x='Host_Scd', y='Ntot', z='temperature')\
+                + ggplot2.geom_point()\
+                + ggplot2.geom_smooth(se=False, fullrange=True, method='lm', formula='y ~ poly(x, z, degree={}, raw=True'.format(fit_degree))\
+                + add_axis('x', 'scd', breaks=[-0.3, 1.0, 0.2])\
+                + ggplot2.ggtitle('Neighbors of '+ str(lipid))\
+                + ggplot2.theme_light() + my_theme()
+                #+ add_axis('y', yname, breaks=[3.0, 4.5, 0.5])\
+            gr.pdf(file=filename, width=10, height=7)
+            print(plot)
+            gr.dev_off()
 
     def plot_standard(self, systemname, lipid, filename, y_type='Ntot', neib_spec=None, averaging=True, plotrel=False):
         yaxis = None
         tavg = self.temperature_avg(systemname, systemname, lipid, neib_spec=neib_spec, averaging=averaging, plotrel=plotrel)
         if tavg is None:
-            print("PLOT")
             return
         print(tavg)
         if lipid =='CHL1':
@@ -974,9 +1092,9 @@ class NofScdplots():
             yname = 'N {}'.format(y_type)
         else:
             if isinstance(lipid, list):
-                yname = 'N total'
+                yname = 'N'
             else:
-                yname = 'N total'
+                yname = 'N'
         #if isinstance(neib_spec, list):
         #    aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, )
         #    guide =  ggplot2.guides(color=ggplot2.guide_legend(neib_spec), shape=ggplot2.guide_legend("Lipid"))
@@ -985,15 +1103,17 @@ class NofScdplots():
                 aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='Lipid_type')
                 guide =  ggplot2.guides(color=ggplot2.guide_legend("Lipid"), size=False)
             elif averaging == False:
-                aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='temperature')
+                #aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='temperature')
+                aes =  ggplot2.aes_string(x='as.numeric(temperature)', y=y_type, )
                 guide =  ggplot2.guides(color=ggplot2.guide_legend("Temperature"), size=False)
             else:
                 neib_spec = ''
                 aes =  ggplot2.aes_string(x='Host_Scd', y=y_type)
                 guide = ggplot2.guides(shape=ggplot2.guide_legend("Dummy"), size=False)
-        else:
+        elif neib_spec is not None:
             if averaging == False:
-                aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='factor('+neib_spec+')', shape='temperature')
+                #aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='factor('+neib_spec+')',)# shape='temperature')
+                aes =  ggplot2.aes_string(x='as.numeric(temperature)', y=y_type, color='factor('+neib_spec+')',)# shape='temperature')
                 guide =  ggplot2.guides(shape=ggplot2.guide_legend("Temperature"), color=ggplot2.guide_legend('N'+neib_spec), size=False)
             else:
                 aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='factor('+neib_spec+')')
@@ -1006,8 +1126,8 @@ class NofScdplots():
         #dupcfunc = ggplot2.stat_function(ggplot2.aes_string(linetype='"DLiPC"'), fun=ro.r("function(x){3.52807504+0.12268938*x-0.09141714*x**2}"), color='black', size=2)
         #dppcfunc = ggplot2.stat_function(ggplot2.aes_string(linetype='"DPPC"'), fun=ro.r("function(x){(0.94123979/(1 + exp(-18.29302015 * (x - 0.63623191))) + 3.88006658)}"), color='black', size=2, )
         if lipid == 'DPPC' and (systemname == 'dppc_chol20' or systemname == 'dppc_chol10' or systemname == 'dppc_chol30'):
-            if neib_spec == 'CHL1':
-                yaxis = add_axis('y', yname, breaks=[3, 6.5, 1])
+            if neib_spec == 'Chol':
+                yaxis = add_axis('y', yname, breaks=[3, 10, 1])
             else:
                 if y_type == 'Ntot':
                     yaxis = add_axis('y', yname, breaks=[3.5, 10, 1])
@@ -1017,7 +1137,7 @@ class NofScdplots():
                     elif y_type == 'CHL1':
                         yaxis = add_axis('y', yname, breaks=[0, 2, 0.5])
         elif lipid == 'DUPC' and (systemname == 'dupc_chol20'):
-            if neib_spec == 'CHL1':
+            if neib_spec == 'Chol':
                 yaxis = add_axis('y', yname, breaks=[3, 6.5, 1])
             else:
                 if y_type == 'Ntot':
@@ -1029,15 +1149,15 @@ class NofScdplots():
                         yaxis = add_axis('y', yname, breaks=[0, 2, 0.5])
         elif lipid == 'CHL1':
             yaxis = add_axis('y', yname, breaks=[2.5, 8.0, 1])
-        
         plot = ggplot2.ggplot(tavg)\
             + aes\
             + ggplot2.geom_point(ggplot2.aes_string(size='weight'))\
-            + add_axis('x', 'scd', breaks=[-0.3, 1.0, 0.2])\
+            + ggplot2.geom_smooth(se=False, weight='weight')\
             + ggplot2.scale_size()\
             + ggplot2.ggtitle('Neighbors of '+ str(lipid))\
             + guide\
             + ggplot2.theme_light() + my_theme()
+            #+ add_axis('x', 'scd', breaks=[-0.3, 1.0, 0.2])\
             #+ add_axis('y', yname, breaks=[3.0, 4.5, 0.5])\
         if yaxis is not None:
             plot += yaxis
@@ -1083,7 +1203,10 @@ class NofScdplots():
         print("MERGED DATA:", dt)
         if averaging == False:
             print("NO AVERAGE")
-            dt = ro.r('{0} <- {0}[Lipid_type=="{1}"]\n'.format(outputtable, lipid))
+            if neib_spec is None:
+                dt = ro.r('{0} <- {0}[Lipid_type=="{1}"]\n'.format(outputtable, lipid))
+            else:
+                dt = ro.r('{0} <- {0}[Lipid_type=="{1}"][Chol<5]\n'.format(outputtable, lipid))
             print(dt)
             return dt
         if isinstance(lipid, list):
@@ -1116,7 +1239,7 @@ class NofScdplots():
                                 #'{0} <- {0}[,lapply(.SD,weighted.mean,w=weight),by=list(binHost_Scd, {2})]'\
                                 '\n{0} <- {0}[,lapply(.SD, weighted.mean, w=weight),by=list(binHost_Scd, {2})]'
                                 '\ninsignificant <- 0.01*max({0}$weight)'
-                                '\n{0} <- {0}[weight>insignificant][Chol<4]'
+                                '\n{0} <- {0}[weight>insignificant][Chol<5]'
                                 .format(outputtable, lipid, neib_spec))
                 #===============================================================
                 # elif plotrel == True:
@@ -1242,7 +1365,7 @@ class Selfinteraction():
         gr.dev_off()
         ro.r('rm(list=ls(all=TRUE))')
 
-    def plot_standard(self, systemname, lipid, filename, averaging=True):
+    def plot_standard(self, systemname, lipid, filename, averaging=True, nchol=None):
         ''' Creates a standard EofScd plot of one system '''
         tavg = self.temperature_avg(systemname, systemname, lipid, averaging=averaging)
         print("TAVG", tavg)
@@ -1250,9 +1373,11 @@ class Selfinteraction():
         if tavg is None:
             return
         if averaging:
-            aes = ggplot2.aes_string(x='Host_Scd', y='Ecoul_tot', color='factor(temperature)')
+            aes = ggplot2.aes_string(x='Host_Scd', y='Etot')
         else:
             aes = ggplot2.aes_string(x='Host_Scd', y='Etot', color='factor(temperature)')
+        if nchol is not None:
+            aes = ggplot2.aes_string(x='Host_Scd', y='Etot', color='factor(NChol)')
         xaxis = add_axis('x', 'avgscd', breaks=[-0.2, 1.0, 0.2])
         #yaxis = add_axis('y', 'enthalpy', breaks=self.enthalpyranges[pair])
         guides = ggplot2.guides(color=ggplot2.guide_legend("T / K"), linetype=ggplot2.guide_legend("T / K"), size=False)
@@ -1347,11 +1472,11 @@ class EofScdplots():
     ''' Controls plotting of EofScd plots
         Needs raw_input files with following structure and header: 
             "Time Host Host_Scd Neib Neib_Scd Interaction DeltaScd AvgScd Etot Evdw Ecoul NChol Ntot"
-            
-        --> Bug1: binAvgScd seems not to be numeric!?
     '''
     def __init__(self, interaction, systemnames=Tranges_whole.keys(), averaging=True, temperature='whole'):
-        pairs = [('DPPC_DPPC', (-90, -40, 5)), ('DUPC_DUPC', (-90, -40, 5)), ('DPPC_DUPC', (-90, -40, 5)), ('DPPC_CHL1', (-50, -20, 5)), ('DUPC_CHL1', (-50, -20, 5)), ('CHL1_CHL1', (-30, -10, 5))]
+        pairs = [('DPPC_DPPC', (-90, -40, 5)), ('DUPC_DUPC', (-90, -40, 5)), 
+                 ('DPPC_DUPC', (-90, -40, 5)), ('DPPC_CHL1', (-50, -20, 5)),
+                 ('DUPC_CHL1', (-50, -20, 5)), ('CHL1_CHL1', (-30, -10, 5))]
         self.enthalpyranges = {}
         self.systemnames = systemnames
         self.temperature_set = temperature
@@ -1365,24 +1490,73 @@ class EofScdplots():
         for pair in pairs:
             self.enthalpyranges[pair[0]] = pair[1]
 
-    def plot_H_lipidchol(self, systemname, pair, filename, l_orderparam, mdpath, averaging=True, neib_spec=None, formula=None):
+    def fit(self, systemname, pair, degree=6, nchol=None):
+        '''
+            Creates a fit for lipid-lipid interaction functions
+        '''
+    def fit_lipid_chol(self, systemname, pair, filename, mdpath, l_orderparam, fit_degree=3, neib_spec=None):
+        '''
+            Fits lipid chol interaction
+        '''
+        pairlipids = pair.split('_')
+        lipidsequence = self.lipid_sequence_gro(mdpath+'/initial_coords/'+systemname+'.gro')
+        for lip in lipidsequence:
+            if lip in pairlipids:
+                if lip == l_orderparam:
+                    xcol = 'Host_Scd'
+                else:
+                    xcol = 'Neib_Scd'
+                print("Taking:", xcol)
+                break
+        tavg = self.temperature_avg(systemname, systemname, pair, interaction_pair='lipid-chol',
+                                    column=xcol, neib_spec=neib_spec, averaging=True)
+        for Nc in range(5):
+            fitdata = ro.r('my.formula={1}~poly({2},degree={3},raw=TRUE)'
+                         '\nm <- lm(my.formula, data={0}[NChol=={4}])'
+                         '\nsummary(m)'.format(systemname, 'Etot', 'AvgScd', fit_degree, Nc))
+        #print("Fitdata: \n", fitdata, 3*"\n")
+            with open('{}_eofscd_{}_deg{}_nchol{}_polyfit.dat'.format(systemname, pair, fit_degree, Nc), "w") as fitf:
+                print(fitdata, file=fitf)
+        plot = ggplot2.ggplot(tavg)\
+                + ggplot2.aes_string(x=xcol, y='Etot', color='factor({})'.format(neib_spec))\
+                + add_axis('x', 'scd', breaks=[-0.3, 1.0, 0.2], pair=pair)\
+                + add_axis('y', 'enthalpy', breaks=[-50, 20, 10], pair=pair)\
+                + ggplot2.geom_point(ggplot2.aes_string(size='weight'))\
+                + ggplot2.geom_smooth(se=False, method='lm', fullrange=True, formula='y ~ poly(x, degree={}, raw=TRUE)'.format(fit_degree))\
+                + ggplot2.ggtitle(pair+' interaction')\
+                + ggplot2.scale_size("weight")\
+                + ggplot2.theme_light() + my_theme()
+        gr.pdf(file=filename, width=10, height=7)
+        print(plot)
+        gr.dev_off()
+        ro.r('rm(list=ls(all=TRUE))')
+    def lipid_sequence_gro(self, gropath):
+        ''' Determine in which the lipid species appear in the initial structure file '''
+        lipidsequence = []
+        with open(gropath,"r") as fgro:
+            # get rid of first 2 lines:
+            fgro.readline()
+            fgro.readline() 
+            for lines in fgro:
+                lipid = lines[5:9]
+                if lipid not in lipidsequence:
+                    lipidsequence.append(lipid)
+        return lipidsequence
+
+    def plot_H_lipidchol(self, systemname, pair, filename, mdpath,  l_orderparam=None, averaging=True,
+                         neib_spec=None,):
         ''' H(S_orderparam), H(S, nchol) Lipid-Chol interaction plots
             
             orderparam: <Lipid species> which order to take
             formula = ['poly', order]
         '''
-        def lipid_sequence_gro(gropath):
-            ''' Determine in which the lipid species appear in the initial structure file '''
-            lipidsequence = []
-            with open(gropath,"r") as fgro:
-                # get rid of first 2 lines:
-                fgro.readline()
-                fgro.readline() 
-                for lines in fgro:
-                    lipid = lines[5:9]
-                    if lipid not in lipidsequence:
-                        lipidsequence.append(lipid)
-            return lipidsequence
+        def lipidtypes_in_sys(sysname):
+            lipids_in_sys = sysname.split('_')
+            lipids_in_sys = [i[:4].upper() for i in lipids_in_sys]
+            if len(lipids_in_sys) > 2:
+                raise NotImplementedError('Not implemented for ternary systems')
+            lipids_in_sys.remove('CHOL')
+            return lipids_in_sys[0]
         titlepair = []
         pairlipids = pair.split('_')
         for lip in pairlipids:
@@ -1391,23 +1565,30 @@ class EofScdplots():
             else:
                 titlepair.append(lip)
         if isinstance(systemname, list):
+            pair_copy = pair
             tablelist = []
             for syst in systemname:
-                if not self.lipid_in_sys(pair, syst):
+                if pair_copy == 'LIPID_CHL1':
+                    print(pair, pairlipids)
+                    pairlipids = [lipidtypes_in_sys(syst)] + ['CHL1']
+                    pair = lipidtypes_in_sys(syst)+'_'+'CHL1'
+                elif not self.lipid_in_sys(pair, syst):
                     continue
-                lipidsequence = lipid_sequence_gro(mdpath+'/initial_coords/'+syst+'.gro')
+                lipidsequence = self.lipid_sequence_gro(mdpath+'/initial_coords/'+syst+'.gro')
                 for lip in lipidsequence:
                     if lip in pairlipids:
-                        if lip == l_orderparam:
+                        if lip != 'CHL1':
                             xcol = 'Host_Scd'
                         else:
                             xcol = 'Neib_Scd'
                         break
-                tavg = self.temperature_avg(syst, syst, pair, interaction_pair='lipid-chol', column=xcol, neib_spec=neib_spec, averaging=averaging)
-                print(tavg)
+                tavg = self.temperature_avg(syst, syst, pair, interaction_pair='lipid-chol',
+                                            column=xcol, neib_spec=neib_spec, averaging=averaging)
+                #print(syst, tavg)
                 tablelist.append((syst, syst))
+                print("TABLES", tablelist)
             tavg = merge_data('final_table', 'System', *tablelist)
-            print("TAVG", tavg)
+            print("TAVG SYSTEMS", tavg)
             title = '-'.join(titlepair)
             if tavg is None:
                 return
@@ -1421,14 +1602,16 @@ class EofScdplots():
                 guides = ggplot2.guides(color=ggplot2.guide_legend("System"), size=False)
             else:
                 if averaging:
-                    aes = ggplot2.aes_string(x='binnedScd', y='Etot', shape='System', color='factor('+neib_spec+')', weight='weight')
+                    aes = ggplot2.aes_string(x='binnedScd', y='Etot', shape='System', color='factor('+neib_spec+')',
+                                            weight='weight')
                 else:
-                    aes = ggplot2.aes_string(x='binnedScd', y='Etot', color='factor('+neib_spec+')', weight='weight', shape='factor(temperature)')
+                    aes = ggplot2.aes_string(x='binnedScd', y='Etot', color='factor('+neib_spec+')',
+                                            weight='weight', shape='factor(temperature)')
                 xaxis = add_axis('x', 'scd', breaks=[-0.2, 1.0, 0.2], pair=pair)
                 yaxis = ggplot2.scale_y_continuous(name= ro.r('expression(paste("H","(S"[CD],") / kJ/mol"))'))
                 guides = ggplot2.guides(color=ggplot2.guide_legend(neib_spec), size=False)
         else:
-            lipidsequence = lipid_sequence_gro(mdpath+'/initial_coords/'+systemname+'.gro')
+            lipidsequence = self.lipid_sequence_gro(mdpath+'/initial_coords/'+systemname+'.gro')
             for lip in lipidsequence:
                 if lip in pairlipids:
                     if lip == l_orderparam:
@@ -1437,16 +1620,12 @@ class EofScdplots():
                         xcol = 'Neib_Scd'
                     print("Taking:", xcol)
                     break
-            tavg = self.temperature_avg(systemname, systemname, pair, interaction_pair='lipid-chol', column=xcol, neib_spec=neib_spec, averaging=averaging)
+            tavg = self.temperature_avg(systemname, systemname, pair, interaction_pair='lipid-chol',
+                                        column=xcol, neib_spec=neib_spec, averaging=averaging)
             print("TAVG", tavg)
             title = '-'.join(titlepair)
             if tavg is None:
                 return
-            if formula is not None:
-                fitdata = ro.r('my.formula={0}${1}~{3}({0}${2},{4},raw=TRUE)'
-                   '\nm <- lm(my.formula, data={0})'
-                   '\nsummary(m)'.format(systemname, 'Etot', 'AvgScd', formula[0], formula[1] ))
-                print("Fitdata: \n", fitdata, 3*"\n")
             if neib_spec is None:
                 if averaging:
                     aes = ggplot2.aes_string(x='binnedScd', y='Etot')
@@ -1459,7 +1638,8 @@ class EofScdplots():
                 if averaging:
                     aes = ggplot2.aes_string(x='binnedScd', y='Etot', color='factor('+neib_spec+')', weight='weight')
                 else:
-                    aes = ggplot2.aes_string(x='binnedScd', y='Etot', color='factor('+neib_spec+')', weight='weight', shape='factor(temperature)')
+                    aes = ggplot2.aes_string(x='binnedScd', y='Etot', color='factor('+neib_spec+')', weight='weight',
+                                             shape='factor(temperature)')
                 xaxis = add_axis('x', 'scd', breaks=[-0.2, 1.0, 0.2], pair=pair)
                 yaxis = ggplot2.scale_y_continuous(name= ro.r('expression(paste("H","(S"[CD],") / kJ/mol"))'))
                 guides = ggplot2.guides(color=ggplot2.guide_legend(neib_spec), size=False)
@@ -1469,13 +1649,10 @@ class EofScdplots():
                 + xaxis\
                 + yaxis\
                 + ggplot2.geom_point(ggplot2.aes_string(size='weight'))\
+                + ggplot2.geom_smooth(se=False)\
                 + ggplot2.ggtitle(title+' interaction')\
                 + ggplot2.scale_size("weight")\
                 + ggplot2.theme_light() + my_theme()
-        if formula is not None:
-            plot += ggplot2.geom_smooth(se=False, method='lm', formula="y~{}(x,{})".format(formula[0], formula[1]))
-        #print(plot)
-        #time.sleep(5)
         gr.pdf(file=filename, width=10, height=7)
         print(plot)
         gr.dev_off()
@@ -1677,11 +1854,12 @@ class EofScdplots():
                     #==========================================================
         else:
             #final_table = ro.r("final_table <- final_table[NChol==3]")
+            #+ ggplot2.scale_y_continuous(name= ro.r('expression(paste("H","(S"[CD],") / kJ/mol"))'))\
             plot = ggplot2.ggplot(final_table)\
                     + ggplot2.aes_string(x='AvgScd', y='Etot', color='factor(System)', shape='factor('+neib_spec+')', weight='weight')\
                     + add_axis('x', 'avgscd', breaks=[-0.2, 1.0, 0.2], pair=pair)\
+                    + add_axis('y', 'enthalpy', limits=[-90, -40], breaks=[-90, -40, 5])\
                     + ggplot2.geom_point(ggplot2.aes_string(size='weight'), alpha=0.7)\
-                    + ggplot2.scale_y_continuous(name= ro.r('expression(paste("H","(S"[CD],") / kJ/mol"))'))\
                     + ggplot2.guides(shape=ggplot2.guide_legend(neib_spec), color=ggplot2.guide_legend("System"), linetype=ggplot2.guide_legend("System"),size=False)\
                     + ggplot2.scale_size("weight")\
                     + ggplot2.ggtitle(title+' interaction')\
@@ -1779,7 +1957,8 @@ class EofScdplots():
             if averaging:
                 aes = ggplot2.aes_string(x='AvgScd', y='Etot', color='factor(bin'+neib_spec+')', weight='weight')
             else:
-                aes = ggplot2.aes_string(x='AvgScd', y='Etot', color='factor(bin'+neib_spec+')', weight='weight', shape='factor(temperature)')
+                aes = ggplot2.aes_string(x='AvgScd', y='Etot', color='factor(bin'+neib_spec+')', weight='weight',
+                                        shape='factor(temperature)')
             xaxis = add_axis('x', 'avgscd', breaks=[-0.2, 1.0, 0.2], pair=pair)
             yaxis = ggplot2.scale_y_continuous(name= ro.r('expression(paste("H","(S"[CD],") / kJ/mol"))'))
             guides = ggplot2.guides(color=ggplot2.guide_legend(neib_spec), size=False)
@@ -1790,10 +1969,12 @@ class EofScdplots():
             if averaging:
                 aes = ggplot2.aes_string(x='AvgScd', y='Etot', color='factor('+neib_spec+')', weight='weight')
             else:
-                aes = ggplot2.aes_string(x='AvgScd', y='Etot', color='factor('+neib_spec+')', weight='weight', shape='factor(temperature)')
+                aes = ggplot2.aes_string(x='AvgScd', y='Etot', color='factor('+neib_spec+')', weight='weight',
+                                         shape='factor(temperature)')
             xaxis = add_axis('x', 'avgscd', breaks=[-0.2, 1.0, 0.2], pair=pair)
             yaxis = add_axis('y', 'enthalpy', breaks=self.enthalpyranges[pair], pair=pair)
-            guides = ggplot2.guides(color=ggplot2.guide_legend(neib_spec), shape=ggplot2.guide_legend("T / K"), linetype=ggplot2.guide_legend("T / K"), size=False)
+            guides = ggplot2.guides(color=ggplot2.guide_legend(neib_spec), shape=ggplot2.guide_legend("T / K"), 
+                                    linetype=ggplot2.guide_legend("T / K"), size=False)
         plot = ggplot2.ggplot(tavg)\
                 + aes\
                 + guides\
@@ -1900,7 +2081,7 @@ class EofScdplots():
                             )
         else:
             raise NotImplementedError("Sorry, not implemented anymore...")
-        print("Thats my df:", mydf)
+        #print("Thats my df:", mydf)
         print("Finished binning")
         return mydf
 
@@ -1923,7 +2104,7 @@ class EofScdplots():
         for temp in self.temperatures[systemname]:
             print("At temperature:", temp)
             system = '{}_{}'.format(systemname, temp)
-            print(system)
+            #print(system)
             if self.interaction == 'complete':
                 file_to_read = '{}/Eofscd{}.dat'.format(system, pair)
             elif self.interaction == 'lipid-chol':
@@ -1937,12 +2118,12 @@ class EofScdplots():
                 return None
         #Averaging before everything's collected=============
             df = self.bin_raw_data(system, system, interaction_pair, column=column, neib_spec=neib_spec)
-            print("binned df:", df)
+            #print("binned df:", df)
             framenames.append(system)
         framenames = [(i, i[-3:]) for i in framenames]
         print("Framenames:", framenames)
         dt = merge_data(outputtable, 'temperature', *framenames)
-        print("MERGED DATA:", dt)
+        #print("MERGED DATA:", dt)
         if not averaging:
             #dt = ro.r('{0} <- {0}[Lipid_type=="{1}"]\n'.format(outputtable))
             if neib_spec is not None:
@@ -1996,14 +2177,15 @@ class EofScdplots():
             elif neib_spec is not None:
                 df_final = ro.r('{0} <- subset({0},select=-c(temperature))'
                                 '\n{0} <- {0}[,lapply(.SD,weighted.mean,w=weight),by=list(binnedScd, Interaction, {1})]'
-                                #'\n{0} <- {0}[,lapply(.SD,weighted.mean,w=weight),by=list(binnedScd, Interaction, Ntot, {1})]'
+                                #'\n{0} <- {0}[,lapply(.SD,weighted.mean,w=weight),by=list(binnedScd, Interaction, {1})]'
                                 #'\n{0} <- {0}[Ntot<8][Ntot>4]'
+                                '\n{0} <- {0}[NChol<5]'
                                 #'\n{0} <- {0}[Ntot==6]'
                                 '\ninsignificant <- 0.01*max({0}$weight)'
                                 '\n{0} <- {0}[weight>insignificant]'
                                 '\n{0}'
                                 .format(outputtable, neib_spec))#column, ))
-                print("this is what remains", df_final)
+                #print("this is what remains", df_final)
             elif neib_spec is None:
                 df_final = ro.r('{0} <- subset({0},select=-c(temperature))'
                                 '\n{0} <- {0}[,lapply(.SD,weighted.mean,w=weight),by=list(binnedScd, Interaction)]'
@@ -2022,6 +2204,7 @@ class EofScdplots():
                                 '\n{0} <- {0}[,lapply(.SD,weighted.mean,w=weight),by=list(binnedScd, Interaction, {1})]'
                                 '\ninsignificant <- 0.01*max({0}$weight)'
                                 '\n{0} <- {0}[weight>insignificant]'
+                                '\n{0} <- {0}[NChol<7]'
                                 '\n{0}'
                                 .format(outputtable, neib_spec))# column))
         else:

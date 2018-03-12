@@ -22,13 +22,5 @@ bilana.egg-info/dependency_links.txt
 bilana.egg-info/entry_points.txt
 bilana.egg-info/top_level.txt
 bilana.egg-info/zip-safe
-bilana/__pycache__/__init__.cpython-34.pyc
-bilana/__pycache__/command_line.cpython-34.pyc
-bilana/__pycache__/energyfilecreator.cpython-34.pyc
-bilana/__pycache__/gromacstoolautomator.cpython-34.pyc
-bilana/__pycache__/lipidmolecules.cpython-34.pyc
-bilana/__pycache__/systeminfo.cpython-34.pyc
-bilana/__pycache__/tester.cpython-34.pyc
-bilana/__pycache__/testytest.cpython-34.pyc
 test/__init__.py
 test/oldcode

@@ -12,3 +12,6 @@ Modules:
 
 
 File output: 1neighbor_info, 2resindex_all, 3scd_distribution, 4all_energies
+
+Install with
+pip install  --user -e /path/to/mypackage
