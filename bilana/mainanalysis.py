@@ -52,6 +52,7 @@ class Scd():
         with open(grofilename,"r") as grofile, open(outputfile, "w") as scdfile:
             print("Time     Residue     Type      Scd", file=scdfile)
             resid_old = 1
+            time = 0
             lipidtype_old = ''
             coorddict = {}
             print(strftime("%H:%M:%S :", localtime()),"... read data from .gro-file ...")
@@ -59,8 +60,10 @@ class Scd():
             regexp = re.compile(r'^([\s,\d]{5})([\w,\s]{5})([\d,\w,\s]{5})([\s*\d+]{5})(\s*-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
             for line in grofile:
                 if 't=' in line:
-                    time = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
-                    print("...at time {}".format(time), flush=True, end="\r")
+                    time_tmp = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
+                    if not time:
+                        time = time_tmp
+                    #print("...at time {}".format(time), flush=True, end="\r")
                     if float(self.systeminfo.t_end) < time:
                         #print("breaking at", time)
                         break
@@ -82,11 +85,15 @@ class Scd():
                             coorddict = {}
                             print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
                             resid_old = resid
+                            time = time_tmp
                             lipidtype_old = lipidtype
                         coordinates = [float(x) for x in line[20:44].split()]
                         coorddict[atom] = coordinates
                     else:
                         continue
+            scd_value = self.scd_of_res(coorddict, self.atomlist[lipidtype_old])
+            coorddict = {}
+            print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
         print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
         return 
     #def scd_of_res(self, res, lipidmolecule, time, calculation_scheme='off', getcoords=None):#, neibstraightness=0,neiblist=None):
@@ -353,9 +360,9 @@ def create_leaflet_assignment_file(sysinfo_obj):
                 atomname = match.group(3).split()[0]
                 coords = [float(i) for i in match.group(5).split()]
                 #print(resid, atomname, coords)
-                if atomname == 'P' or atomname == 'O3':
+                if atomname in lipidmolecules.central_atom_of.values():
                     coord_head = np.array(coords)
-                if atomname == 'O21' or atomname == 'C17':
+                if atomname in [i[-1] for it in lipidmolecules.scd_tail_atoms_of.values() for i in it]:
                     coord_base = np.array(coords)
                 if old_resid != resid:
                     if coord_head is None or coord_base is None:

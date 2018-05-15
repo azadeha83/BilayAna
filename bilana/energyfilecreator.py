@@ -45,8 +45,11 @@ class NofScd():
     def create_NofScd_input(self, scdfile, neighborfile):
         time_to_scd, endtime1 = read_scdinput(scdfile)
         time_to_neiblist, hosts_without_neib = read_neighborinput(neighborfile)
-        
-        with open("Nofscd.dat","w") as outfile:
+        if neighborfile != 'neighbor_info':
+            nofscdname =  'Nofscd.dat_{}'.format(neighborfile)
+        else:
+            nofscdname = "Nofscd.dat"
+        with open(nofscdname, "w") as outfile:
             print(\
                 '{: <10}{: <10}{: <15}{: <20}{: <20}'\
                 '{: <10}{: <10}{: <10}'\
@@ -130,7 +133,10 @@ class EofScd():
             self.write_output_selfinteraction(self.energyfilename, lipid, timetoscd, endtime)
 
     def write_output_save_memory(self, energyfile, timetoscd, wantedpair, endtime):
-        outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
+        if energyfile == 'all_energies.dat':
+            outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
+        else:
+            outname = ''.join(['Eofscd', wantedpair, self.parts, energyfile.replace('.dat',''), '.dat'])
         with open(energyfile, "r") as efile, open(outname, "w") as outf:
             print(\
                   '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
@@ -198,10 +204,10 @@ class EofScd():
             print(\
                   '{: ^8}{: ^8}{: ^15}'
                   '{: ^15}{: ^15}{: ^15}'
-                  '{: ^15}{: ^15}{: ^15}{: ^15}'\
+                  '{: ^15}{: ^15}{: ^15}{: ^15}{: ^10}{: ^10}{: ^10}'\
                   .format("Time", "Host", "Host_Scd", 
                             "Etot",  "Evdw_tot", "Ecoul_tot",
-                            "Evdw_SR", "Evdw_14", "Ecoul_SR", "Ecoul_14",
+                            "Evdw_SR", "Evdw_14", "Ecoul_SR", "Ecoul_14", "Ntot", "NChol", "NDPPC",
                             ),
                   file=outf)
             efile.readline()
@@ -224,14 +230,18 @@ class EofScd():
                     continue
                 elif time > float(endtime):
                     continue
+                neibs = self.neiblist[host][time]
+                nchol = [self.mysystem.resid_to_lipid[N] for N in neibs].count('CHL1')
+                ndppc = [self.mysystem.resid_to_lipid[N] for N in neibs].count('DPPC')
+                ntot = len(neibs)
                 scd_host = timetoscd[(time, host)]
                 print(\
                       '{: <10}{: <10}{: <15.5f}'
                       '{: <15.5f}{: <15.5f}{: <15.5f}'
-                      '{: <15.5f}{: <15.5f}{: <15.5f}{: <15.5f}'
+                      '{: <15.5f}{: <15.5f}{: <15.5f}{: <15.5f}{: <10}{: <10}{: <10}'
                       .format(time, host, scd_host,
                                 Etot, vdw_tot, coul_tot,
-                                vdw_sr, vdw_14, coul_sr, coul_14),
+                                vdw_sr, vdw_14, coul_sr, coul_14, ntot, nchol, ndppc),
                       file=outf)
 
     #=================== DEPRECATED ===================================================

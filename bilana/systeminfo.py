@@ -11,6 +11,7 @@
 '''
 
 import os 
+from bilana import lipidmolecules
 inputfilename_default = 'inputfile' 
 
 class SysInfo():
@@ -94,13 +95,16 @@ class SysInfo():
                 #atom = lines[10:15].strip()
                 ind = int(float(lines[15:20].strip()))
                 #print(resid, lipid, atom, ind)
-                if lipid == 'DPPC' or lipid == 'DUPC':# and atom == 'P':
-                    #print(resid, lipid, atom, ind)
-                    in2res.update({ind:resid})
-                    res2mol.update({resid:lipid})
-                elif lipid == 'CHL1':# and atom == 'O3':
-                    in2res.update({ind:resid})
-                    res2mol.update({resid:lipid})
+                if lipid in lipidmolecules.described_molecules:
+                    in2res[ind] = resid
+                    res2mol[resid] = lipid
+                #if lipid == 'DPPC' or lipid == 'DUPC':# and atom == 'P':
+                #    #print(resid, lipid, atom, ind)
+                #    in2res.update({ind:resid})
+                #    res2mol.update({resid:lipid})
+                #elif lipid == 'CHL1':# and atom == 'O3':
+                #    in2res.update({ind:resid})
+                #    res2mol.update({resid:lipid})
         return in2res, res2mol
 
     def determine_systemsize_and_number_of_lipids(self):

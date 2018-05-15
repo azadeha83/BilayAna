@@ -270,15 +270,19 @@ def mend_energyruns():
 def check_and_write():
     ''' Check if all energy files exist and write table with all energies '''
     startdir = os.getcwd()
-    if len(sys.argv) != 6:
+    if len(sys.argv) < 6:
         print('Invalid number of input arguments. Specify:\n'
-              '<systemname> <lowest T> <highest T> <part of lipid> <jobname>')
+              '<systemname> <lowest T> <highest T> <part of lipid> <jobname> <neibfile>')
         sys.exit()
     systemname = sys.argv[1]
     tempstart = int(sys.argv[2])
     tempend = int(sys.argv[3])
     lipidpart = sys.argv[4]
     jobname = lipidpart+'_'+sys.argv[5]
+    try:
+        neibfilename = sys.argv[6]
+    except IndexError:
+        neibfilename = 'neighbor_info'
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:
@@ -294,7 +298,8 @@ def check_and_write():
                 '\nfrom bilana.systeminfo import SysInfo'
                 '\nfrom bilana import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
-                '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
+                #'\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+',neighborfile_name="neigbor_info"')'
+                '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'",neighborfile_name="'+neibfilename+'")'
                 '\nif myenergystate.check_exist_xvgs():'
                 '\n    myenergystate.write_energyfile()'
                 '\n    efstate = ef.EofScd(mysystem,"'+lipidpart+'", myenergystate.all_energies, "scd_distribution.dat")'
@@ -326,13 +331,17 @@ def write_eofscd():
     startdir = os.getcwd()
     if len(sys.argv) != 6:
         print('Invalid number of input arguments. Specify:\n'
-              '<systemname> <lowest T> <highest T> <part of lipid> <jobname>')
+              '<systemname> <lowest T> <highest T> <part of lipid> <jobname> <neibfilename>')
         sys.exit()
     systemname = sys.argv[1]
     tempstart = int(sys.argv[2])
     tempend = int(sys.argv[3])
     lipidpart = sys.argv[4]
     jobname = lipidpart+'_'+sys.argv[5]
+    try:
+        neibfilename = sys.argv[6]
+    except IndexError:
+        neibfilename = 'neighbor_info'
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:
@@ -348,7 +357,7 @@ def write_eofscd():
                 '\nfrom bilana.systeminfo import SysInfo'
                 '\nfrom bilana import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
-                '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'")'
+                '\nmyenergystate = gmx.Energy(mysystem,"'+lipidpart+'",neighborfile_name="'+neibfilename+'")'
                 '\nif myenergystate.check_exist_xvgs():'
 #                '\n    myenergystate.write_energyfile()'
                 '\n    efstate = ef.EofScd(mysystem,"'+lipidpart+'", myenergystate.all_energies, "scd_distribution.dat")'
@@ -378,14 +387,18 @@ def write_eofscd():
 def write_nofscd():
     ''' Check if all energy files exist and write table with all energies '''
     startdir = os.getcwd()
-    if len(sys.argv) != 5:
+    if len(sys.argv) < 5:
         print('Invalid number of input arguments. Specify:\n'
-              '<systemname> <lowest T> <highest T> <jobname>')
+              '<systemname> <lowest T> <highest T> <jobname> <neighborfile>')
         sys.exit()
     systemname = sys.argv[1]
     tempstart = int(sys.argv[2])
     tempend = int(sys.argv[3])
     jobname = sys.argv[4]
+    try:
+        neibfile_name = sys.argv[5]
+    except IndexError:
+        neibfile_name = 'neighbor_info'
     Temperatures = [T for T in range(tempstart, tempend+1, 10)]
     systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
     for systemdir in systems_to_calculate_for:
@@ -399,7 +412,7 @@ def write_nofscd():
                 '\nfrom bilana import energyfilecreator as ef'
                 '\nmysystem = SysInfo("inputfile")'
                 '\nefstate = ef.NofScd(mysystem)'
-                '\nefstate.create_NofScd_input("scd_distribution.dat", "neighbor_info")'
+                '\nefstate.create_NofScd_input("scd_distribution.dat", "'+neibfile_name+'")'
                 '\nos.remove(sys.argv[0])',\
                 file=scriptf)
             write_submitfile('submit.sh', jobfilename, mem='8G', prio=True)

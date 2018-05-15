@@ -37,6 +37,7 @@ def exec_gromacs(cmd,inp_str=None):
 def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     ''' Converts trajectory .trr or .xtc (binary) file to .gro (ASCII) file '''
     print(strftime("%H:%M:%S :", localtime()), 'Converting trajectory-file to structure-file ...\n')
+    generate_index_file(mysystem.gropath, mysystem.molecules)
     os.makedirs(mysystem.datapath+'/grofiles', exist_ok=True)
     grofile_output = ''.join([mysystem.datapath, '/grofiles/', grofilename])
     print(strftime("%H:%M:%S :", localtime()),"... Start conversion from .trj to .gro ...")
@@ -48,6 +49,8 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
         sorted_mols.append('DUPC')
     if 'CHL1' in mysystem.molecules:
         sorted_mols.append('CHL1')
+    if 'CHIM' in mysystem.molecules:
+        sorted_mols.append('CHIM')
     inp_str = str('_'.join(sorted_mols)+'\n').encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
@@ -71,6 +74,7 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
 def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
     os.makedirs(systeminfo.datapath+'/grofiles', exist_ok=True)
     getcoords = {}
+    generate_index_file(systeminfo.gropath, systeminfo.molecules)
     print('Converting trajectory-file to structure-file ...\n')
     if lipids != 'all':
         molecules = [lipids]
@@ -143,6 +147,23 @@ def get_res_with_nchol(systeminfo, nchol):
             resids_with_ncholneibs.append(res)
     return resids_with_ncholneibs
 
+
+def generate_index_file(gropath, molecules):
+    ''' Creates an indexfile with all relevant entries + one that contains all lipids '''
+    molstrings = ['r {}'.format(i) for i in molecules]
+    inp_str = ' | '.join(molstrings)
+    inp_str += '\n q \n'
+    #print(inp_str)
+    inp_str = inp_str.encode()
+    gmx_arglist = [
+        gmx_exec, 'make_ndx', '-f', gropath,
+        ]
+    out, err = exec_gromacs(gmx_arglist, inp_str)
+    with open("gmx_index.log","w") as logfile:
+        logfile.write('__________ STDERR ___________')
+        logfile.write(err.decode())
+        logfile.write('__________ STDOUT ___________')
+        logfile.write(out.decode())
 
 class calc_rdf_selfimplementation():
     def __init__(self, _systeminfo, refstring, selstring, refstring2=None, selstring2=None, 
@@ -681,6 +702,8 @@ class Neighbors():
     def __init__(self, systeminfo):
         self.mysystem = systeminfo
         self.cutoff = systeminfo.cutoff
+        self.resnames = ' '.join(systeminfo.molecules)
+        self.head_atomnames = ' '.join(lipidmolecules.central_atom_of.values())
 
 
     def create_selectionfile_neighborsearch(self, resid, refatoms='P'):
@@ -688,14 +711,18 @@ class Neighbors():
         with open(filename,"w") as selection:
             if refatoms == 'P':
                 print(\
-                    'host =  resid {0} and (name P O3);\n'
-                    'allOAtoms = resname CHL1 and name O3 and not host;\n'
-                    'allPAtoms = resname DPPC DUPC and name P and not host;\n'
-                    'neibOs = allOAtoms and within {1} of host;\n'
-                    'neibPs = allPAtoms and within {1} of host;\n'
-                    'neibs = neibPs or neibOs;\n'
+                    'host =  resid {0} and (name {2});\n'
+                    'neibs = (resname {3} and name {2} and not host) and within {1} of host;\n'
                     'neibs;'\
-                    .format(resid, self.cutoff), file=selection)
+                    .format(resid, self.cutoff, self.head_atomnames, self.resnames), file=selection)
+                    #'host =  resid {0} and (name P O3);\n'
+                    #'allOAtoms = resname CHL1 and name O3 and not host;\n'
+                    #'allPAtoms = resname DPPC DUPC and name P and not host;\n'
+                    #'neibOs = allOAtoms and within {1} of host;\n'
+                    #'neibPs = allPAtoms and within {1} of host;\n'
+                    #'neibs = neibPs or neibOs;\n'
+                    #'neibs;'\
+                    #.format(resid, self.cutoff,), file=selection)
             elif refatoms == 'bothtails':
                 print(
                     'host = resid {0} and name C34 C24 O3;\n'
@@ -725,12 +752,12 @@ class Neighbors():
                 raise ValueError("Wrong input for refatoms with: {}".format(refatoms))
         return filename
 
-    def get_neighbor_dict(self, verbose='off'):
+    def get_neighbor_dict(self, neighbor_filename='neighbor_info', verbose='off'):
         ''' Returns a list of all neighbors being in the
          cutoff distance at least once in the trajectory.
         Neighborfile is !required! and is output of 
         "determine_neighbors()" '''
-        neighborfile = "neighbor_info"
+        neighborfile = neighbor_filename
         neibdict = {}
         with open(neighborfile,"r") as neibmap:
             neibmap.readline() 
@@ -762,7 +789,7 @@ class Neighbors():
             selectionfile = self.mysystem.temppath+'/tmp_selectionfile'
             with open(selectionfile,"w") as sf:
                 lipidtype = self.mysystem.resid_to_lipid[mol]
-                if lipidtype  != 'CHL1': 
+                if lipidtype  not in lipidmolecules.sterols: 
                     tailhalf12_l = [] ### to get half the tails
                     tailhalf22_l = []
                     for molpart in lipidmolecules.tail_atoms_of[lipidtype]:
@@ -829,8 +856,8 @@ class Neighbors():
                     #               ]
                     print(selectionstring)
                     sf.write(selectionstring)
-                elif self.mysystem.resid_to_lipid[mol] == 'CHL1':
-                    selectionstring = 'resid_{0}=resid {0}  and resname CHL1;\nresid_{0};'.format(str(mol))
+                elif self.mysystem.resid_to_lipid[mol] in lipidmolecules.sterols:
+                    selectionstring = 'resid_{0}=resid {0}  and resname {1};\nresid_{0};'.format(str(mol), self.mysystem.resid_to_lipid[mol])
                     sf.write(selectionstring)
             outputindex = self.mysystem.indexpath+"/resid_"+str(mol)+".ndx"
             gmx_select_arglist = [gmx_exec, 'select', '-s', self.mysystem.gropath, '-sf',\
@@ -903,7 +930,7 @@ class Energy():
 
     DENOMINATOR = 40
 
-    def __init__(self, systeminfo, parts, resindex_all='resindex_all', overwrite=True):
+    def __init__(self, systeminfo, parts, neighborfile_name='neighbor_info', resindex_all='resindex_all', overwrite=True):
         knownparts = ['complete', 'head-tail', 'head-tailhalfs', 'carbons']
         if parts not in knownparts:
             raise ValueError("Part keyword specified is not known.")
@@ -917,7 +944,10 @@ class Energy():
             self.parts = ''
             self.denominator = self.DENOMINATOR
             self.molparts_short = [""]
-            self.all_energies = 'all_energies.dat'
+            if neighborfile_name != 'neighbor_info':
+                self.all_energies = 'all_energies_{}.dat'.format(neighborfile_name)
+            else:
+                self.all_energies = 'all_energies.dat'
             #self.interactions = ['']
         elif parts == 'head-tail':
             self.molparts = ["resid_h_", "resid_t_"]
@@ -1053,7 +1083,7 @@ class Energy():
         energygroup_indeces=[res]+all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]
         energygroup_list=[]
         for index in energygroup_indeces:
-            if self.mysystem.resid_to_lipid[index]=='CHL1':
+            if self.mysystem.resid_to_lipid[index] in lipidmolecules.sterols:
                 energygroup_list.append(''.join(["resid_",str(index)]))
             else:
                 for part in self.molparts:
