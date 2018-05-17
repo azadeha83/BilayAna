@@ -50,16 +50,20 @@ Tranges_whole = {\
            #====================================================================
            'dppc':[i for i in range(290, 360+1, 10)],
            'dupc':[i for i in range(270, 330+1, 10)],
-           'dppc_chol10':[i for i in range(290, 350+1, 10)],
-           'dppc_chol20':[i for i in range(290, 350+1, 10)],
-           'dppc_chol30':[i for i in range(290, 350+1, 10)],
+           #'dppc_chol10':[i for i in range(290, 350+1, 10)],
+           #'dppc_chol20':[i for i in range(290, 350+1, 10)],
+           #'dppc_chol30':[i for i in range(290, 350+1, 10)],
+           'dppc_chol10':[290, 330],
+           'dppc_chol20':[290, 330],
+           'dppc_chol30':[290, 330],
            'dppc_dupc':[i for i in range(290, 330+1, 10)],
            'dppc_dupc_chol25':[i for i in range(290, 330+1, 10)],
            'dppc_dupc_chol05':[i for i in range(290, 330+1, 10)],
            'dppc_dupc_chol40':[i for i in range(290, 330+1, 10)],
-           'dupc_chol10':[290,],
-           'dupc_chol20':[i for i in range(290, 330+1, 10)],
-           'dupc_chol30':[290,],
+           'dupc_chol10':[290, 330],
+           #'dupc_chol20':[i for i in range(290, 330+1, 10)],
+           'dupc_chol20':[290,330],
+           'dupc_chol30':[290,330],
            'dppc_chim20':[290,310,320],
            'dppc_chim30':[290,310,320],
            }
@@ -1127,9 +1131,9 @@ class NofScdplots():
                 guide = ggplot2.guides(shape=ggplot2.guide_legend("Dummy"), size=False)
         elif neib_spec is not None:
             if averaging == False:
-                aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='factor('+neib_spec+')',)# shape='temperature')
+                aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='factor('+neib_spec+')', shape='temperature')
                 #aes =  ggplot2.aes_string(x='as.numeric(temperature)', y=y_type, color='factor('+neib_spec+')',)# shape='temperature')
-                guide =  ggplot2.guides(shape=ggplot2.guide_legend("Temperature"), color=ggplot2.guide_legend('N'+neib_spec), size=False)
+                guide =  ggplot2.guides(shape=ggplot2.guide_legend("T / K"), color=ggplot2.guide_legend('N'+neib_spec), size=False)
             else:
                 aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='factor('+neib_spec+')')
                 guide =  ggplot2.guides(color=ggplot2.guide_legend(ro.r('expression(paste("N"["C"]))')), size=False)
@@ -1142,7 +1146,7 @@ class NofScdplots():
         #dppcfunc = ggplot2.stat_function(ggplot2.aes_string(linetype='"DPPC"'), fun=ro.r("function(x){(0.94123979/(1 + exp(-18.29302015 * (x - 0.63623191))) + 3.88006658)}"), color='black', size=2, )
         if lipid == 'DPPC' and (systemname == 'dppc_chol20' or systemname == 'dppc_chol10' or systemname == 'dppc_chol30'):
             if neib_spec == 'Chol':
-                yaxis = add_axis('y', yname, breaks=[3, 6, 1])
+                yaxis = add_axis('y', yname, breaks=[2.5, 7.5, 1])
             else:
                 if y_type == 'Ntot':
                     yaxis = add_axis('y', yname, breaks=[3.5, 10, 1])
@@ -1151,9 +1155,9 @@ class NofScdplots():
                         yaxis = add_axis('y', yname, breaks=[3, 7, 1])
                     elif y_type == 'CHL1':
                         yaxis = add_axis('y', yname, breaks=[0, 2, 0.5])
-        elif lipid == 'DUPC' and (systemname == 'dupc_chol20'):
+        elif lipid == 'DUPC':# and (systemname == 'dupc_chol20'):
             if neib_spec == 'Chol':
-                yaxis = add_axis('y', yname, breaks=[3, 6.5, 1])
+                yaxis = add_axis('y', yname, breaks=[2.5, 5.5, 1])
             else:
                 if y_type == 'Ntot':
                     yaxis = add_axis('y', yname, breaks=[3, 7, 1])
@@ -1172,12 +1176,14 @@ class NofScdplots():
             + ggplot2.ggtitle('Neighbors around '+ str(lipid))\
             + guide\
             + ggplot2.theme_light() + my_theme()
+
             #+ ggplot2.geom_smooth(se=False, weight='weight')\
             #+ add_axis('y', yname, breaks=[3.0, 4.5, 0.5])\
         if yaxis is not None:
             plot += yaxis
         if averaging == False and neib_spec is not None:
-            plot += ggplot2.scale_shape_manual(values=ro.r("1:"+str(len(self.temperatures[systemname]))))
+            #plot += ggplot2.scale_shape_manual(values=ro.r("1:"+str(len(self.temperatures[systemname]))), solid=True)
+            plot += ggplot2.scale_shape_discrete(solid=True)
         gr.pdf(file=filename, width=10, height=7)
         print(plot)
         gr.dev_off()

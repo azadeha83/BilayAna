@@ -15,7 +15,19 @@ from bilana import lipidmolecules
 inputfilename_default = 'inputfile' 
 
 class SysInfo():
-    ''' Gather all relevant information about the system to analyse '''
+    ''' Gather all relevant information about the system to analyse
+    Info about:
+        -Paths to MD files
+        -Output paths (where to put generated files to)
+        -Important dictionaries: 
+            index to resid --> maps index of an atom to corresponding resid
+            resid to lipid --> maps resid to lipid type
+            res to leaflet --> maps resid to leaflet index
+        -number of lipids in system
+        -number of atoms of lipids in system
+        -
+    
+    '''
 
     NUMBEROFMOLECULES = 'all'
 
@@ -46,7 +58,7 @@ class SysInfo():
         self.datapath = "{}/datafiles".format(cwd)
         self.temppath = "{}/tempfiles".format(cwd)
         self.energypath = "{}/energyfiles".format(cwd)
-        # ''' Dictionaries '''
+        # ''' Dictionaries and info '''
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
@@ -57,9 +69,9 @@ class SysInfo():
             self.t_end = int(self.times[1])
         self.t_start = int(self.times[0])
         self.dt = int(self.times[2])
+        #####
         print('Total number of atoms: {}\nNumber of lipids: {}\n\n'
               .format(self.system_size, self.number_of_lipids))
-        # ''' Size Info '''
         if self.NUMBEROFMOLECULES == 'all':
             self.NUMBEROFMOLECULES = self.number_of_lipids
 
@@ -82,7 +94,6 @@ class SysInfo():
             from index to resid as well as resid to molecule
         '''
         grofile = self.gropath
-        #print(grofile)
         in2res = {}
         res2mol = {}
         with open(grofile,"r") as fgro:
@@ -92,19 +103,10 @@ class SysInfo():
             for lines in fgro:
                 resid = int(float(lines[:5].strip()))
                 lipid = lines[5:9]
-                #atom = lines[10:15].strip()
                 ind = int(float(lines[15:20].strip()))
-                #print(resid, lipid, atom, ind)
                 if lipid in lipidmolecules.described_molecules:
                     in2res[ind] = resid
                     res2mol[resid] = lipid
-                #if lipid == 'DPPC' or lipid == 'DUPC':# and atom == 'P':
-                #    #print(resid, lipid, atom, ind)
-                #    in2res.update({ind:resid})
-                #    res2mol.update({resid:lipid})
-                #elif lipid == 'CHL1':# and atom == 'O3':
-                #    in2res.update({ind:resid})
-                #    res2mol.update({resid:lipid})
         return in2res, res2mol
 
     def determine_systemsize_and_number_of_lipids(self):
@@ -149,12 +151,5 @@ class SysInfo():
             print('WARNING: File "leaflet_assignment.dat" does not exist.\n'
                   'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
         return outdict
-    #def determine_traj_length(self):
-    #    trjpath=self.trjpath
-    #    gmxarglist=[gmx_exec,'check','-f',trjpath]
-    #    out,err=self.exec_gromacs(gmxarglist)
-    #    err=err.split()
-    #    endtime=err[err.index(b'Step')+1]
-    #   return int(endtime.decode())
 
 

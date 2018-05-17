@@ -21,14 +21,18 @@ gmx_exec = 'gmx' #'gmx_5.0.4_mpi'
 os.environ["GMX_MAXBACKUP"] = "-1"
 
 def exec_gromacs(cmd,inp_str=None): 
-    '''arglist (cmd) is list of arguments like "['gmx cmd', '-f', 'tprfile', '-e', 'en.edr']"
-        inp_str must be encoded!
+    ''' Execute Gromacs commands.
+        arglist (cmd) is list of arguments like "['gmx cmd', '-f', 'tprfile', '-e', 'en.edr']"
     '''
     if inp_str is None:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
     else:
-        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            inp_str = inp_str.encode()
+        except AttributeError:
+            pass
+        pro = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate(inp_str)
     proc.wait()
     proc.stdout.close()
@@ -132,21 +136,6 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
                     getcoords.update({keytuple:coordinates})
         print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
     return getcoords, time-1000.0
-
-def get_res_with_nchol(systeminfo, nchol):
-    resids_with_ncholneibs= []
-    neiblist = Neighbors(systeminfo).get_neighbor_dict()
-    for res in range(1, systeminfo.NUMBEROFMOLECULES):
-        nchollist = []
-        for time in range(systeminfo.t_start, int(max(neiblist[res].keys())), systeminfo.dt):
-            neighbors = neiblist[res][float(time)]
-            nchol_is = [systeminfo.resid_to_lipid[neib] for neib in neighbors].count('CHL1')
-            nchollist.append(nchol_is)
-        avg_nchol = round(sum(nchollist)/len(nchollist))
-        if nchol == avg_nchol:
-            resids_with_ncholneibs.append(res)
-    return resids_with_ncholneibs
-
 
 def generate_index_file(gropath, molecules):
     ''' Creates an indexfile with all relevant entries + one that contains all lipids '''
@@ -551,102 +540,6 @@ def radialdistribution(systeminfo, ref, sel,):
         print('STDERR:\n{}\n\nSTDOUT:\n{}'\
                 .format(err.decode(), out.decode()), file=logfile)
 
-#===============================================================================
-# def radialdistribution(systeminfo, ref, sel,):
-#     ''' Calculates the RDF of sel relative to ref.
-#     As input either:
-#         atoms (P, O3, ...)
-#         or center of mass (COM) of lipidtype (DPPC, CHL1)
-#         or parts of lipid (TAILS, HEAD, TAIL1[->single Tail]) of lipidtype (DPPC/DUPC)
-#     can be specified
-#     Example inputs: "COM-DPPC", "TAIL1-DPPC", "P" '''
-#     print("\n_____Calculating radial distribution function ____\n")
-#     print("Ref: {}\nSel: {}\n\n".format(ref, sel))
-#     #groups_to_calculate = ['P','O','COMTAIL','COMHEAD']
-#     os.makedirs(systeminfo.datapath+'/rdf', exist_ok=True)
-#     selectdict = {}
-#     myregex = re.compile(r'^(COM|HEAD|TAILS|TAIL1|TAIL1HALFTOP|TAIL1HALFBOT|TAILHALFSTOP|TAILHALFSBOT)?-?(\w+\d?\s?\w+\d?\s?)$')
-#     if os.path.isfile("leaflet_assignment.dat"): 
-#         res_in_leaf = []
-#         with open("leaflet_assignment.dat", "r") as leas:
-#             leas.readline()
-#             for line in leas:
-#                 cols = line.split()
-#                 if int(cols[1]):
-#                     res_in_leaf.append(cols[0])
-#         select_one_leaflet = 'and resid '+' '.join(res_in_leaf)
-#     else:
-#         select_one_leaflet = 'and z<4'
-#     for selection in (('ref', ref), ('sel', sel)):
-#         regmatch = myregex.match(selection[1])
-#         if regmatch is None:
-#             print('Unknown selection. Read documentation.')
-#             sys.exit()
-#         prefix = regmatch.group(1)
-#         atomchoice = regmatch.group(2)
-#         if prefix == None:
-#             selectstring = 'name {} {}'.format(atomchoice, select_one_leaflet)
-#         else:
-#             raise NotImplementedError("Sorry not implemented anymore...")
-#         #=======================================================================
-#         # else:
-#         #     selprefix = 'mol_com of'
-#         #     if atomchoice in lipidmolecules.described_molecules:
-#         #         if prefix == 'HEAD':
-#         #             atomlist = lipidmolecules.head_atoms_of[atomchoice] 
-#         #             selectstring = '{} name {}'.format(selprefix, ' '.join(atomlist))
-#         #         elif prefix == 'TAILS':
-#         #             atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item]
-#         #             #============================One Tail only===============================
-#         #             # atomlist = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0]]
-#         #             #========================================================================
-#         #             selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
-#         #         elif prefix == 'TAIL1':
-#         #             atomlist1 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0]]
-#         #             #atomlist2 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][1]]
-#         #             #selectstring = '{0} resname {1} and name {2} or {0} resname {1} and name {3}'.format(selprefix, atomchoice, ' '.join(atomlist1), ' '.join(atomlist2))
-#         #             selectstring = '{0} resname {1} and name {2}'.format(selprefix, atomchoice, ' '.join(atomlist1))
-#         #         elif prefix == 'COM':
-#         #             selectstring = '{} resname {} '.format(selprefix, atomchoice)
-#         #         elif prefix == 'TAIL1HALFTOP':
-#         #             Ntailatoms = len(lipidmolecules.tail_atoms_of[atomchoice][0])
-#         #             atomlist1 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0][:Ntailatoms//2]]
-#         #             selectstring = '{0} resname {1} and name {2}'.format(selprefix, atomchoice, ' '.join(atomlist1))
-#         #         elif prefix == 'TAIL1HALFBOT':
-#         #             Ntailatoms = len(lipidmolecules.tail_atoms_of[atomchoice][0])
-#         #             atomlist1 = [atom for atom in lipidmolecules.tail_atoms_of[atomchoice][0][Ntailatoms//2:]]
-#         #             selectstring = '{0} resname {1} and name {2}'.format(selprefix, atomchoice, ' '.join(atomlist1))
-#         #         elif prefix == 'TAILHALFSTOP':
-#         #             atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item[:len(item)//2]]
-#         #             selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
-#         #         elif prefix == 'TAILHALFSBOT':
-#         #             Ntailatoms = len(lipidmolecules.tail_atoms_of[atomchoice][0])
-#         #             atomlist = [atom for item in lipidmolecules.tail_atoms_of[atomchoice] for atom in item[len(item)//2:]]
-#         #             selectstring = '{} resname {} and name {} '.format(selprefix, atomchoice, ' '.join(atomlist))
-#         #     else:
-#         #         print('Selection invalid, please specify one of',\
-#         #               lipidmolecules.described_molecules)
-#         #         sys.exit()
-#         #=======================================================================
-#         select_fname = '{}/select{}_{}'.format(systeminfo.temppath, selection[0], selection[1])
-#         selectdict.update({selection[1]:select_fname})
-#         with open(select_fname, "w") as selfile:
-#             print("Selection for {} is:\n{}\n".format(selection[0], selectstring))
-#             print(selectstring, file=selfile)
-#     outputfile = '{}/rdf/rdf_{}-{}.xvg'.format(systeminfo.datapath, ref, sel).replace(" ", "")
-#     outputfile_cn = '{}/rdf/nr_{}-{}.xvg'.format(systeminfo.datapath, ref, sel).replace(" ", "")
-#     g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',
-#                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,
-#                      '-o', outputfile, '-ref', '-sf', selectdict[ref],
-#                      '-sel', '-sf', selectdict[sel], '-cn', outputfile_cn,
-#                       ]
-#     out, err = exec_gromacs(g_rdf_arglist)
-#     rdf_log = 'rdf_{}-{}.log'.format(ref, sel).replace(" ", "")
-#     with open(rdf_log, "w") as logfile:
-#         print('STDERR:\n{}\n\nSTDOUT:\n{}'\
-#                 .format(err.decode(), out.decode()), file=logfile)
-#===============================================================================
-
 def calculate_distance(self):
     print("\n____Calculating distances____\n")
     neiblist=self.get_neighbor_dict()
@@ -698,7 +591,6 @@ def calculate_distance(self):
 class Neighbors():
     ''' All calculations regarding lipid neighbors '''
 
-    #global mysystem
     def __init__(self, systeminfo):
         self.mysystem = systeminfo
         self.cutoff = systeminfo.cutoff
@@ -975,7 +867,18 @@ class Energy():
         print('\n Calculating for energygroups:', self.molparts)
 
     def run_calculation(self, startres=-1, endres=-1):
-        ''' Runs a complete energy calculation with settings from Energy() instance '''
+        ''' Runs an energy calculation with settings from Energy() instance.
+            For each residue the energy to all neighbors seen during MD is calculated
+            and written to .edr files.
+            Procedure is as follows:
+            1. The neighbors are divided into fragments ("groupfragments")
+            2. For each fragment:
+                an mdp file is created (create_MDP)
+                a tpr file is generated (create_TPR)
+            3. The actual mdrun -rerun is performed (do_Energyrun)
+            4. .xvg tables are generate from .edr files
+            
+        '''
         print('''\n____Rerunning MD for energyfiles,
          creating xvgtables with relevant energies.____\n
          Caution mdp-file must not have energy_grps indicated!\n''')
@@ -1026,7 +929,7 @@ class Energy():
         return 'Done'
 
     def selfinteractions_edr_to_xvg(self):
-        ''' Extracts all self interactional energyvalues '''
+        ''' Extracts all self interaction energy values from .edr files using gmx energy '''
         for res in range(1,self.mysystem.NUMBEROFMOLECULES+1):
             relev_energies = self.get_relev_self_interaction(res)
             tprout = ''.join([self.mysystem.energypath, '/tprfiles/mdrerun_resid', str(res), '_', '0', self.parts, '.tpr'])
@@ -1034,6 +937,9 @@ class Energy():
             xvg_out = ''.join([self.mysystem.energypath, '/xvgtables/energies_residue', str(res), '_selfinteraction', self.parts, '.xvg'])
             self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
     def selfinteractions_xvg_to_dat(self):
+        ''' Extracts all self interaction energy entries from xvg files
+            and writes them to "selfinteractions.dat"
+        '''
         with open("selfinteractions.dat", "w") as energyoutput:
             print(\
                   '{: <10}{: <10}'
@@ -1092,6 +998,11 @@ class Energy():
         return energygroup_string
 
     def get_relev_energies(self, res, all_neibs_of_res):
+        ''' Returns string that describes all entries
+            needed to be extracted from energy file using gmx energy 
+            This version is for lipid-lipid interaction
+            for self interaction search function "get_relev_self_interaction"
+        '''
         Etypes=["Coul-SR:", "LJ-SR:"]
         energyselection=[]
         for interaction in Etypes:
@@ -1111,13 +1022,14 @@ class Energy():
                         elif self.mysystem.resid_to_lipid[neib]=='CHL1' and counterneib!=0:
                             continue
                         energyselection.append(''.join([interaction,parthost,str(res),"-",partneib,str(neib)]))
-                #select_energies_coulomb='\n'.join(["Coul-SR:resid_"+str(res)+"-resid_"+str(x) for x in all_N_of_res[groupblockstart:groupblockend]])
-                #select_energies_LJ='\n'.join(["LJ-SR:resid_"+str(res)+"-resid_"+str(x) for x in all_N_of_res[groupblockstart:groupblockend]])
-                #select_all_relevant_energies=select_energies_coulomb+"\n"+select_energies_LJ
         all_relev_energies='\n'.join(energyselection+['\n'])
         return all_relev_energies
 
     def get_relev_self_interaction(self, res):
+        ''' Returns string that describes all entries
+            needed to be extracted from energy file using gmx energy 
+            This version is for lipid self interaction
+        '''
         Etypes=["Coul-SR:", "LJ-SR:", "Coul-14:", "LJ-14:"]
         energyselection=[]
         for interaction in Etypes:
@@ -1125,7 +1037,6 @@ class Energy():
                 energyselection.append(''.join([interaction,parthost,str(res),"-",parthost,str(res)]))
         all_relev_energies='\n'.join(energyselection+['\n'])
         return all_relev_energies
-
 
     def create_MDP(self, mdpout: str, energygroups: str):
         ''' Create Mdpfile '''
@@ -1189,7 +1100,7 @@ class Energy():
             logfile.write(100*'_')
 
     def do_Energyrun(self, res, groupfragment, tprrerun_in, energyf_out):
-        ''' Create ENERGYFILE with mdrun -rerun '''
+        ''' Create .edr ENERGYFILE with mdrun -rerun '''
         print(strftime("%H:%M:%S :", localtime()), '...Rerunning trajectory for energy calculation...')
         os.makedirs(self.mysystem.energypath+'/edrfiles', exist_ok=True)
         os.makedirs(self.mysystem.energypath+'/logfiles', exist_ok=True)
@@ -1219,7 +1130,6 @@ class Energy():
             logfile.write(100*'_')
             logfile.write(out.decode())
             logfile.write(100*'_')
-
 
     def write_energyfile(self):
         ''' Creates files: "all_energies_<interaction>.dat '''
@@ -1319,6 +1229,7 @@ class Energy():
                     raise ValueError('Not all neighbours found in xvgfile')
 
     def check_exist_xvgs(self):
+        ''' Checks if all .xvg-files containing lipid interaction exist '''
         all_okay = True
         with open("missing_xvgfiles.info", "w") as inffile:
             print("#Files missing", file=inffile)
