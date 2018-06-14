@@ -1,10 +1,15 @@
 .gitignore
 .project
 .pydevproject
+.settings
 README.txt
+bilana
+bilana.egg-info
 energy_recalculation.mdp
 inputfile
 setup.py
+src.egg-info
+test
 .settings/org.eclipse.ltk.core.refactoring.prefs
 bilana/__init__.py
 bilana/command_line.py
@@ -22,5 +27,11 @@ bilana.egg-info/dependency_links.txt
 bilana.egg-info/entry_points.txt
 bilana.egg-info/top_level.txt
 bilana.egg-info/zip-safe
+src.egg-info/PKG-INFO
+src.egg-info/SOURCES.txt
+src.egg-info/dependency_links.txt
+src.egg-info/entry_points.txt
+src.egg-info/top_level.txt
+src.egg-info/zip-safe
 test/__init__.py
 test/oldcode
