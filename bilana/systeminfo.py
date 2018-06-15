@@ -12,6 +12,7 @@
 
 import os 
 from bilana import lipidmolecules
+from bilana.common import *
 inputfilename_default = 'inputfile' 
 
 class SysInfo():
@@ -42,7 +43,7 @@ class SysInfo():
         self.system = self.system_info['System']
         self.temperature = self.system_info['Temperature']
         self.cutoff = float(self.system_info['cutoff'])
-        self.molecules = [x.upper() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
+        self.molecules = [x.upper().strip() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
         if 'CHOL' in self.molecules:    # This must be declared immediately !!!
             self.molecules.append('CHL1')
             self.molecules.remove('CHOL')
@@ -115,21 +116,37 @@ class SysInfo():
         number_of_lipids = 0
         with open(grofile,"r") as fgro:
             resids = []
-            fgro.readline() # get rid of first line
+            lipids_found = []
+            fgro.readline() # Gro headline
             system_size = int(fgro.readline()) # second line is systemsize info
-            lines = fgro.readlines()
-            del lines[-1]
-            for item in lines:
-                lipid = item[5:9]
-                resid = item[:5].strip()
-                if lipid in self.molecules:
-                    resids += [resid]
+            for line in fgro:
+                regmatch = GRO_format.regexp.match(line)
+                if regmatch:
+                    grps = regmatch.groups()
+                    resid = int(grps[0].strip())
+                    resname = grps[1].strip()
+                    if resname in self.molecules:
+                        lipids_found.append(resname)
+                        resids.append(resid)
+            lipids_found = list(set(lipids_found))
             resids = list(set(resids))
-            resids = [int(x) for x in resids]
-            if max(resids) == len(resids):
-                number_of_lipids = len(resids)
-            else:
-                print('Something went wrong! Some resids are missing...')
+            number_of_lipids = len(resids)
+            if len(lipids_found) != len(self.molecules):
+                raise Warning("Not all lipids, given in the input file, found in structure file!") 
+            return system_size, number_of_lipids
+            #lines = fgro.readlines()
+            #del lines[-1]
+            #for item in lines:
+            #    lipid = item[5:9]
+            #    resid = item[:5].strip()
+            #    if lipid in self.molecules:
+            #        resids += [resid]
+            #resids = list(set(resids))
+            #resids = [int(x) for x in resids]
+            #if max(resids) == len(resids):
+            #    number_of_lipids = len(resids)
+            #else:
+            #    print('Something went wrong! Some resids are missing...')
         return system_size, number_of_lipids
 
     def assign_res_to_leaflet(self):
@@ -148,7 +165,7 @@ class SysInfo():
                     leaflet = int(cols[1])
                     outdict[res] = leaflet
         except FileNotFoundError:
-            print('WARNING: File "leaflet_assignment.dat" does not exist.\n'
+            raise Warning('File "leaflet_assignment.dat" does not exist.\n'
                   'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
         return outdict
 

@@ -32,12 +32,18 @@ def exec_gromacs(cmd,inp_str=None):
             inp_str = inp_str.encode()
         except AttributeError:
             pass
-        pro = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate(inp_str)
     proc.wait()
     proc.stdout.close()
     proc.stderr.close()
+    if proc.returncode == 1:
+        #print("Failed to execute command:", ' '.join(cmd))
+        err = err.decode()
+        print(err)
+        raise ChildProcessError('Failed to execute command "{}"'.format(' '.join(cmd)))
     return out, err
+
 def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     ''' Converts trajectory .trr or .xtc (binary) file to .gro (ASCII) file '''
     print(strftime("%H:%M:%S :", localtime()), 'Converting trajectory-file to structure-file ...\n')
@@ -667,7 +673,6 @@ class Neighbors():
                     neibdict[resid].update({time:[]})
                     if verbose == 'on':
                         print("No neighbors of residue {} at time {}.".format(cols[0],cols[1])) 
-        #print(neibdict)
         return neibdict
 
     def create_indexfile(self):
