@@ -39,9 +39,12 @@ def exec_gromacs(cmd,inp_str=None):
     proc.stderr.close()
     if proc.returncode == 1:
         #print("Failed to execute command:", ' '.join(cmd))
-        err = err.decode()
-        print(err)
-        raise ChildProcessError('Failed to execute command "{}"'.format(' '.join(cmd)))
+        try:
+            err = err.decode()
+            print(err)
+        except UnboundLocalError:
+            pass
+        raise ChildProcessError('Failed to execute command "{}" and input "{}"'.format(' '.join(cmd), inp_str))
     return out, err
 
 def produce_gro(mysystem, grofilename='/traj_complete.gro'):
@@ -53,6 +56,7 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     print(strftime("%H:%M:%S :", localtime()),"... Start conversion from .trj to .gro ...")
     print(mysystem.molecules)
     sorted_mols = []
+    ### REFACTOR HERE!!! 
     if 'DPPC' in mysystem.molecules:
         sorted_mols.append('DPPC')
     if 'DUPC' in mysystem.molecules:
@@ -61,6 +65,8 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
         sorted_mols.append('CHL1')
     if 'CHIM' in mysystem.molecules:
         sorted_mols.append('CHIM')
+    if 'ERG' in mysystem.molecules:
+        sorted_mols.append('ERG')
     inp_str = str('_'.join(sorted_mols)+'\n').encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
@@ -69,16 +75,12 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
         '-dt', str(mysystem.dt),
         '-pbc', 'whole',
         ]
-    try:
-        out, err = exec_gromacs(gmx_traj_arglist, inp_str)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        with open("gmx_traj_compl.log","w") as logfile:
-            logfile.write(err.decode())
-            logfile.write(150*'_')
-            logfile.write(out.decode())
-            logfile.write(150*'_')
+    out, err = exec_gromacs(gmx_traj_arglist, inp_str)
+    with open("gmx_traj_compl.log","w") as logfile:
+        logfile.write(err.decode())
+        logfile.write(150*'_')
+        logfile.write(out.decode())
+        logfile.write(150*'_')
     return grofile_output
 
 def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):

@@ -64,9 +64,7 @@ class GRO_format():
         (\d+)           (?# Resid       Grp 1)
     \s*
         (\w+)           (?# Resname     Grp 2)
-    \s*
         ([\w,\s,\d,\']{,6})           (?# Atom name   Grp 3)
-    \s*
         ([\s,\d+]{,6})           (?# Atom number Grp 4)
     \s*
             (-?\d+\.\d+)      (?# X               Grp 5-7)

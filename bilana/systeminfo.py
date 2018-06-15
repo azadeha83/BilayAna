@@ -12,7 +12,8 @@
 
 import os 
 from bilana import lipidmolecules
-from bilana.common import *
+from bilana import common as com
+import warnings
 inputfilename_default = 'inputfile' 
 
 class SysInfo():
@@ -120,7 +121,7 @@ class SysInfo():
             fgro.readline() # Gro headline
             system_size = int(fgro.readline()) # second line is systemsize info
             for line in fgro:
-                regmatch = GRO_format.regexp.match(line)
+                regmatch = com.GRO_format.regexp.match(line)
                 if regmatch:
                     grps = regmatch.groups()
                     resid = int(grps[0].strip())
@@ -132,7 +133,7 @@ class SysInfo():
             resids = list(set(resids))
             number_of_lipids = len(resids)
             if len(lipids_found) != len(self.molecules):
-                raise Warning("Not all lipids, given in the input file, found in structure file!") 
+                warnings.warn("Not all lipids, given in the input file, found in structure file!") 
             return system_size, number_of_lipids
             #lines = fgro.readlines()
             #del lines[-1]
@@ -165,7 +166,7 @@ class SysInfo():
                     leaflet = int(cols[1])
                     outdict[res] = leaflet
         except FileNotFoundError:
-            raise Warning('File "leaflet_assignment.dat" does not exist.\n'
+            warnings.warn('File "leaflet_assignment.dat" does not exist.\n'
                   'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
         return outdict
 

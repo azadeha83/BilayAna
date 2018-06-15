@@ -8,7 +8,7 @@ import numpy as np
 import pprint
 import re
 from time import localtime, strftime
-from bilana.common import AutoVivification
+from bilana.common import AutoVivification, GRO_format
 from bilana.energyfilecreator import read_scdinput
 from bilana import lipidmolecules
 from bilana import gromacstoolautomator as gmxauto
@@ -51,7 +51,7 @@ class Scd():
             coorddict = {}
             print(strftime("%H:%M:%S :", localtime()),"... read data from .gro-file ...")
             #========================RESID=======RESNAME======ATOMNAME=======INDEX===============X============Y============Z=======
-            regexp = re.compile(r'^([\s,\d]{5})([\w,\s]{5})([\d,\w,\s]{5})([\s*\d+]{5})(\s*-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
+            #regexp = re.compile(r'^([\s,\d]{5})([\w,\s]{5})([\d,\w,\s]{5})([\s*\d+]{5})(\s*-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
             for line in grofile:
                 if 't=' in line:
                     time_tmp = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
@@ -63,15 +63,21 @@ class Scd():
                         break
                 #print("Match", regexp.match(line), line[:15], end='\n')
                 #print("Time match is", float(systeminfo.t_start)<=time, end='\n')
-                if float(self.systeminfo.t_start) <= time and regexp.match(line) is not None:
+                regmatch = GRO_format.regexp.match(line)
+                if float(self.systeminfo.t_start) <= time and regmatch is not None:
+                    grps = regmatch.groups()
+                    #print(grps)
                     #print("Reading data at", time, end='\n')
-                    atom = line[9:15].strip()
-                    lipidtype = line[5:9]
+                    #atom = line[9:15].strip()
+                    #lipidtype = line[5:9]
+                    atom = grps[2].strip()
+                    lipidtype = grps[1].strip()
                     if not lipidtype_old:
                         lipidtype_old = lipidtype
                     all_atmlst = [atm for atmlst in self.atomlist[lipidtype] for atm in atmlst]
                     if atom in all_atmlst and lipidtype in self.systeminfo.molecules:
-                        resid = int(line[:5].strip())
+                        #resid = int(line[:5].strip())
+                        resid = int(grps[0].strip())
                         if resid != resid_old and coorddict:
                             if not resid_old:
                                 resid_old = resid
@@ -81,7 +87,8 @@ class Scd():
                             resid_old = resid
                             time = time_tmp
                             lipidtype_old = lipidtype
-                        coordinates = [float(x) for x in line[20:44].split()]
+                        #coordinates = [float(x) for x in line[20:44].split()]
+                        coordinates = [float(x) for x in grps[4:7]]
                         coorddict[atom] = coordinates
                     else:
                         continue
