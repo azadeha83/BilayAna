@@ -102,10 +102,16 @@ class SysInfo():
             # get rid of first 2 lines:
             fgro.readline()
             fgro.readline() 
-            for lines in fgro:
-                resid = int(float(lines[:5].strip()))
-                lipid = lines[5:9]
-                ind = int(float(lines[15:20].strip()))
+            for line in fgro:
+                regmatch = com.GRO_format.regexp.match(line)
+                if regmatch:
+                    grps = regmatch.groups()
+                    resid = int(grps[0].strip())
+                    lipid = grps[1].strip()
+                    ind = int(grps[3].strip())
+                #resid = int(float(line[:5].strip()))
+                #lipid = line[5:9]
+                #ind = int(float(line[15:20].strip()))
                 if lipid in lipidmolecules.described_molecules:
                     in2res[ind] = resid
                     res2mol[resid] = lipid
