@@ -60,12 +60,10 @@ class GRO_format():
     #                          resid resnm atmnm atmnr  x           y      z         vx      vy        vz
     gro_string_format = '{: >5}{: <5}{: >5}{: >5}{: >8.3f}{: >8.3f}{: >8.3f}{: >8.4f}{: >8.4f}{: >8.4f} '
     gro_pattern = r"""
-    \s*
-        (\d+)           (?# Resid       Grp 1)
-    \s*
-        (\w+)           (?# Resname     Grp 2)
-        ([\w,\s,\d,\']{,6})           (?# Atom name   Grp 3)
-        ([\s,\d+]{,6})           (?# Atom number Grp 4)
+        ([\s,\d]{5})           (?# Resid       Grp 1)
+        ([\s,\w]{5})           (?# Resname     Grp 2)
+        ([\w,\s,\d,\']{5})           (?# Atom name   Grp 3)
+        ([\s,\d+]{5})           (?# Atom number Grp 4)
     \s*
             (-?\d+\.\d+)      (?# X               Grp 5-7)
     \s*
