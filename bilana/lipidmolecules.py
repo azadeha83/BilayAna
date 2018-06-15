@@ -37,6 +37,7 @@ scd_tail_atoms_of = {\
             ['C32', 'C34', 'C36', 'C38', 'C311', 'C314', 'C316', 'C318']],
     'CHL1':[['C3', 'C17']],
     'CHIM':[['C20', 'C12']],
+    'ERG':[['C3', 'C17']],
                     }
 
 head_atoms_of = {\
@@ -44,13 +45,15 @@ head_atoms_of = {\
     'DUPC':headheteroat+headhydrog,
     'CHL1':['all'],
     'CHIM':['all'],
+    'ERG':['all'],
                 }
 
 tail_atoms_of = {\
     'DPPC':[tailcarbons_of['DPPC'][0], tailhydr_of['DPPC'][0], tailcarbons_of['DPPC'][1], tailhydr_of['DPPC'][1]],
     'DUPC':[tailcarbons_of['DUPC'][0], tailhydr_of['DUPC'][0], tailcarbons_of['DUPC'][1], tailhydr_of['DUPC'][1]],
     'CHL1':['all'],
-    'CHIM':['all']
+    'CHIM':['all'],
+    'ERG':['all'],
                 }
 
 central_atom_of = {
@@ -59,10 +62,11 @@ central_atom_of = {
     'CHIM':'C20',
     'DUPC':'P',
     'DOPC':'P',
-                }
+    'ERG':'O3',
+                 }
 
-described_molecules = ['DPPC', 'DUPC', 'CHL1', 'CHIM']
-sterols = ['CHL1', 'CHIM']
+described_molecules = ['DPPC', 'DUPC', 'CHL1', 'CHIM', 'ERG']
+sterols = ['CHL1', 'CHIM', 'ERG']
 shortestchain = len(tailcarbons_of['DPPC'])
 
 

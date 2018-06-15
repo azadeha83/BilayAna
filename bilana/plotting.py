@@ -62,8 +62,6 @@ Tranges_whole = {\
            'dppc_dupc_chol40':[i for i in range(290, 330+1, 10)],
            'dupc_chol10':[290, 330],
            #'dupc_chol20':[i for i in range(290, 330+1, 10)],
-           'dupc_chol20':[290,330],
-           'dupc_chol30':[290,330],
            'dppc_chim20':[290,310,320],
            'dppc_chim30':[290,310,320],
            }
@@ -1131,7 +1129,6 @@ class NofScdplots():
                 guide = ggplot2.guides(shape=ggplot2.guide_legend("Dummy"), size=False)
         elif neib_spec is not None:
             if averaging == False:
-                aes =  ggplot2.aes_string(x='Host_Scd', y=y_type, color='factor('+neib_spec+')', shape='temperature')
                 #aes =  ggplot2.aes_string(x='as.numeric(temperature)', y=y_type, color='factor('+neib_spec+')',)# shape='temperature')
                 guide =  ggplot2.guides(shape=ggplot2.guide_legend("T / K"), color=ggplot2.guide_legend('N'+neib_spec), size=False)
             else:
@@ -1521,7 +1518,8 @@ class EofScdplots():
                  ('DPPC_DUPC', (-90, -40, 5)), ('DPPC_CHL1', (-50, -20, 5)),
                  ('DUPC_CHL1', (-50, -20, 5)), ('CHL1_CHL1', (-30, -10, 5)),
                  ('DPPC_CHIM', (-60, -35, 5)), ('CHIM_CHIM', (-20, -5, 5)),
-                 ('DUPC_CHIM', (-50, -20, 5)),
+                 ('DUPC_CHIM', (-50, -20
+                 , 5)),
                  ]
         self.enthalpyranges = {}
         self.systemnames = systemnames
