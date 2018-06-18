@@ -42,7 +42,8 @@ class Scd():
     def create_scdfile(self, grofilename=None, outputfile='scd_distribution.dat'):
         if grofilename is None:
             grofilename = ''.join([self.systeminfo.datapath, '/grofiles', '/traj_complete.gro'])
-            gmxauto.produce_gro(self.systeminfo, grofilename=grofilename)
+            if not os.path.isfile(grofilename):
+                gmxauto.produce_gro(self.systeminfo)
         with open(grofilename,"r") as grofile, open(outputfile, "w") as scdfile:
             print("Time     Residue     Type      Scd", file=scdfile)
             resid_old = 1
