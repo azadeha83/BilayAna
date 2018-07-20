@@ -47,7 +47,7 @@ class Scd():
         with open(grofilepath+grofilename,"r") as grofile, open(outputfile, "w") as scdfile:
             print("Time     Residue     Type      Scd", file=scdfile)
             resid_old = 1
-            time = 0
+            time = None
             lipidtype_old = ''
             coorddict = {}
             print(strftime("%H:%M:%S :", localtime()),"... read data from .gro-file ...")
@@ -56,7 +56,7 @@ class Scd():
             for line in grofile:
                 if 't=' in line:
                     time_tmp = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
-                    if not time:
+                    if time is None:
                         time = time_tmp
                     #print("...at time {}".format(time), flush=True, end="\r")
                     if float(self.systeminfo.t_end) < time:

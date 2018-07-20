@@ -6,6 +6,7 @@ from bilana.systeminfo import SysInfo
 #from src import mainanalysis
 
 def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
+    username = os.environ['LOGNAME']
     if not prio:
         queue = 'short'
     else:
@@ -16,7 +17,7 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
               '\n#SBATCH -p {queue}'
               '\n#SBATCH --output={jobname}.out'
               '\n#SBATCH --mail-type=fail'
-              '\n#SBATCH --mail-user=f_kell07@wwu.de'
+              '\n#SBATCH --mail-user={username}@wwu.de'
               '\n#SBATCH --time=2-00:00:00'
               '\n#SBATCH --ntasks=1'
               '\n#SBATCH --nodes=1'
