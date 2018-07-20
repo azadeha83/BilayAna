@@ -41,9 +41,10 @@ class Scd():
         #print(self.atomlist)
     def create_scdfile(self, grofilename=None, outputfile='scd_distribution.dat'):
         if grofilename is None:
-            grofilename = ''.join([self.systeminfo.datapath, '/grofiles', '/traj_complete.gro'])
+            grofilename = 'traj_complete.gro'
+            grofilepath = ''.join([self.systeminfo.datapath, '/grofiles/'])
             gmxauto.produce_gro(self.systeminfo, grofilename=grofilename)
-        with open(grofilename,"r") as grofile, open(outputfile, "w") as scdfile:
+        with open(grofilepath+grofilename,"r") as grofile, open(outputfile, "w") as scdfile:
             print("Time     Residue     Type      Scd", file=scdfile)
             resid_old = 1
             time = 0
