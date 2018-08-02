@@ -126,7 +126,7 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
             regexp = re.compile(r'[\s]*\d+'+lipidmolecule)
             for line in grofile:
                 if 't=' in line:
-                    re_time = re.compile(r'.*t=\s+(\d\.\d+).*')
+                    re_time = re.compile(r'.*t=\s+(\d+\.\d+).*')
                     time = float(re_time.match(line).group(1))
                     #print("...at time {}".format(time), end="\r")
                     if float(systeminfo.t_end) < time:

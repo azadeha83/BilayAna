@@ -55,7 +55,9 @@ class Scd():
             #regexp = re.compile(r'^([\s,\d]{5})([\w,\s]{5})([\d,\w,\s]{5})([\s*\d+]{5})(\s*-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
             for line in grofile:
                 if 't=' in line:
-                    time_tmp = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
+                    #time_tmp = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
+                    re_time = re.compile(r'.*t=\s+(\d+\.\d+).*')
+                    time_tmp = float(re_time.match(line).group(1))
                     if time is None:
                         time = time_tmp
                     #print("...at time {}".format(time), flush=True, end="\r")
