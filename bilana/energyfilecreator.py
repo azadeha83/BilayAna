@@ -139,11 +139,12 @@ class EofScd():
                   '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
                   '{: ^15}{: ^18}{: ^15}'\
                   '{: ^15}{: ^15}'\
-                  '{: ^15}{: ^10}'+'{: ^7}'*len(self.components)\
-                  .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
-                            "Interaction", "DeltaScd", "AvgScd",\
-                            "Etot", "Evdw",\
-                            "Ecoul", "Ntot", *self.components ),\
+                  '{: ^15}{: ^10}'\
+                  .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",
+                            "Interaction", "DeltaScd", "AvgScd",
+                            "Etot", "Evdw",
+                            "Ecoul", "Ntot")\
+                            + len(self.components)*'{: ^7}'.format(*self.components),
                   file=outf)
             efile.readline()
             for line in efile:
@@ -188,15 +189,16 @@ class EofScd():
                 scd_neib = timetoscd[(time, neib)]
                 delta_scd = abs(scd_host-scd_neib)
                 avg_scd = (scd_host+scd_neib)/2
-                print(\
+                print(
                       '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'
                       '{: <15}{: <15.5f}{: <15.5f}'
                       '{: <15.5f}{: <15.5f}'
-                      '{: <15.5f}{: <5}'+'{: <5}'*len(neib_comp_list)
-                      .format(time, host, scd_host, neib, scd_neib,\
-                                interactiontype, delta_scd, avg_scd,\
-                                float(Etot), float(VDW),\
-                                float(COUL), ntot), *neib_comp_list,\
+                      '{: <15.5f}{: <5}'\
+                      .format(time, host, scd_host, neib, scd_neib,
+                              interactiontype, delta_scd, avg_scd,
+                              float(Etot), float(VDW),
+                              float(COUL), ntot)\
+                      + len(neib_comp_list)*'{: <5}'.format(*neib_comp_list),
                       file=outf)
 
     def write_output_selfinteraction(self, energyfile, lipid, timetoscd, endtime):
