@@ -130,6 +130,7 @@ class EofScd():
             self.write_output_selfinteraction(self.energyfilename, lipid, timetoscd, endtime)
 
     def write_output_save_memory(self, energyfile, timetoscd, wantedpair, endtime):
+        print(self.components)
         if energyfile == 'all_energies.dat':
             outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
         else:
@@ -144,7 +145,7 @@ class EofScd():
                             "Interaction", "DeltaScd", "AvgScd",
                             "Etot", "Evdw",
                             "Ecoul", "Ntot")\
-                            + len(self.components)*'{: ^7}'.format(*self.components),
+                            + (len(self.components)*'{: ^7}').format(*self.components),
                   file=outf)
             efile.readline()
             for line in efile:
@@ -198,7 +199,7 @@ class EofScd():
                               interactiontype, delta_scd, avg_scd,
                               float(Etot), float(VDW),
                               float(COUL), ntot)\
-                      + len(neib_comp_list)*'{: <5}'.format(*neib_comp_list),
+                      + (len(neib_comp_list)*'{: <5}').format(*neib_comp_list),
                       file=outf)
 
     def write_output_selfinteraction(self, energyfile, lipid, timetoscd, endtime):
