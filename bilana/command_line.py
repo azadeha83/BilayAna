@@ -287,8 +287,8 @@ def write_nofscd():
         neibfile_name = sys.argv[5]
     except IndexError:
         neibfile_name = 'neighbor_info'
-    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
-    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in temperatures]
     for systemdir in systems_to_calculate_for:
         os.chdir(systemdir)
         scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
