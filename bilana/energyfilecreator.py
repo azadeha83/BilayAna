@@ -84,8 +84,9 @@ class EofScd():
     def __init__(self, systeminfo, parts, energyfilename, scdfilename):
         self.mysystem = systeminfo
         self.energyfilename = energyfilename
-        self. scdfilename = scdfilename
+        self.scdfilename = scdfilename
         self.neiblist = gromacstoolautomator.Neighbors(systeminfo).get_neighbor_dict()
+        self.components = self.mysystem.molecules
         if parts == 'complete':
             self.interactionskey = ['']
             self.parts = ''
@@ -138,11 +139,11 @@ class EofScd():
                   '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
                   '{: ^15}{: ^18}{: ^15}'\
                   '{: ^15}{: ^15}'\
-                  '{: ^15}{: ^7}{: ^7}{: ^10}'\
+                  '{: ^15}{: ^10}'+'{: ^7}'*len(self.components)\
                   .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",\
                             "Interaction", "DeltaScd", "AvgScd",\
                             "Etot", "Evdw",\
-                            "Ecoul", "NChol", "NDPPC","Ntot" ),\
+                            "Ecoul", "Ntot", *self.components ),\
                   file=outf)
             efile.readline()
             for line in efile:
@@ -176,9 +177,13 @@ class EofScd():
                 #new_ntot = len(new_pair_neibs)
                 #pair_neibs = [self.mysystem.resid_to_lipid[N] for N in neighbors if N!=neib]\
                 #        +[self.mysystem.resid_to_lipid[N] for N in neighbors_neib if N!=host]
-                nchol = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('CHL1')
-                ndppc = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('DPPC')
+                #nchol = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('CHL1')
+                #ndppc = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count('DPPC')
                 ntot = len(pair_neibs)
+                neib_comp_list = []
+                for lip in self.components:
+                    ncomp = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count(lip)
+                    neib_comp_list.append(ncomp)
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
                 delta_scd = abs(scd_host-scd_neib)
@@ -187,11 +192,11 @@ class EofScd():
                       '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'
                       '{: <15}{: <15.5f}{: <15.5f}'
                       '{: <15.5f}{: <15.5f}'
-                      '{: <15.5f}{: <5}{: <5}{: <5}'
+                      '{: <15.5f}{: <5}'+'{: <5}'*len(neib_comp_list)
                       .format(time, host, scd_host, neib, scd_neib,\
                                 interactiontype, delta_scd, avg_scd,\
                                 float(Etot), float(VDW),\
-                                float(COUL), nchol, ndppc, ntot),\
+                                float(COUL), ntot), *neib_comp_list,\
                       file=outf)
 
     def write_output_selfinteraction(self, energyfile, lipid, timetoscd, endtime):
