@@ -210,6 +210,7 @@ def create_leaflet_assignment_file(sysinfo_obj):
     with open(outputfilename, "w") as outf:
         print("{: <7} {: <5}".format('resid', 'leaflet'), file=outf)
         for res in range(1, sysinfo_obj.NUMBEROFMOLECULES+1):
+            
             print("{: <7} {: <5}".format(res, outputdict[res]), file=outf)
 
 def calc_neighbor_distribution(minscd, maxscd, write='on', binwidth=0.2,

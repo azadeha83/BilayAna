@@ -43,6 +43,7 @@ def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refa
 class NofScd():
     def __init__(self, systeminfo):
         self.systeminfo = systeminfo
+        self.components = systeminfo.molecules
     def create_NofScd_input(self, scdfile, neighborfile):
         time_to_scd, endtime1 = read_scdinput(scdfile)
         time_to_neiblist, hosts_without_neib = read_neighborinput(neighborfile)
@@ -51,12 +52,11 @@ class NofScd():
         else:
             nofscdname = "Nofscd.dat"
         with open(nofscdname, "w") as outfile:
-            print(\
+            print(
                 '{: <10}{: <10}{: <15}{: <20}{: <20}'\
-                '{: <10}{: <10}{: <10}'\
-                .format("Time", "Host", "Lipid_type", "Host_Scd", "Ntot",\
-                           "Chol", "DPPC", "DUPC"), file=outfile)
-
+                .format("Time", "Host", "Lipid_type", "Host_Scd", "Ntot")\
+                +('{: ^10}'*len(self.components)).format(*self.components),
+                file=outfile)
             for i in range(1, self.systeminfo.NUMBEROFMOLECULES+1):
                 host_type = self.systeminfo.resid_to_lipid[i]
                 #print("Working on residue {} ".format(i), end="\r")
@@ -67,15 +67,19 @@ class NofScd():
                     neibindexlist = list(set(time_to_neiblist[(time, i)].split(',')))
                     n_neibs = len(neibindexlist)
                     neibtypelist = [self.systeminfo.resid_to_lipid[int(resid)] for resid in neibindexlist]
-                    nchol = neibtypelist.count('CHL1')
-                    ndppc = neibtypelist.count('DPPC')
-                    ndupc = neibtypelist.count('DUPC')
+                    #nchol = neibtypelist.count('CHL1')
+                    #ndppc = neibtypelist.count('DPPC')
+                    #ndupc = neibtypelist.count('DUPC')
+                    neib_comp_list = []
+                    for lip in self.components:
+                        number_neib  = neibtypelist.count(lip)
+                        neib_comp_list.append(number_neib)
                     scd_host = float(time_to_scd[(time, i)])
-                    print(\
-                              '{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}'\
-                              '{: <10}{: <10}{: <10}'\
-                              .format(time, i, host_type, scd_host, float(n_neibs),\
-                                      nchol, ndppc, ndupc), file=outfile)
+                    print(
+                          '{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}'\
+                          .format(time, i, host_type, scd_host, float(n_neibs))\
+                          +('{: ^10}'*len(neib_comp_list)).format(*neib_comp_list),
+                          file=outfile)
 
 
 
@@ -146,6 +150,7 @@ class EofScd():
                             "Ecoul", "Ntot")\
                             + len(self.components)*'{: ^7}'.format(*self.components),
                   file=outf)
+            print(len(self.components)*'{: ^7}'.format(*self.components))
             efile.readline()
             for line in efile:
                 #cols = [x.strip() for x in line.split(' ')]
