@@ -70,7 +70,7 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     inp_str = str('_'.join(sorted_mols)+'\n').encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
-        '-o', grofile_output, '-n', 'index.ndx',
+        '-o', grofile_output,# '-n', 'index.ndx',
         '-b', str(mysystem.t_start), #'-e', str(self.sysinfo.t_end),
         '-dt', str(mysystem.dt),
         '-pbc', 'whole',
