@@ -75,3 +75,5 @@ class GRO_format():
     """
     gro_pattern = ''.join(gro_pattern.split())
     regexp = re.compile(gro_pattern)
+    gro_box_pattern = r'\s*(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)$'
+    regexp_box = re.compile(gro_box_pattern)

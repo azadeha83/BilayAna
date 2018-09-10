@@ -58,7 +58,7 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     inp_str = str('_'.join(mysystem.molecules)+'\n').encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
-        '-o', grofile_output,# '-n', 'index.ndx',
+        '-o', grofile_output, '-n', 'index.ndx',
         '-b', str(mysystem.t_start), #'-e', str(self.sysinfo.t_end),
         '-dt', str(mysystem.dt),
         '-pbc', 'whole',
@@ -136,6 +136,8 @@ def trajectory_to_gro(systeminfo, overwrite='off', atomlist=None, lipids='all'):
 
 def generate_index_file(gropath, molecules):
     ''' Creates an indexfile with all relevant entries + one that contains all lipids '''
+    if len(molecules) == 1:
+        return
     molstrings = ['r {}'.format(i) for i in molecules]
     inp_str = ' | '.join(molstrings)
     inp_str += '\n q \n'
