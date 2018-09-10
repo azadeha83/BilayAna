@@ -514,7 +514,7 @@ class calc_rdf_selfimplementation():
             #print(r, gval)
         return gofr_all_frames
 
-def radialdistribution(systeminfo, ref, sel,):
+def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom'):
     ''' Calculates the RDF of sel relative to ref. '''
     print("\n_____Calculating radial distribution function ____\n")
     print("Ref: {}\nSel: {}\n\n".format(ref, sel))
@@ -542,8 +542,10 @@ def radialdistribution(systeminfo, ref, sel,):
     outputfile_cn = '{}/rdf/nr_{}-{}.xvg'.format(systeminfo.datapath, ref, sel).replace(" ", "")
     g_rdf_arglist = [gmx_exec, 'rdf', '-xy', '-xvg', 'none',
                      '-f', systeminfo.trjpath, '-s', systeminfo.tprpath,
-                     '-o', outputfile, '-ref', '-sf', selectdict[ref],
-                     '-sel', '-sf', selectdict[sel], '-cn', outputfile_cn,
+                     '-o', outputfile,  '-cn', outputfile_cn,
+                     '-ref',  '-sf', selectdict[ref],
+                     '-sel',  '-sf', selectdict[sel],
+                     '-selrpos', selrpos, '-seltype', seltype,
                       ]
     out, err = exec_gromacs(g_rdf_arglist)
     rdf_log = 'rdf_{}-{}.log'.format(ref, sel).replace(" ", "")

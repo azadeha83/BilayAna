@@ -68,7 +68,7 @@ class Scd():
                 #print("Time match is", float(systeminfo.t_start)<=time, end='\n')
                 regmatch = GRO_format.regexp.match(line)
                 regmatch_box = GRO_format.regexp_box.match(line)
-                if float(self.systeminfo.t_start) <= time and regmatch is not None):
+                if float(self.systeminfo.t_start) <= time and regmatch is not None:
                     grps = regmatch.groups()
                     #print(grps)
                     #print("Reading data at", time, end='\n')
