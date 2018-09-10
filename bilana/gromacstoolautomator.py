@@ -55,19 +55,7 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     grofile_output = ''.join([mysystem.datapath, '/grofiles/', grofilename])
     print(strftime("%H:%M:%S :", localtime()),"... Start conversion from .trj to .gro ...")
     print(mysystem.molecules)
-    sorted_mols = []
-    ### REFACTOR HERE!!! 
-    if 'DPPC' in mysystem.molecules:
-        sorted_mols.append('DPPC')
-    if 'DUPC' in mysystem.molecules:
-        sorted_mols.append('DUPC')
-    if 'CHL1' in mysystem.molecules:
-        sorted_mols.append('CHL1')
-    if 'CHIM' in mysystem.molecules:
-        sorted_mols.append('CHIM')
-    if 'ERG' in mysystem.molecules:
-        sorted_mols.append('ERG')
-    inp_str = str('_'.join(sorted_mols)+'\n').encode()
+    inp_str = str('_'.join(mysystem.molecules)+'\n').encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
         '-o', grofile_output,# '-n', 'index.ndx',

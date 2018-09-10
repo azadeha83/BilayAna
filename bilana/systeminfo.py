@@ -44,7 +44,9 @@ class SysInfo():
         self.system = self.system_info['System']
         self.temperature = self.system_info['Temperature']
         self.cutoff = float(self.system_info['cutoff'])
-        self.molecules = [x.upper().strip() for x in self.system_info['Lipidmolecules'].split(',')] # Lipid molecules in system
+        self.molecules = [x.upper().strip() for x in\
+                            self.system_info['Lipidmolecules'].split(',')]\
+                            .sort() 
         if 'CHOL' in self.molecules:    # This must be declared immediately !!!
             self.molecules.append('CHL1')
             self.molecules.remove('CHOL')
