@@ -594,18 +594,26 @@ class Neighbors():
         self.mysystem = systeminfo
         self.cutoff = systeminfo.cutoff
         self.resnames = ' '.join(systeminfo.molecules)
-        self.head_atomnames = ' '.join(lipidmolecules.central_atom_of.values())
+        #self.head_atomname_dict = lipidmolecules.central_atom_of
 
 
     def create_selectionfile_neighborsearch(self, resid, refatoms='P'):
         filename="{}/neighbors_of_residue{}".format(self.mysystem.temppath, resid)
+        hosttype = self.mysystem.resid_to_lipid[resid]
+        ref_atm = lipidmolecules.central_atom_of
+        hoststring = "resid {0} and (name {1})".format(resid, ref_atm[hosttype])
+        neibstring_parts = ' or '.join(
+                            ["(resname {} and name {})".format(i, ref_atm[i])\
+                            for i in self.resnames],
+                            )
+        neibstring = "(({}) and not host) and within {1} of host".format(neibstring_parts, self.cutoff)
         with open(filename,"w") as selection:
             if refatoms == 'P':
                 print(\
-                    'host =  resid {0} and (name {2});\n'
-                    'neibs = (resname {3} and name {2} and not host) and within {1} of host;\n'
+                    'host =  {};\n'
+                    'neibs = {};\n'
                     'neibs;'\
-                    .format(resid, self.cutoff, self.head_atomnames, self.resnames), file=selection)
+                    .format(hoststring, neibstring), file=selection)
                     #'host =  resid {0} and (name P O3);\n'
                     #'allOAtoms = resname CHL1 and name O3 and not host;\n'
                     #'allPAtoms = resname DPPC DUPC and name P and not host;\n'
@@ -626,6 +634,21 @@ class Neighbors():
                     'neibs = neibOs or neibTail1 or neibTail2;\n'
                     'neibs;'\
                     .format(resid, self.cutoff), file=selection)
+            elif refatoms == 'tails_com':
+                tail_atm = lipidmolecules.tail_atoms_of
+                tail_atm_parts = ' or '.join(
+                    ["(resname {} and com of (name {}))".format(i, tail_atm[i])\
+                    for i in self.resnames]
+                ) 
+                print(
+                    'host = resid {0} and (({2}) or name O3);\n'
+                    'allOAtoms = resname CHL1 and name O3 and not host;\n'
+                    'allTailAtoms = ({2}) and not host;\n'
+                    'neibOs = allOAtoms and within {1} of host;\n'
+                    'neibTail = allTailAtoms and within {1} of host;\n'
+                    'neibs = neibOs or neibTail;\n'
+                    'neibs;'\
+                    .format(resid, self.cutoff, tail_atm_parts), file=selection)
             elif refatoms == 'onetail':
                 raise ValueError("It's not working like this, as the index is compared and so no lipid is selected")
                 #print(
