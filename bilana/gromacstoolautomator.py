@@ -41,7 +41,6 @@ def exec_gromacs(cmd,inp_str=None):
     proc.stdout.close()
     proc.stderr.close()
     if proc.returncode == 1:
-        #print("Failed to execute command:", ' '.join(cmd))
         try:
             err = err.decode()
             print(err)
@@ -603,7 +602,7 @@ class Neighbors():
     def __init__(self, systeminfo):
         self.mysystem = systeminfo
         self.cutoff = systeminfo.cutoff
-        self.resnames = ' '.join(systeminfo.molecules)
+        self.resnames = systeminfo.molecules
         #self.head_atomname_dict = lipidmolecules.central_atom_of
 
     def create_selectionfile_neighborsearch(self, resid, refatoms='P'):
@@ -652,20 +651,24 @@ class Neighbors():
                     'neibs;'\
                     .format(resid, self.cutoff), file=selection)
             elif refatoms == 'tails_com':
-                tail_atm = lipidmolecules.tail_atoms_of
-                tail_atm_parts = ' or '.join(
-                    ["(resname {} and com of (name {}))".format(i, tail_atm[i])\
-                    for i in resnames]
-                )
+                tail_atm = lipidmolecules.tailcarbons_of
+                tailstr_l = []
+                for resn in resnames:
+                    for tailn in [0, 1]:
+                        tailstr = "tail{}=(resname {} and name {});\n"\
+                                  .format(tailn, resn, ' '.join(tail_atm[resn][tailn]))
+                        tailstr_l.append(tailstr)
+                tailstr = ''.join(tailstr_l)
                 print(
-                    'host = resid {0} and (({2}) or name O3);\n'
-                    'allOAtoms = resname CHL1 and name O3 and not host;\n'
-                    'allTailAtoms = ({2}) and not host;\n'
-                    'neibOs = allOAtoms and within {1} of host;\n'
-                    'neibTail = allTailAtoms and within {1} of host;\n'
+                    '{2}'
+                    'host1 = (resid {0} and (tail0 or name O3));\n'
+                    'host2 = (resid {0} and (tail1 or name O3));\n'
+                    'allOAtoms = resname CHL1 and name O3 and not (host1 or host2);\n'
+                    'neibOs = allOAtoms and (within {1} of com of host1 or within {1} of com of host2);\n'
+                    'neibTail = (tail0 or tail1) and (within {1} of com of host1 or within {1} of com of host2);\n'
                     'neibs = neibOs or neibTail;\n'
                     'neibs;'\
-                    .format(resid, self.cutoff, tail_atm_parts), file=selection)
+                    .format(resid, self.cutoff, tailstr), file=selection)
             elif refatoms == 'onetail':
                 raise ValueError("If lipids are used as reference, "
                                  "tails cannot be distinguished ")
@@ -849,10 +852,11 @@ class Neighbors():
                         ]
                     out, err = exec_gromacs(cmdlist)
                     with open("gmx_select.log","w") as logfile:
+                        logfile.write('\n\n\nSTDERR:\n\n\n')
                         logfile.write(err.decode())
-                        logfile.write(150*'_')
+                        logfile.write('\n\n\nSTDOUT:\n\n\n')
                         logfile.write(out.decode())
-                        logfile.write(150*'_')
+                        logfile.write('\n\nEND\n\n\n\n')
                 with open(datafileoutput,"r") as datfile:
                     for line in datfile:
                         cols = line.split()

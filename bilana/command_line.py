@@ -81,7 +81,7 @@ def submit_energycalcs():
             overwrite = False
         elif sys.argv[7] == 'on':
             overwrite = True
-        else: 
+        else:
             raise ValueError("Value for overwrite key invalid. Choose either 'off' or 'on' ")
     except IndexError:
         pass
@@ -111,7 +111,7 @@ def initialize_system():
     startdir = os.getcwd()
     if len(sys.argv) < 4 or len(sys.argv) > 6:
         print('Invalid number of input arguments. Specify:\n'
-              '<systemname> <lowest T> <highest T> <jobname> <refatoms=False>')
+              '<systemname> <lowest T> <highest T> <jobname> <refatoms=P>')
         sys.exit()
     systemname = sys.argv[1]
     tempstart = int(sys.argv[2])
@@ -120,9 +120,9 @@ def initialize_system():
     try:
         refatoms = sys.argv[5]
     except IndexError:
-        refatoms = False
-    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
-    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+        refatoms = 'P'
+    temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in temperatures]
     for systemdir in systems_to_calculate_for:
         os.chdir(systemdir)
         scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
@@ -135,10 +135,7 @@ def initialize_system():
                 '\nfrom bilana import mainanalysis'
                 '\nfrom bilana.systeminfo import SysInfo'
                 '\nmysystem = SysInfo("inputfile")'
-                '\nif not {0}:#Take default'
-                '\n    gmx.Neighbors(mysystem).determine_neighbors()'
-                '\nelse:'
-                '\n    gmx.Neighbors(mysystem).determine_neighbors(refatoms={0})'
+                '\ngmx.Neighbors(mysystem).determine_neighbors(refatoms="{0}")'
                 '\ngmx.Neighbors(mysystem).create_indexfile()'
                 '\ngmx.produce_gro(mysystem)'
                 '\nmainanalysis.Scd(mysystem).create_scdfile()'
@@ -171,8 +168,8 @@ def check_and_write():
         neibfilename = sys.argv[6]
     except IndexError:
         neibfilename = 'neighbor_info'
-    Temperatures = [T for T in range(tempstart, tempend+1, 10)]
-    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in Temperatures]
+    temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in temperatures]
     for systemdir in systems_to_calculate_for:
         os.chdir(systemdir)
         temperature = systemdir[-3:]
@@ -271,7 +268,7 @@ def write_eofscd():
             out, err = proc.communicate()
             print(out.decode(), err.decode())
         os.chdir(startdir)
-        
+
 def write_nofscd():
     ''' Check if all energy files exist and write table with all energies '''
     startdir = os.getcwd()
@@ -309,11 +306,3 @@ def write_nofscd():
             out, err = proc.communicate()
             print(out.decode(), err.decode())
         os.chdir(startdir)
-
-
-
-
-
-
-
-

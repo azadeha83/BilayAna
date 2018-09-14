@@ -68,5 +68,3 @@ central_atom_of = {
 described_molecules = ['DPPC', 'DUPC', 'CHL1', 'CHIM', 'ERG']
 sterols = ['CHL1', 'CHIM', 'ERG']
 shortestchain = len(tailcarbons_of['DPPC'])
-
-
