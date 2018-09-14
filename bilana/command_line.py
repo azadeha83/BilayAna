@@ -1,9 +1,19 @@
-import os, sys
+import os
+import sys
 import subprocess
 import re
+import logging
 from bilana.systeminfo import SysInfo
 #from src import gromacstoolautomator as gmx
 #from src import mainanalysis
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch = logging.StreamHandler()
+#ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
     username = os.environ['LOGNAME']

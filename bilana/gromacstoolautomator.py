@@ -4,6 +4,7 @@ import subprocess
 import re
 import os
 #import sys
+import logging
 import bisect
 from time import localtime, strftime
 import time as Time
@@ -16,6 +17,13 @@ from bilana import lipidmolecules #,systeminfo
 #inputfile = sys.argv[1]
 #mysystem = systeminfo.SysInfo(inputfile)
 
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch = logging.StreamHandler()
+#ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 gmx_exec = 'gmx' #'gmx_5.0.4_mpi'
 os.environ["GMX_MAXBACKUP"] = "-1"
