@@ -1,8 +1,18 @@
 ''' All about creating energy files '''
+import logging
 
 #from src.systeminfo import mysystem
 #global mysystem
 from bilana import gromacstoolautomator, lipidmolecules
+
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch = logging.StreamHandler()
+#ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refactored.
     time_pair_to_E = {}
@@ -60,8 +70,14 @@ class NofScd():
             for i in range(1, self.systeminfo.NUMBEROFMOLECULES+1):
                 host_type = self.systeminfo.resid_to_lipid[i]
                 #print("Working on residue {} ".format(i), end="\r")
-                for t in range(self.systeminfo.t_start, int(endtime1)+1, self.systeminfo.dt):
+                #for t in range(self.systeminfo.t_start, int(endtime1)+1, self.systeminfo.dt):
+                if self.systeminfo.t_end < int(endtime1):
+                    logger.warning("Trajectory is longer (%s ps) than given end time (%s ps)",
+                        endtime1, self.systeminfo.t_end)
+                for t in range(self.systeminfo.t_start, self.systeminfo.t_end+1, self.systeminfo.dt):
                     time = float(t)
+                    if t > int(endtime1):
+                        break
                     if (time, i) in hosts_without_neib:
                         continue
                     neibindexlist = list(set(time_to_neiblist[(time, i)].split(',')))
@@ -115,7 +131,7 @@ class EofScd():
         self.lipidpairs = []
         for lipid1 in self.mysystem.molecules:   # Creates a list of pairs
             lipid1index = self.mysystem.molecules.index(lipid1) # Like 'DPPC_DPPC'
-            for lipid2 in self.mysystem.molecules: 
+            for lipid2 in self.mysystem.molecules:
                 lipid2index = self.mysystem.molecules.index(lipid2)
                 if lipid2index > lipid1index:  # DPPC_CHOL = CHOL_DPPC
                     break
@@ -159,6 +175,11 @@ class EofScd():
                 if int(cols[1]) > int(cols[2]):
                     continue
                 time = float(cols[0])
+                if time > self.mysystem.t_end:
+                    logger.warning("Maybe did not use whole trajectory (%s vs %s)",
+                        endtime, self.mysystem.t_end
+                        )
+                    break
                 if time < float(self.mysystem.t_start) or time % self.mysystem.dt != 0:
                     continue
                 elif time > float(endtime):
@@ -214,7 +235,7 @@ class EofScd():
                   '{: ^8}{: ^8}{: ^15}'
                   '{: ^15}{: ^15}{: ^15}'
                   '{: ^15}{: ^15}{: ^15}{: ^15}{: ^10}{: ^10}{: ^10}'\
-                  .format("Time", "Host", "Host_Scd", 
+                  .format("Time", "Host", "Host_Scd",
                             "Etot",  "Evdw_tot", "Ecoul_tot",
                             "Evdw_SR", "Evdw_14", "Ecoul_SR", "Ecoul_14", "Ntot", "NChol", "NDPPC",
                             ),
@@ -298,4 +319,3 @@ def read_neighborinput(neighborfile):
             neighbors = cols[3]
             neighbors_of_host.update({(time, host):neighbors})
     return neighbors_of_host, hosts_without_neib
-
