@@ -1,4 +1,4 @@
-''' Gather information about system 
+''' Gather information about system
     1. Reads in an inputfile
     2. Contains information of:
         - Creates all needed folders, if not present
@@ -10,25 +10,25 @@
         - Conversion dictionaries: resid to type and index to resid
 '''
 
-import os 
+import os
 from bilana import lipidmolecules
 from bilana import common as com
 import warnings
-inputfilename_default = 'inputfile' 
+inputfilename_default = 'inputfile'
 
 class SysInfo():
     ''' Gather all relevant information about the system to analyse
     Info about:
         -Paths to MD files
         -Output paths (where to put generated files to)
-        -Important dictionaries: 
+        -Important dictionaries:
             index to resid --> maps index of an atom to corresponding resid
             resid to lipid --> maps resid to lipid type
             res to leaflet --> maps resid to leaflet index
         -number of lipids in system
         -number of atoms of lipids in system
         -
-    
+
     '''
 
     NUMBEROFMOLECULES = 'all'
@@ -44,7 +44,7 @@ class SysInfo():
         self.system = self.system_info['System']
         self.temperature = self.system_info['Temperature']
         self.cutoff = float(self.system_info['cutoff'])
-        self.molecules = sorted([x.upper().strip() for x in\
+        self.molecules = sorted([x.strip() for x in\
                            self.system_info['Lipidmolecules'].split(',')])
         if 'CHOL' in self.molecules:    # This must be declared immediately !!!
             self.molecules.append('CHL1')
@@ -56,6 +56,12 @@ class SysInfo():
         self.gropath = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.toppath = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
         self.tprpath = '{}/tpr/{}_{}.tpr'.format(self.mdfilepath, self.system, self.temperature)
+        for fpath in [self.gropath, self.toppath, self.tprpath]: self.check_file_exists(fpath)
+        try:
+            self.check_file_exists(self.trjpath)
+        except FileNotFoundError:
+            self.trjpath = self.trjpath.replace(".trr", ".xtc")
+            self.check_file_exists(self.trjpath)
         # ''' outputpaths (specify _absolute_ paths! '''
         self.indexpath = "{}/indexfiles".format(cwd)
         self.datapath = "{}/datafiles".format(cwd)
@@ -85,14 +91,14 @@ class SysInfo():
         system_info = {}
         with open(inputfname,"r") as inputf:
             # Creates a list like [[system,dppc_chol],[temperature,290]]
-            filecontent = [x.split(': ') for x in [y.strip('\n') for y in inputf.readlines()]] 
+            filecontent = [x.split(': ') for x in [y.strip('\n') for y in inputf.readlines()]]
             for info in filecontent:
                 if len(info) == 2 and not '#' in info[0]:
                     system_info.update({info[0].strip(): info[1].strip()})
-                    print("{} : {}".format(info[0].strip(), info[1].strip()),"\n")  
+                    print("{} : {}".format(info[0].strip(), info[1].strip()),"\n")
         return system_info
 
-    def index_conversion_dict(self): 
+    def index_conversion_dict(self):
         ''' returns a dictionary for conversion
             from index to resid as well as resid to molecule
         '''
@@ -102,7 +108,7 @@ class SysInfo():
         with open(grofile,"r") as fgro:
             # get rid of first 2 lines:
             fgro.readline()
-            fgro.readline() 
+            fgro.readline()
             for line in fgro:
                 regmatch = com.GRO_format.regexp.match(line)
                 if regmatch:
@@ -113,9 +119,8 @@ class SysInfo():
                 #resid = int(float(line[:5].strip()))
                 #lipid = line[5:9]
                 #ind = int(float(line[15:20].strip()))
-                if lipid in lipidmolecules.described_molecules:
-                    in2res[ind] = resid
-                    res2mol[resid] = lipid
+                in2res[ind] = resid
+                res2mol[resid] = lipid
         return in2res, res2mol
 
     def determine_systemsize_and_number_of_lipids(self):
@@ -140,7 +145,7 @@ class SysInfo():
             resids = list(set(resids))
             number_of_lipids = len(resids)
             if len(lipids_found) != len(self.molecules):
-                warnings.warn("Not all lipids, given in the input file, found in structure file!") 
+                warnings.warn("Not all lipids, given in the input file, found in structure file!")
             return system_size, number_of_lipids
             #lines = fgro.readlines()
             #del lines[-1]
@@ -177,4 +182,8 @@ class SysInfo():
                   'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
         return outdict
 
-
+    def check_file_exists(self, fpath):
+        if os.path.isfile(fpath):
+            return
+        else:
+            raise FileNotFoundError("File does not exist {}".format(fpath))
