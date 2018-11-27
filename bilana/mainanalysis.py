@@ -3,7 +3,7 @@
         -
  '''
 import os
-import sys 
+import sys
 import numpy as np
 import pprint
 import re
@@ -34,7 +34,7 @@ def is_neighbor_in_leaflet(systeminfo_inst):
     pp.pprint(host_has_interleafletneib)
 class Scd():
     ''' All about calculating the lipid Scd order parameter '''
-    
+
     def __init__(self, systeminfo):
         self.systeminfo = systeminfo
         self.atomlist = lipidmolecules.scd_tail_atoms_of
@@ -78,14 +78,14 @@ class Scd():
                     lipidtype = grps[1].strip()
                     if not lipidtype_old:
                         lipidtype_old = lipidtype
-                    all_atmlst = [atm for atmlst in self.atomlist[lipidtype] for atm in atmlst]
+                    all_atmlst = [atm for atmlst in self.atomlist(lipidtype) for atm in atmlst]
                     if atom in all_atmlst and lipidtype in self.systeminfo.molecules:
                         #resid = int(line[:5].strip())
                         resid = int(grps[0].strip())
                         if resid != resid_old and coorddict:
                             if not resid_old:
                                 resid_old = resid
-                            scd_value = self.scd_of_res(coorddict, self.atomlist[lipidtype_old])
+                            scd_value = self.scd_of_res(coorddict, self.atomlist(lipidtype_old))
                             coorddict = {}
                             print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
                             resid_old = resid
@@ -96,18 +96,18 @@ class Scd():
                         coorddict[atom] = coordinates
                     else:
                         continue
-            scd_value = self.scd_of_res(coorddict, self.atomlist[lipidtype_old])
+            scd_value = self.scd_of_res(coorddict, self.atomlist(lipidtype_old))
             coorddict = {}
             print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
         print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
-        return 
+        return
     def scd_of_res(self, coorddict, atomlist):#, neibstraightness=0,neiblist=None):
         scds_of_atoms = []
         scds_of_tails = []
-        #scds_of_tails_corrected=[]            
+        #scds_of_tails_corrected=[]
         for tail in atomlist:
             #print(tail)
-            for atomindex in range(len(tail)-1): ### -1 because last res is not taken (taking index len() implies "range+1") 
+            for atomindex in range(len(tail)-1): ### -1 because last res is not taken (taking index len() implies "range+1")
                 atm1, atm2 = tail[atomindex], tail[atomindex+1]    ### Attention: In the tail list only Scd-specific (every 2nd) atom is included!! Thus: atomindex-atomindex+1
                 #print("CALC FOR ", atm1, atm2)
                 coords_atm1, coords_atm2 = np.array(coorddict[atm1]),\
@@ -117,13 +117,13 @@ class Scd():
                 cos = np.dot(diffvector,[0,0,1])/normdiffvector
                 scds_of_atoms += [0.5 * (3 * cos**2 - 1)]
             scds_of_tails += [sum(scds_of_atoms)/len(scds_of_atoms)]
-            #print("TAIL:", scds_of_tails) 
+            #print("TAIL:", scds_of_tails)
         totalscd = sum(scds_of_tails)/len(scds_of_tails)
         #print(totalscd)
-        return totalscd            
+        return totalscd
 
     def create_scd_histogram(self, scdfile):
-        #grofile_output=self.temppath+'/calc_scd_for'+str(self.lipidmolecule)+'.gro'      
+        #grofile_output=self.temppath+'/calc_scd_for'+str(self.lipidmolecule)+'.gro'
         time_resid_to_scd={}
         with open(scdfile,"r") as sfile:
             sfile.readline()
@@ -159,7 +159,7 @@ def get_neighbor_of(hostres, time):
         for line in ninfo:
             cols=line.split()
             res=str(cols[0])
-            t=cols[1]   
+            t=cols[1]
             if res==str(hostres) and t==''.join([str(time),'00']):
                 try:
                     return cols[3].split(',')
@@ -169,7 +169,7 @@ def get_neighbor_of(hostres, time):
 
 def create_leaflet_assignment_file(sysinfo_obj):
     ''' Creates a file with that assigns all lipids to upper or lower leaflet
-                        !Attention! 
+                        !Attention!
             !Flip flops of Cholesterol are not considered! Though should it?
     '''
     outputdict = {}
@@ -188,9 +188,9 @@ def create_leaflet_assignment_file(sysinfo_obj):
                 atomname = match.group(3).split()[0]
                 coords = [float(i) for i in match.group(5).split()]
                 #print(resid, atomname, coords)
-                if atomname in lipidmolecules.central_atom_of.values():
+                if atomname in lipidmolecules.CENTRAL_ATOM_OF.values():
                     coord_head = np.array(coords)
-                if atomname in [i[-1] for it in lipidmolecules.scd_tail_atoms_of.values() for i in it]:
+                if atomname in [i[-1] for it in lipidmolecules.SCD_TAIL_ATOMS_OF.values() for i in it]:
                     coord_base = np.array(coords)
                 if old_resid != resid:
                     if coord_head is None or coord_base is None:
@@ -211,7 +211,7 @@ def create_leaflet_assignment_file(sysinfo_obj):
     with open(outputfilename, "w") as outf:
         print("{: <7} {: <5}".format('resid', 'leaflet'), file=outf)
         for res in range(1, sysinfo_obj.NUMBEROFMOLECULES+1):
-            
+
             print("{: <7} {: <5}".format(res, outputdict[res]), file=outf)
 
 def calc_neighbor_distribution(minscd, maxscd, write='on', binwidth=0.2,
@@ -375,5 +375,4 @@ def calc_averagedistance(self,distancefile):
     with open("average_distance_DPPC.dat",'w') as outputf:
         for key in distdata:
             avg=sum(distdata[key])/len(distdata[key])
-            print("{0: <5} {1: <20}".format(key,avg),file=outputf) 
-
+            print("{0: <5} {1: <20}".format(key,avg),file=outputf)

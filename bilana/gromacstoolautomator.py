@@ -106,7 +106,7 @@ def trajectory_to_gro(systeminfo,
                                   '/grofiles', '/calc_scd_for',
                                   str(lipidmolecule), '.gro'])
         if atomlist is None:
-            atomlist = lipidmolecules.scd_tail_atoms_of[lipidmolecule]\
+            atomlist = lipidmolecules.scd_tail_atoms_of(lipidmolecule)\
                         +['P', 'O3']
         print(strftime("%H:%M:%S :", localtime()),
               "Processing {} ...".format(lipidmolecule))
@@ -623,10 +623,10 @@ class Neighbors():
         hosttype = self.mysystem.resid_to_lipid[resid]
         ref_atm = lipidmolecules.central_atom_of
         hoststring = "resid {0} and (name {1})"\
-                     .format(resid, ref_atm[hosttype])
+                     .format(resid, ref_atm(hosttype))
         neibstring_parts = ' or '.join(
             ["(resname {} and name {})"\
-             .format(i, ref_atm[i])\
+             .format(i, ref_atm(i))\
              for i in resnames],
             )
         neibstring = "(({0}) and not host) and within {1} of host"\
@@ -737,17 +737,17 @@ class Neighbors():
             selectionfile = self.mysystem.temppath+'/tmp_selectionfile'
             with open(selectionfile,"w") as sf:
                 lipidtype = self.mysystem.resid_to_lipid[mol]
-                if lipidtype  not in lipidmolecules.sterols:
+                if lipidtype  not in lipidmolecules.STEROLS:
                     tailhalf12_l = [] ### to get half the tails
                     tailhalf22_l = []
-                    for molpart in lipidmolecules.tail_atoms_of[lipidtype]:
+                    for molpart in lipidmolecules.tail_atoms_of(lipidtype):
                         tailhalf12_l.extend(molpart[:len(molpart)//2])
                         tailhalf22_l.extend(molpart[len(molpart)//2:])
                     tailhalf12 = ' '.join(tailhalf12_l)
                     tailhalf22 = ' '.join(tailhalf22_l)
-                    tailatomlist = lipidmolecules.tail_atoms_of[lipidtype]
+                    tailatomlist = lipidmolecules.tail_atoms_of(lipidtype)
                     tailatoms = [x for index in tailatomlist for x in index] ##unpacking
-                    headatoms = lipidmolecules.head_atoms_of[lipidtype]
+                    headatoms = lipidmolecules.head_atoms_of(lipidtype)
 
                     methylatomslists = []
                     for tailindex in range(len(lipidmolecules.tailcarbons_of[lipidtype])):
@@ -798,7 +798,7 @@ class Neighbors():
                     selectionstring=''.join(selectionlist)
                     print(selectionstring)
                     sf.write(selectionstring)
-                elif self.mysystem.resid_to_lipid[mol] in lipidmolecules.sterols:
+                elif self.mysystem.resid_to_lipid[mol] in lipidmolecules.STEROLS:
                     selectionstring = 'resid_{0}=resid {0} and resname {1};\n'\
                                       'resid_{0};'\
                                       .format(
@@ -1049,7 +1049,7 @@ class Energy():
         energygroup_indeces=[res]+all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]
         energygroup_list=[]
         for index in energygroup_indeces:
-            if self.mysystem.resid_to_lipid[index] in lipidmolecules.sterols:
+            if self.mysystem.resid_to_lipid[index] in lipidmolecules.STEROLS:
                 energygroup_list.append(''.join(["resid_",str(index)]))
             else:
                 for part in self.molparts:
