@@ -207,6 +207,22 @@ def tail_atoms_of(lipid):
         tail = lipid[:-2]
         return TAIL_ATOMS_OF[tail]
 
+def tailcarbons_of(lipid):
+    ''' Returns only carbon atoms of tail '''
+    if is_sterol(lipid):
+        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+    else:
+        tail = lipid[:-2]
+        return TAILCARBS[tail]
+
+def tailhydr_of(lipid):
+    ''' Returns only hydrogen atoms of tail '''
+    if is_sterol(lipid):
+        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+    else:
+        tail = lipid[:-2]
+        return TAILHYDR[tail]
+
 def scd_tails_atoms_of(lipid):
     ''' Returns a list of relevant carbons for calculation of scd '''
     if is_sterol(lipid):
