@@ -182,15 +182,35 @@ def is_sterol(lipid):
         return True
     else:
         return False
+
 def central_atom_of(lipid):
     ''' Return the central atom of specified lipid as string '''
-    return ''
+    if is_sterol(lipid):
+        return CENTRAL_ATOM_OF[lipid]
+    else:
+        head = lipid[-2:]
+        return CENTRAL_ATOM_OF[head]
+
 def head_atoms_of(lipid):
     ''' Returns a list of all head atoms for specified lipid species '''
-    return []
+    if is_sterol(lipid):
+        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+    else:
+        head = lipid[-2:]
+        return HEAD_ATOMS_OF[head]
+
 def tail_atoms_of(lipid):
     ''' Returns a list of all tail atoms for specified lipid species '''
-    return []
+    if is_sterol(lipid):
+        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+    else:
+        tail = lipid[:-2]
+        return TAIL_ATOMS_OF[tail]
+
 def scd_tails_atoms_of(lipid):
     ''' Returns a list of relevant carbons for calculation of scd '''
-    return []
+    if is_sterol(lipid):
+        return SCD_TAIL_ATOMS_OF[lipid]
+    else:
+        tail = lipid[:-2]
+        return SCD_TAIL_ATOMS_OF[tail]
