@@ -69,7 +69,8 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     print(strftime("%H:%M:%S :", localtime()),
           "... Start conversion from .trj to .gro ...")
     print(mysystem.molecules)
-    inp_str = str('_'.join(mysystem.molecules)+'\n').encode()
+    #inp_str = str('_'.join(mysystem.molecules)+'\n').encode()
+    inp_str = '!"TIP3"'.encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
         '-o', grofile_output, '-n', 'index.ndx',
@@ -158,11 +159,11 @@ def generate_index_file(gropath, molecules):
         + one that contains all lipids '''
     if len(molecules) == 1:
         return
-    molstrings = ['r {}'.format(i) for i in molecules]
-    inp_str = ' | '.join(molstrings)
-    inp_str += '\n q \n'
-    #print(inp_str)
-    inp_str = inp_str.encode()
+    #molstrings = ['r {}'.format(i) for i in molecules]
+    #inp_str = ' | '.join(molstrings)
+    #inp_str += '\n q \n'
+    #inp_str = inp_str.encode()
+    inp_str = '"!TIP3"'.encode()
     gmx_arglist = [
         gmx_exec, 'make_ndx', '-f', gropath,
         ]
@@ -750,9 +751,9 @@ class Neighbors():
                     headatoms = lipidmolecules.head_atoms_of(lipidtype)
 
                     methylatomslists = []
-                    for tailindex in range(len(lipidmolecules.tailcarbons_of[lipidtype])):
-                        handlinghydr = [iter(lipidmolecules.tailhydr_of[lipidtype][tailindex])]*2
-                        methylgrouplist = [i for i in zip(lipidmolecules.tailcarbons_of[lipidtype][tailindex], zip(*handlinghydr))]# Getting a list of tuples like [C1,(H1,H2),....]
+                    for tailindex in range(len(lipidmolecules.tailcarbons_of(lipidtype))):
+                        handlinghydr = [iter(lipidmolecules.tailhydr_of(lipidtype)[tailindex])]*2
+                        methylgrouplist = [i for i in zip(lipidmolecules.tailcarbons_of(lipidtype)[tailindex], zip(*handlinghydr))]# Getting a list of tuples like [C1,(H1,H2),....]
                         methylgrouplist = [i for tup in methylgrouplist for i in tup]# Unpacking this list
                         methylgrouplist_unp = []
                         for particle in methylgrouplist:# get rid of hydr tuples
