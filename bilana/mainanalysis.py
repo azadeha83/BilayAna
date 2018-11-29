@@ -76,6 +76,8 @@ class Scd():
                     #lipidtype = line[5:9]
                     atom = grps[2].strip()
                     lipidtype = grps[1].strip()
+                    if lipidtype[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys():
+                        continue
                     if not lipidtype_old:
                         lipidtype_old = lipidtype
                     all_atmlst = [atm for atmlst in self.atomlist(lipidtype) for atm in atmlst]
@@ -102,6 +104,7 @@ class Scd():
         print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
         return
     def scd_of_res(self, coorddict, atomlist):#, neibstraightness=0,neiblist=None):
+        #print(atomlist)
         scds_of_atoms = []
         scds_of_tails = []
         #scds_of_tails_corrected=[]
@@ -157,15 +160,15 @@ def get_neighbor_of(hostres, time):
     with open("neighbor_info","r") as ninfo:
         ninfo.readline()
         for line in ninfo:
-            cols=line.split()
-            res=str(cols[0])
-            t=cols[1]
-            if res==str(hostres) and t==''.join([str(time),'00']):
+            cols = line.split()
+            res = str(cols[0])
+            t = cols[1]
+            if res == str(hostres) and t == ''.join([str(time),'00']):
                 try:
                     return cols[3].split(',')
                 except IndexError:
                     return []
-    print(time,"I should never get here...")
+    print(time, "I should never get here...")
 
 def create_leaflet_assignment_file(sysinfo_obj):
     ''' Creates a file with that assigns all lipids to upper or lower leaflet
