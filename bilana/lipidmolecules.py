@@ -20,7 +20,7 @@ TAILCARBS = {
              ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38', 'C39', 'C310', 'C311', 'C312', 'C313', 'C314',]],    #14:0
     'DS':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28', 'C29', 'C210', 'C211', 'C212', 'C213', 'C214', 'C215', 'C216', 'C217', 'C218'],     #18:0
              ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38', 'C39', 'C310', 'C311', 'C312', 'C313', 'C314', 'C315', 'C316', 'C317', 'C318']], #18:0
-    'DU':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28','C29', 'C210','C211', 'C212','C213', 'C214', 'C215', 'C216', 'C217', 'C218'],        #18:2
+    'DLI':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28','C29', 'C210','C211', 'C212','C213', 'C214', 'C215', 'C216', 'C217', 'C218'],        #18:2
              ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38','C39', 'C310','C311', 'C312','C313', 'C314', 'C315', 'C316', 'C317','C318']],     #18:2
     'DY':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28', 'C29', 'C210','C211', 'C212','C213', 'C214', 'C215', 'C216'],                   #16:1
              ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38', 'C39', 'C310', 'C311', 'C312', 'C313', 'C314', 'C315', 'C316']],             #16:1
@@ -50,7 +50,7 @@ TAILHYDR = {
              ['H2X', 'H2Y','H3X', 'H3Y','H4X', 'H4Y','H5X', 'H5Y', 'H6X', 'H6Y','H7X', 'H7Y','H8X',
                 'H8Y','H9X', 'H9Y','H10X', 'H10Y','H11X', 'H11Y','H12X', 'H12Y', 'H13X', 'H13Y','H14X',
                 'H14Y','H15X', 'H15Y','H16X', 'H16Y','H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z']],
-    'DU':[['H2R', 'H2S','H3R', 'H3S', 'H4R', 'H4S', 'H5R', 'H5S', 'H6R', 'H6S','H7R','H7S','H8R',
+    'DLI':[['H2R', 'H2S','H3R', 'H3S', 'H4R', 'H4S', 'H5R', 'H5S', 'H6R', 'H6S','H7R','H7S','H8R',
                 'H8S', 'H9R', 'H10R', 'H11R', 'H11S', 'H12R', 'H13R',
                 'H14R', 'H14S', 'H15R', 'H15S','H16R', 'H16S', 'H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z'],
              ['H2X', 'H2Y','H3X', 'H3Y','H4X', 'H4Y','H5X', 'H5Y', 'H6X', 'H6Y','H7X', 'H7Y','H8X',
@@ -82,45 +82,17 @@ TAILHYDR = {
                 'H14Y','H15X', 'H15Y','H16X', 'H16Y','H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z']],
     }
 
-
-# Head
-#headhet^eroat = ['C11', 'C12', 'C13', 'C14', 'C15', 'N', 'P', 'O11', 'O12', 'O13', 'O14', 'C1', 'C2', 'O21', 'C21', 'O22', 'C3', 'O31', 'O32', 'C31']
-#headhydrog = ['H13A', 'H13B', 'H13C', 'H14A', 'H14B', 'H14C', 'H15A', 'H15B', 'H15C', 'H12A', 'H12B', 'H11A', 'H11B', 'HA', 'HB', 'HS', 'HX', 'HY']
-# Tail
-#tailcarbons_of = {
-#    'DPPC': [['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28','C29', 'C210','C211', 'C212','C213', 'C214', 'C215', 'C216'],
-#             ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38','C39', 'C310','C311', 'C312','C313', 'C314', 'C315', 'C316']],
-#    'DMPA': [['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28','C29', 'C210','C211', 'C212','C213', 'C214',],
-#             ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38','C39', 'C310','C311', 'C312','C313', 'C314',]],
-#    'DUPC': [['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28','C29', 'C210','C211', 'C212','C213', 'C214', 'C215', 'C216', 'C217','C218'],
-#             ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38','C39', 'C310','C311', 'C312','C313', 'C314', 'C315', 'C316', 'C317','C318']],
-#                  }
-
-#tailhydr_of = {
-#    'DPPC': [['H2R', 'H2S','H3R', 'H3S', 'H4R', 'H4S', 'H5R', 'H5S', 'H6R', 'H6S','H7R','H7S','H8R',
-#                'H8S', 'H9R', 'H9S', 'H10R', 'H10S','H11R', 'H11S', 'H12R', 'H12S','H13R', 'H13S',
-#                'H14R', 'H14S', 'H15R', 'H15S','H16R', 'H16S', 'H16T'],
-#             ['H2X', 'H2Y','H3X', 'H3Y','H4X', 'H4Y','H5X', 'H5Y', 'H6X', 'H6Y','H7X', 'H7Y','H8X',
-#                'H8Y','H9X', 'H9Y','H10X', 'H10Y','H11X', 'H11Y','H12X', 'H12Y', 'H13X', 'H13Y','H14X',
-#                'H14Y','H15X', 'H15Y','H16X', 'H16Y','H16Z']],
-#    'DUPC': [['H2R', 'H2S','H3R', 'H3S', 'H4R', 'H4S', 'H5R', 'H5S', 'H6R', 'H6S','H7R','H7S','H8R',
-#                'H8S', 'H9R', 'H9S', 'H10R', 'H10S','H11R', 'H11S', 'H12R', 'H12S', 'H13R', 'H13S',
-#                'H14R', 'H14S', 'H15R', 'H15S','H16R', 'H16S', 'H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z'],
-#             ['H2X', 'H2Y','H3X', 'H3Y','H4X', 'H4Y','H5X', 'H5Y', 'H6X', 'H6Y','H7X', 'H7Y','H8X',
-#                'H8Y', 'H9X', 'H9Y', 'H10X', 'H10Y', 'H11X', 'H11Y', 'H12X', 'H12Y', 'H13X', 'H13Y',
-#                'H14X', 'H14Y', 'H15X', 'H15Y', 'H16X', 'H16Y', 'H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z']],
-#                }
 SCD_TAIL_ATOMS_OF = {\
     'DP':[TAILCARBS['DP'][0][::2], TAILCARBS['DP'][1][::2]],
-    'DU':[['C22', 'C24', 'C26', 'C28', 'C211', 'C214', 'C216', 'C218'], # Double bonds between 9-10, 12-13
+    'DLI':[['C22', 'C24', 'C26', 'C28', 'C211', 'C214', 'C216', 'C218'], # Double bonds between 9-10, 12-13
             ['C32', 'C34', 'C36', 'C38', 'C311', 'C314', 'C316', 'C318']],
-    'DM':[[TAILCARBS['DM'][0][::2], TAILCARBS['DM'][1][::2]]],
-    'DS':[[TAILCARBS['DS'][0][::2], TAILCARBS['DS'][1][::2]]],
-    'DY':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213' 'C215', ],   # Double bonds between 9-10
+    'DM':[TAILCARBS['DM'][0][::2], TAILCARBS['DM'][1][::2]],
+    'DS':[TAILCARBS['DS'][0][::2], TAILCARBS['DS'][1][::2]],
+    'DY':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213', 'C215', ],   # Double bonds between 9-10
             ['C32', 'C34', 'C36', 'C38', 'C311', 'C313', 'C315',]],
     'PL':[['C22', 'C24', 'C26', 'C28', 'C211', 'C214', 'C216', 'C218'], TAILCARBS['PL'][1][::2]],
-    'PO':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213' 'C215', 'C217'], TAILCARBS['PO'][1][::2]],
-    'DO':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213' 'C215', 'C217'],  # Double bonds between 9-10
+    'PO':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213', 'C215', 'C217'], TAILCARBS['PO'][1][::2]],
+    'DO':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213', 'C215', 'C217'],  # Double bonds between 9-10
             ['C32', 'C34', 'C36', 'C38', 'C311', 'C313', 'C315', 'C317']],
     'CHL1':[['C3', 'C17']],
     'ch1m':[['C20', 'C12']],
@@ -146,7 +118,7 @@ TAIL_ATOMS_OF = {\
     'DS':[TAILCARBS['DS'][0], TAILHYDR['DS'][0], TAILCARBS['DS'][1], TAILHYDR['DS'][1],],
     'DO':[TAILCARBS['DO'][0], TAILHYDR['DO'][0], TAILCARBS['DO'][1], TAILHYDR['DO'][1],],
     'DY':[TAILCARBS['DY'][0], TAILHYDR['DY'][0], TAILCARBS['DY'][1], TAILHYDR['DY'][1],],
-    'DU':[TAILCARBS['DU'][0], TAILHYDR['DU'][0], TAILCARBS['DU'][1], TAILHYDR['DU'][1],],
+    'DLI':[TAILCARBS['DLI'][0], TAILHYDR['DLI'][0], TAILCARBS['DLI'][1], TAILHYDR['DLI'][1],],
     'PO':[TAILCARBS['PO'][0], TAILHYDR['PO'][0], TAILCARBS['PO'][1], TAILHYDR['PO'][1],],
     'PL':[TAILCARBS['PL'][0], TAILHYDR['PL'][0], TAILCARBS['PL'][1], TAILHYDR['PL'][1],],
     #'DPPC':[tailcarbons_of['DPPC'][0], tailhydr_of['DPPC'][0], tailcarbons_of['DPPC'][1], tailhydr_of['DPPC'][1]],
@@ -167,12 +139,14 @@ CENTRAL_ATOM_OF = {
     'CHIM':'C20',
     'ch1m':'C20',
     'ERG':'O3',
+    'WSC1':'N',
                  }
 
-INCLUDED_TAILS = ['DP', 'DM', 'DS', 'DO', 'DY', 'DU', 'PO', 'PL']
+INCLUDED_TAILS = ['DP', 'DM', 'DS', 'DO', 'DY', 'DLI', 'PO', 'PL']
 INCLUDED_HEADS = ['PC', 'PE', 'PS', 'PI', 'PA']
 #described_molecules = ['DPPC', 'DUPC', 'CHL1', 'CHIM', 'ERG', 'ch1m']
 STEROLS = ['CHL1', 'CHIM', 'ERG', 'ch1m']
+PROTEINS = ['WSC1',]
 SHORTESTCHAIN = len(TAILCARBS['DM'])
 
 
@@ -223,7 +197,7 @@ def tailhydr_of(lipid):
         tail = lipid[:-2]
         return TAILHYDR[tail]
 
-def scd_tails_atoms_of(lipid):
+def scd_tail_atoms_of(lipid):
     ''' Returns a list of relevant carbons for calculation of scd '''
     if is_sterol(lipid):
         return SCD_TAIL_ATOMS_OF[lipid]
