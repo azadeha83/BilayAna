@@ -70,7 +70,7 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
           "... Start conversion from .trj to .gro ...")
     print(mysystem.molecules)
     #inp_str = str('_'.join(mysystem.molecules)+'\n').encode()
-    inp_str = '!"TIP3"'.encode()
+    inp_str = '!TIP3 \n'.encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
         '-o', grofile_output, '-n', 'index.ndx',
@@ -157,13 +157,13 @@ def trajectory_to_gro(systeminfo,
 def generate_index_file(gropath, molecules):
     ''' Creates an indexfile with all relevant entries
         + one that contains all lipids '''
-    if len(molecules) == 1:
-        return
+    #if len(molecules) == 1:
+    #    return
     #molstrings = ['r {}'.format(i) for i in molecules]
     #inp_str = ' | '.join(molstrings)
     #inp_str += '\n q \n'
     #inp_str = inp_str.encode()
-    inp_str = '"!TIP3"'.encode()
+    inp_str = '! "TIP3" \n q \n'.encode()
     gmx_arglist = [
         gmx_exec, 'make_ndx', '-f', gropath,
         ]
@@ -665,7 +665,7 @@ class Neighbors():
                 for resn in resnames:
                     for tailn in [0, 1]:
                         tailstr = "tail{}=(resname {} and name {});\n"\
-                                  .format(tailn, resn, ' '.join(tail_atm[resn][tailn]))
+                                  .format(tailn, resn, ' '.join(tail_atm(resn)[tailn]))
                         tailstr_l.append(tailstr)
                 tailstr = ''.join(tailstr_l)
                 print(
@@ -738,7 +738,7 @@ class Neighbors():
             selectionfile = self.mysystem.temppath+'/tmp_selectionfile'
             with open(selectionfile,"w") as sf:
                 lipidtype = self.mysystem.resid_to_lipid[mol]
-                if lipidtype  not in lipidmolecules.STEROLS:
+                if lipidtype  not in lipidmolecules.STEROLS+lipidmolecules.PROTEINS:
                     tailhalf12_l = [] ### to get half the tails
                     tailhalf22_l = []
                     for molpart in lipidmolecules.tail_atoms_of(lipidtype):
@@ -799,7 +799,7 @@ class Neighbors():
                     selectionstring=''.join(selectionlist)
                     print(selectionstring)
                     sf.write(selectionstring)
-                elif self.mysystem.resid_to_lipid[mol] in lipidmolecules.STEROLS:
+                elif self.mysystem.resid_to_lipid[mol] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS:
                     selectionstring = 'resid_{0}=resid {0} and resname {1};\n'\
                                       'resid_{0};'\
                                       .format(
@@ -947,8 +947,8 @@ class Energy():
             startres = 1
         if endres == -1:
             endres = self.mysystem.NUMBEROFMOLECULES
-        for res in range(startres,endres+1):
-            print('\n',strftime("%H:%M:%S :", localtime()),'Working on lipid '+str(res)+'...')
+        for res in range(startres, endres+1):
+            print('\n',strftime("%H:%M:%S :", localtime()), 'Working on lipid '+str(res)+'...')
             all_neibs_of_res = list(set([neibs for t in self.neiblist[res].keys() for neibs in self.neiblist[res][t]]))
             N_neibs = len(all_neibs_of_res)
             # ''' Dividing calculations to separate neighbors considered in each energyrun
@@ -1050,7 +1050,7 @@ class Energy():
         energygroup_indeces=[res]+all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]
         energygroup_list=[]
         for index in energygroup_indeces:
-            if self.mysystem.resid_to_lipid[index] in lipidmolecules.STEROLS:
+            if self.mysystem.resid_to_lipid[index] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS:
                 energygroup_list.append(''.join(["resid_",str(index)]))
             else:
                 for part in self.molparts:
@@ -1069,20 +1069,20 @@ class Energy():
         for interaction in Etypes:
             counterhost=0 #for the cholesterol as it has just 1 molpart
             for parthost in self.molparts:
-                if self.mysystem.resid_to_lipid[res]=='CHL1' and counterhost==0:
+                if self.mysystem.resid_to_lipid[res] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS and counterhost==0:
                     parthost="resid_"
                     counterhost+=1
-                elif self.mysystem.resid_to_lipid[res]=='CHL1' and counterhost!=0:
+                elif self.mysystem.resid_to_lipid[res] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS and counterhost!=0:
                     continue
                 for neib in all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]:
                     counterneib=0
                     for partneib in self.molparts:
-                        if self.mysystem.resid_to_lipid[neib]=='CHL1' and counterneib==0:
+                        if self.mysystem.resid_to_lipid[neib] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS and counterneib==0:
                             partneib='resid_'
                             counterneib+=1
-                        elif self.mysystem.resid_to_lipid[neib]=='CHL1' and counterneib!=0:
+                        elif self.mysystem.resid_to_lipid[neib] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS and counterneib!=0:
                             continue
-                        energyselection.append(''.join([interaction,parthost,str(res),"-",partneib,str(neib)]))
+                        energyselection.append(''.join([interaction, parthost, str(res), "-", partneib,str(neib)]))
         all_relev_energies='\n'.join(energyselection+['\n'])
         return all_relev_energies
 
