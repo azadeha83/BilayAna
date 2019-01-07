@@ -161,6 +161,40 @@ def initialize_system():
             print(out.decode(), err.decode())
         os.chdir(startdir)
 
+def calc_scd():
+    ''' Only calculate scd distribution and write to scd_distribution.dat '''
+    startdir = os.getcwd()
+    if len(sys.argv) != 5:
+        print('Invalid number of input arguments. Specify:\n'
+              '<systemname> <lowest T> <highest T> <jobname>)',)
+        sys.exit()
+    systemname = sys.argv[1]
+    tempstart = int(sys.argv[2])
+    tempend = int(sys.argv[3])
+    jobname = sys.argv[4]
+    temperatures = [T for T in range(tempstart, tempend+1, 10)]
+    systems_to_calculate_for = ['./{}_{}'.format(systemname, T) for T in temperatures]
+    for systemdir in systems_to_calculate_for:
+        os.chdir(systemdir)
+        scriptfilename = 'exec'+systemdir[2:]+jobname+'.py'
+        jobfilename = systemdir[2:]+jobname
+        with open(scriptfilename, 'w') as scriptf:
+            print(\
+                'import os, sys'
+                '\nimport subprocess'
+                '\nfrom bilana import gromacstoolautomator as gmx'
+                '\nfrom bilana import mainanalysis'
+                '\nfrom bilana.systeminfo import SysInfo'
+                '\nmysystem = SysInfo("inputfile")'
+                '\nmainanalysis.Scd(mysystem).create_scdfile()'
+                '\nos.remove(sys.argv[0])',
+                file=scriptf)
+            write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+        os.chdir(startdir)
 
 def check_and_write():
     ''' Check if all energy files exist and write table with all energies '''

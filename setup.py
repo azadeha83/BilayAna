@@ -12,6 +12,7 @@ setup(name='bilana',
           'console_scripts': [
               'submit_energycalcs = bilana.command_line:submit_energycalcs',
               'initialize_system = bilana.command_line:initialize_system',
+              'calculate_scd = bilana.command_line:calc_scd',
               'check_and_write = bilana.command_line:check_and_write',
               'write_eofscd = bilana.command_line:write_eofscd',
               'write_nofscd = bilana.command_line:write_nofscd'
