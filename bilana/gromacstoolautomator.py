@@ -18,12 +18,13 @@ from bilana import lipidmolecules #,systeminfo
 #mysystem = systeminfo.SysInfo(inputfile)
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch = logging.StreamHandler()
-#ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+logger.debug("Initialized logger with handers %s", logger.handlers)
 
 gmx_exec = 'gmx' #'gmx_5.0.4_mpi'
 os.environ["GMX_MAXBACKUP"] = "-1"
@@ -605,6 +606,7 @@ def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom'):
 #                                   file=all_distances
 #                                  )
 
+
 class Neighbors():
     ''' All calculations regarding lipid neighbors '''
 
@@ -732,7 +734,7 @@ class Neighbors():
         print("\n_____Creating index file____\n")
         #OUTPUT IS:    resindex_all.ndx     | in the cwd!
         resindex_all = open("resindex_all.ndx","w")
-        for mol in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+        for mol in range(*self.mysystem.MOLRANGE):
         #for mol in range(1,2):
             print("Working on residue {}".format(mol), end='\r')
             selectionfile = self.mysystem.temppath+'/tmp_selectionfile'
@@ -845,8 +847,10 @@ class Neighbors():
         os.makedirs(self.mysystem.datapath+'/neighborfiles', exist_ok=True)
         with open("neighbor_info", "w") as outfile:
             outfile.write('Resid \t Time \t Number_of_neighbors \t List_of_Neighbors \n')
-            for residue in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+            for residue in range(*self.mysystem.MOLRANGE):
                 print(". . . Working on residue: {} . . .".format(residue), end="\r")
+                if residue not in self.mysystem.resid_to_lipid.keys():
+                    continue
                 selectionfile = self.create_selectionfile_neighborsearch(residue, refatoms=refatoms)
                 indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.mysystem.indexpath, residue)
                 datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.mysystem.datapath, residue)
@@ -1008,7 +1012,7 @@ class Energy():
                   .format("Time", "Lipid",
                           "Etot", "VdWSR", "CoulSR", "VdW14", "Coul14", "VdWtot", "Coultot", ),
                   file=energyoutput)
-            for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+            for resid in range(*self.mysystem.MOLRANGE):
                 #print("Working on residue {}".format(resid), end="\r")
                 #residtype = self.mysystem.resid_to_lipid[resid]
                 xvg_out = ''.join([self.mysystem.energypath, '/xvgtables/energies_residue', str(resid), '_selfinteraction', self.parts, '.xvg'])
@@ -1195,6 +1199,8 @@ class Energy():
     def write_energyfile(self):
         ''' Creates files: "all_energies_<interaction>.dat '''
         print('____ Create energy file ____')
+        REGEX_RESID = re.compile("\D*(\d+)")
+        logger.handlers.pop() # I don't know what happened, but starting from here I got 2 handlers
         with open(self.all_energies, "w") as energyoutput:
             print(\
                   '{: <10}{: <10}{: <10}{: <20}'
@@ -1202,11 +1208,12 @@ class Energy():
                   .format("Time", "Host", "Neighbor", "Molparts",\
                                            "VdW", "Coul", "Etot"),\
                   file=energyoutput)
-            for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+            for resid in range(*self.mysystem.MOLRANGE):
                 print("Working on residue {}".format(resid), end="\r")
                 residtype = self.mysystem.resid_to_lipid[resid]
                 all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
                 n_neibs = len(all_neibs_of_res)
+                logger.debug("All neibs of res %s are %s", resid, all_neibs_of_res)
                 if n_neibs % self.denominator == 0:
                     number_of_groupfragments = (n_neibs//self.denominator)
                 else:
@@ -1215,6 +1222,7 @@ class Energy():
                 print("Nneibs: {}\tNfrags: {}\t".format(n_neibs, number_of_groupfragments))
                 processed_neibs = []
                 for part in range(number_of_groupfragments):
+                    logger.debug("At part %s", part)
                     #print(part)
                     #groupblockstart = part*self.denominator
                     #groupblockend = (part+1)*self.denominator
@@ -1227,13 +1235,20 @@ class Energy():
                         for energyline in xvgfile: #folderlayout is: time Coul_resHost_resNeib LJ_resHost_resNeib ...
                             energyline_cols = energyline.split()
                             if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
+
                                 row = int(energyline_cols[1][1:])+1                 #time is at row 0 !
+                                #neib = REGEX_RESID.match(energyline_cols[3].split("resid_")[2][:-1]).groups()[0]
+                                #host = REGEX_RESID.match(energyline_cols[3].split("resid_")[1][:-1]).groups()[0]
                                 neib = energyline_cols[3].split("resid_")[2][:-1]
                                 host = energyline_cols[3].split("resid_")[1][:-1]
                                 energytype = energyline_cols[3].split("-")[0][1:]
+                                logging.debug("Hostid: %s, Neibid: %s", host, neib)
                                 if energytype == 'LJ':
-                                    processed_neibs.append(int(neib))
+                                    processed_neibs.append(neib)
+                                    #processed_neibs.append(int(neib))
+                                    logging.debug("Adding neib %s to processed", neib)
                                 res_to_row.update({(energytype, host, neib):row})
+                                logger.debug("Adding to dict: Etype %s, host %s, neib %s", energytype, host, neib)
                             elif '@' not in energyline and '#' not in energyline:     #pick correct energies from energyfile and print
                                 time = float(energyline_cols[0])
                                 if time % self.mysystem.dt != 0:
@@ -1273,8 +1288,10 @@ class Energy():
                                                 vdw = energyline_cols[res_to_row[('LJ', parthost+str(resid), partneib+str(neib))]]
                                                 coul = energyline_cols[res_to_row[('Coul', parthost+str(resid), partneib+str(neib))]]
                                             except KeyError:
+                                                #logger.debug("Couldnt find: %s, %s, ", parthost+str(resid), partneib+str(neib))
                                                 continue
                                             Etot = float(vdw)+float(coul)
+                                            #logger.debug("The output: host %s, neib %s, inter %s,", host, neib, inter)
                                             print(\
                                                   '{: <10}{: <10}{: <10}{: <20}'
                                                   '{: <20}{: <20}{: <20.5f}'
@@ -1282,7 +1299,17 @@ class Energy():
                                                                             vdw, coul, Etot),\
                                                   file=energyoutput)
                 #print("PROC NEIBS", processed_neibs)
+                if logger.level == 'DEBUG':
+                    import collections
+                    duplicates = [(item, count) for item, count in collections.Counter(processed_neibs).items() if count > 1]
+                    print(duplicates)
+                if len(self.molparts) >1:
+                    all_neibs_of_res = [part.replace("resid_", "")+str(entry) for entry in all_neibs_of_res for part in self.molparts] # Duplicating entries for each molpart
+                    all_neibs_of_res = [entry for entry in all_neibs_of_res for _ in range(len(self.molparts))] # Duplicating entries for each molpart
+                logger.debug("All_neibs corrected %s", all_neibs_of_res)
+                logger.debug("Processed neibs: %s", processed_neibs)
                 for pneib in processed_neibs:
+                    logger.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
                     #print("PNEIB, ALLNEIBS", pneib, all_neibs_of_res)
                     all_neibs_of_res.remove(pneib)
                 if all_neibs_of_res:
@@ -1294,7 +1321,7 @@ class Energy():
         all_okay = True
         with open("missing_xvgfiles.info", "w") as inffile:
             print("#Files missing", file=inffile)
-            for resid in range(1, self.mysystem.NUMBEROFMOLECULES+1):
+            for resid in range(*self.mysystem.MOLRANGE):
                 all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
                 n_neibs = len(all_neibs_of_res)
                 if n_neibs % self.denominator == 0:

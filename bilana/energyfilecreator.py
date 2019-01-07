@@ -7,48 +7,49 @@ from bilana import gromacstoolautomator, lipidmolecules
 
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch = logging.StreamHandler()
-#ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refactored.
-    time_pair_to_E = {}
-    time_pair_to_r = {}
-    with open(energyfile, "r") as efile, open(distancefile, "r") as dfile:
-        efile.readline()
-        dfile.readline()
-        for line in efile:
-            cols = line.split()
-            time = cols[0]
-            respair = cols[1]+'-'+cols[2]
-            Etot = cols[5]
-            keystring = time+'_'+respair
-            time_pair_to_E.update({keystring:Etot})
-        for line in dfile:
-            cols = line.split()
-            time = cols[0]
-            respair = cols[1]+'-'+cols[2]
-            distance = cols[3]
-            keystring = time+'_'+respair
-            time_pair_to_r.update({keystring:distance})
-    with open("Eofr_dat","w") as outfile:
-        print(\
-            '{: <10} {: <10} {: <10} {: < 10} {: <20}\n'\
-            .format("Time", "Host", "Neib", "Distance", "Etot"), file=outfile)
-        endtime = int(float(time))
-        neiblist = self.get_neighbor_dict()
-        for i in range(1, self.NUMBEROFPARTICLES+1):
-            for t in range(self.t_start, endtime+1, self.dt):
-                time = str(float(t))
-                neighbors_are = neiblist[i][float(t)]
-                for neib in neighbors_are:
-                    respair = str(i)+'-'+str(neib)
-                    Etot = time_pair_to_E[time+'_'+respair]
-                    dist = time_pair_to_r[time+'_'+respair]
-                    print("{: <10} {: <10} {: <10} {: <10} {: <20.5f}".format(time, i, neib, dist, Etot), file=outfile)
+# DEPRECATED
+#def create_Eofr_input(self,energyfile,distancefile):    # Ugly! Needs to be refactored.
+#    time_pair_to_E = {}
+#    time_pair_to_r = {}
+#    with open(energyfile, "r") as efile, open(distancefile, "r") as dfile:
+#        efile.readline()
+#        dfile.readline()
+#        for line in efile:
+#            cols = line.split()
+#            time = cols[0]
+#            respair = cols[1]+'-'+cols[2]
+#            Etot = cols[5]
+#            keystring = time+'_'+respair
+#            time_pair_to_E.update({keystring:Etot})
+#        for line in dfile:
+#            cols = line.split()
+#            time = cols[0]
+#            respair = cols[1]+'-'+cols[2]
+#            distance = cols[3]
+#            keystring = time+'_'+respair
+#            time_pair_to_r.update({keystring:distance})
+#    with open("Eofr_dat","w") as outfile:
+#        print(\
+#            '{: <10} {: <10} {: <10} {: < 10} {: <20}\n'\
+#            .format("Time", "Host", "Neib", "Distance", "Etot"), file=outfile)
+#        endtime = int(float(time))
+#        neiblist = self.get_neighbor_dict()
+#        for i in range(1, self.NUMBEROFPARTICLES+1):
+#            for t in range(self.t_start, endtime+1, self.dt):
+#                time = str(float(t))
+#                neighbors_are = neiblist[i][float(t)]
+#                for neib in neighbors_are:
+#                    respair = str(i)+'-'+str(neib)
+#                    Etot = time_pair_to_E[time+'_'+respair]
+#                    dist = time_pair_to_r[time+'_'+respair]
+#                    print("{: <10} {: <10} {: <10} {: <10} {: <20.5f}".format(time, i, neib, dist, Etot), file=outfile)
 
 class NofScd():
     def __init__(self, systeminfo):
@@ -67,7 +68,7 @@ class NofScd():
                 .format("Time", "Host", "Lipid_type", "Host_Scd", "Ntot")\
                 +('{: ^10}'*len(self.components)).format(*self.components),
                 file=outfile)
-            for i in range(1, self.systeminfo.NUMBEROFMOLECULES+1):
+            for i in range(*self.systeminfo.MOLRANGE):
                 host_type = self.systeminfo.resid_to_lipid[i]
                 #print("Working on residue {} ".format(i), end="\r")
                 #for t in range(self.systeminfo.t_start, int(endtime1)+1, self.systeminfo.dt):
@@ -121,8 +122,8 @@ class EofScd():
             self.parts = parts
         elif parts == 'carbons':
             self.interactionskey = []
-            for i in range(lipidmolecules.shortestchain):
-                for j in range(lipidmolecules.shortestchain):
+            for i in range(lipidmolecules.SHORTESTCHAIN):
+                for j in range(lipidmolecules.SHORTESTCHAIN):
                     if j > i:
                         continue
                     else:
@@ -156,7 +157,9 @@ class EofScd():
         if energyfile == 'all_energies.dat':
             outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
         else:
-            outname = ''.join(['Eofscd', wantedpair, self.parts, energyfile.replace('.dat',''), '.dat'])
+            outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
+        logger.debug("Will write to: %s", outname)
+        logger.debug("Opening energyfile: %s", energyfile )
         with open(energyfile, "r") as efile, open(outname, "w") as outf:
             print(\
                   '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
@@ -222,7 +225,6 @@ class EofScd():
                     shared_chol = [self.mysystem.resid_to_lipid[N]\
                         for N in shared_neighbors].count('CHL1')
                     neib_comp_list.append(shared_chol)
-                print(neib_comp_list)
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
                 delta_scd = abs(scd_host-scd_neib)

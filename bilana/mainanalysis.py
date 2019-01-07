@@ -20,10 +20,10 @@ pp = pprint.PrettyPrinter()
 def is_neighbor_in_leaflet(systeminfo_inst):
     ''' Searches for interleaflet neighborhood '''
     leaflet_assign = systeminfo_inst.res_to_leaflet
-    nlipids = systeminfo_inst.NUMBEROFMOLECULES
+    #nlipids = systeminfo_inst.NUMBEROFMOLECULES
     neiblist = gmxauto.Neighbors(systeminfo_inst).get_neighbor_dict()
     host_has_interleafletneib = []
-    for host in range(1, nlipids+1):
+    for host in range(*systeminfo_inst.MOLRANGE):
         neibs_times = neiblist[host]
         host_leaflet = leaflet_assign[host]
         for t in neibs_times:
@@ -95,6 +95,7 @@ class Scd():
                             lipidtype_old = lipidtype
                         #coordinates = [float(x) for x in line[20:44].split()]
                         coordinates = [float(x) for x in grps[4:7]]
+                        print("atom, %s", atom)
                         coorddict[atom] = coordinates
                     else:
                         continue
@@ -144,7 +145,7 @@ class Scd():
             with open(data_output,"w") as outfile:
                 print("{: <10} {: <10} {: <20}".format("Time","Lipid","Lipid_Scd"),file=outfile)
                 endtime=int(float(time))
-                for res in range(1, self.systeminfo.NUMBEROFMOLECULES+1):
+                for res in range(*self.systeminfo.MOLRANGE):
                     restype = self.systeminfo.resid_to_lipid[res]
                     if restype != lipid:
                         continue
@@ -213,7 +214,7 @@ def create_leaflet_assignment_file(sysinfo_obj):
         print("UP:", sum_upper, "LOW", sum_lower)
     with open(outputfilename, "w") as outf:
         print("{: <7} {: <5}".format('resid', 'leaflet'), file=outf)
-        for res in range(1, sysinfo_obj.NUMBEROFMOLECULES+1):
+        for res in range(*sysinfo_obj.MOLRANGE):
 
             print("{: <7} {: <5}".format(res, outputdict[res]), file=outf)
 

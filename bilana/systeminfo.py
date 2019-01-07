@@ -34,6 +34,7 @@ class SysInfo():
     NUMBEROFMOLECULES = 'all'
 
     def __init__(self, inputfile):
+        self.startres = 1 # Initialize value
         self.system_info = self.read_infofile(inputfile)
         cwd = os.getcwd()
         os.makedirs(cwd+'/datafiles', exist_ok=True)
@@ -49,6 +50,9 @@ class SysInfo():
         if 'CHOL' in self.molecules:    # This must be declared immediately !!!
             self.molecules.append('CHL1')
             self.molecules.remove('CHOL')
+        if 'WSC1' in self.molecules:
+            self.molecules.remove('WSC1')
+            self.molecules += lipidmolecules.PROTEINS
         self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
         # ''' absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
@@ -83,6 +87,7 @@ class SysInfo():
               .format(self.system_size, self.number_of_lipids))
         if self.NUMBEROFMOLECULES == 'all':
             self.NUMBEROFMOLECULES = self.number_of_lipids
+        self.MOLRANGE = [self.startres, self.startres + self.NUMBEROFMOLECULES + 1 ] # +1 for range()
 
     def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
@@ -105,6 +110,7 @@ class SysInfo():
         grofile = self.gropath
         in2res = {}
         res2mol = {}
+        firstres = True
         with open(grofile,"r") as fgro:
             # get rid of first 2 lines:
             fgro.readline()
@@ -116,6 +122,8 @@ class SysInfo():
                     resid = int(grps[0].strip())
                     lipid = grps[1].strip()
                     ind = int(grps[3].strip())
+                    if firstres:
+                        self.startres = resid
                 #resid = int(float(line[:5].strip()))
                 #lipid = line[5:9]
                 #ind = int(float(line[15:20].strip()))
