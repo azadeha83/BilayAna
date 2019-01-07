@@ -146,7 +146,7 @@ INCLUDED_TAILS = ['DP', 'DM', 'DS', 'DO', 'DY', 'DLI', 'PO', 'PL']
 INCLUDED_HEADS = ['PC', 'PE', 'PS', 'PI', 'PA']
 #described_molecules = ['DPPC', 'DUPC', 'CHL1', 'CHIM', 'ERG', 'ch1m']
 STEROLS = ['CHL1', 'CHIM', 'ERG', 'ch1m']
-PROTEINS = ['WSC1',]
+PROTEINS = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS',]
 SHORTESTCHAIN = len(TAILCARBS['DM'])
 
 

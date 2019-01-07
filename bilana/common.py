@@ -23,7 +23,7 @@ def calculate_geometriccenter(self,coordinateinput):
 class PDB_format():
     #                    Record   Serial   atomname    resn    resid        x       y           z    Rest
     pdb_string_format = '{: <4}  {: >5} {: >2}{: <2}{}{: >4}{}{: >4}{}   {: >8.3f}{: >8.3f}{: >8.3f}{}'#{: >6.2f}{: >6.2f}'
-    pdb_pattern = r"""        
+    pdb_pattern = r"""
             ^
             ATOM              (?# Record Type)
     \s+
@@ -40,7 +40,7 @@ class PDB_format():
             (-?\d+\.\d+)      (?# Y)
     \s*
             (-?\d+\.\d+)      (?# Z)
-            (.*)              (?# Remainder)              
+            (.*)              (?# Remainder)
                 """
     pdb_pattern = ''.join(pdb_pattern.split()) # Remove all whitespaces in above defined pattern
     regexp = re.compile(pdb_pattern)
@@ -57,7 +57,7 @@ class GRO_format():
     5-7     x y z
     8       velocities (rest)
     '''
-    #                          resid resnm atmnm atmnr  x           y      z         vx      vy        vz
+    #                     resid resnm atmnm atmnr   x        y         z         vx      vy        vz
     gro_string_format = '{: >5}{: <5}{: >5}{: >5}{: >8.3f}{: >8.3f}{: >8.3f}{: >8.4f}{: >8.4f}{: >8.4f} '
     gro_pattern = r"""
         ([\s,\d]{5})           (?# Resid       Grp 1)
