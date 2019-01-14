@@ -3,19 +3,34 @@
         -
  '''
 import os
-import sys
+#import sys
 import numpy as np
 import pprint
 import re
+import bisect
+import logging
 from time import localtime, strftime
 from bilana.common import AutoVivification, GRO_format
 from bilana.energyfilecreator import read_scdinput
 from bilana import lipidmolecules
 from bilana import gromacstoolautomator as gmxauto
 from bilana.systeminfo import SysInfo
-import bisect
 
 pp = pprint.PrettyPrinter()
+
+
+logger = logging.getLogger()
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch = logging.StreamHandler()
+logger.setLevel(logging.INFO)
+ch.setLevel(logging.INFO)
+#logger.setLevel(logging.DEBUG)
+#ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+#logger.addHandler(ch)
+logger.debug("Initialized logger with handers %s", logger.handlers)
+
+
 
 def is_neighbor_in_leaflet(systeminfo_inst):
     ''' Searches for interleaflet neighborhood '''
@@ -44,58 +59,53 @@ class Scd():
             grofilename = 'traj_complete.gro'
             grofilepath = ''.join([self.systeminfo.datapath, '/grofiles/'])
             gmxauto.produce_gro(self.systeminfo, grofilename=grofilename)
+        else:
+            grofilepath = ''
         with open(grofilepath+grofilename,"r") as grofile, open(outputfile, "w") as scdfile:
             print("Time     Residue     Type      Scd", file=scdfile)
-            resid_old = 1
+            resid_old = 0
             time = None
             lipidtype_old = ''
             coorddict = {}
             print(strftime("%H:%M:%S :", localtime()),"... read data from .gro-file ...")
-            #========================RESID=======RESNAME======ATOMNAME=======INDEX===============X============Y============Z=======
-            #regexp = re.compile(r'^([\s,\d]{5})([\w,\s]{5})([\d,\w,\s]{5})([\s*\d+]{5})(\s*-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
             for line in grofile:
                 if 't=' in line:
-                    #time_tmp = float(line[line.index('t=')+2:].strip())   #to get rid of obsolete decimals
                     re_time = re.compile(r'.*t=\s+(\d+\.\d+).*')
                     time_tmp = float(re_time.match(line).group(1))
                     if time is None:
                         time = time_tmp
-                    #print("...at time {}".format(time), flush=True, end="\r")
                     if float(self.systeminfo.t_end) < time:
-                        #print("breaking at", time)
                         break
-                #print("Match", regexp.match(line), line[:15], end='\n')
-                #print("Time match is", float(systeminfo.t_start)<=time, end='\n')
                 regmatch = GRO_format.regexp.match(line)
-                regmatch_box = GRO_format.regexp_box.match(line)
+                #regmatch_box = GRO_format.regexp_box.match(line)
                 if float(self.systeminfo.t_start) <= time and regmatch is not None:
                     grps = regmatch.groups()
-                    #print(grps)
-                    #print("Reading data at", time, end='\n')
-                    #atom = line[9:15].strip()
-                    #lipidtype = line[5:9]
                     atom = grps[2].strip()
                     lipidtype = grps[1].strip()
-                    if lipidtype[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys():
+                    if lipidtype[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
+                        and lipidtype not in lipidmolecules.STEROLS:
+                        logger.debug("Skip: %s", lipidtype)
                         continue
                     if not lipidtype_old:
                         lipidtype_old = lipidtype
                     all_atmlst = [atm for atmlst in self.atomlist(lipidtype) for atm in atmlst]
                     if atom in all_atmlst and lipidtype in self.systeminfo.molecules:
-                        #resid = int(line[:5].strip())
                         resid = int(grps[0].strip())
+                        logger.debug("Groups %s", grps)
+                        if not resid_old:
+                            logger.debug("Setting resid_old from %s to %s", resid_old, resid)
+                            resid_old = resid
                         if resid != resid_old and coorddict:
-                            if not resid_old:
-                                resid_old = resid
+                            logger.debug("Resid / resid_old: %s / %s", resid, resid_old)
+                            logger.debug("Atomlist %s", self.atomlist(lipidtype_old))
+                            logger.debug("coordinates: %s", coorddict)
                             scd_value = self.scd_of_res(coorddict, self.atomlist(lipidtype_old))
                             coorddict = {}
                             print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
                             resid_old = resid
                             time = time_tmp
                             lipidtype_old = lipidtype
-                        #coordinates = [float(x) for x in line[20:44].split()]
                         coordinates = [float(x) for x in grps[4:7]]
-                        print("atom, %s", atom)
                         coorddict[atom] = coordinates
                     else:
                         continue
@@ -104,6 +114,7 @@ class Scd():
             print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
         print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
         return
+
     def scd_of_res(self, coorddict, atomlist):#, neibstraightness=0,neiblist=None):
         #print(atomlist)
         scds_of_atoms = []
@@ -176,47 +187,68 @@ def create_leaflet_assignment_file(sysinfo_obj):
                         !Attention!
             !Flip flops of Cholesterol are not considered! Though should it?
     '''
-    outputdict = {}
     outputfilename = 'leaflet_assignment.dat'
     grofile_path = sysinfo_obj.gropath
-    with open(grofile_path, "r") as gfile:
+    coord_head, coord_base = None, None
+    with open(grofile_path, "r") as gfile, open(outputfilename, "w") as outf:
+        print("{: <7} {: <5}".format('resid', 'leaflet'), file=outf)
                 #========================RESID=======RESNAME======ATOMNAME=======INDEX===============X============Y============Z=======
         regexp = re.compile(r'^([\s,\d]{5})([\w,\s]{5})([\d,\w,\s]{5})([\s*\d+]{5})\s*(-?\d+\.\d+\s*-?\d+\.\d+\s*-?\d+\.\d+).*')
-        old_resid = 1
+        old_resid = 0
         sum_upper = 0
         sum_lower = 0
         for line in gfile:
             match = regexp.match(line)
             if match:
                 resid = int(match.group(1).split()[0])
+                if not old_resid:
+                    old_resid = resid
+                resname = match.group(2).split()[0].upper()
                 atomname = match.group(3).split()[0]
                 coords = [float(i) for i in match.group(5).split()]
-                #print(resid, atomname, coords)
-                if atomname in lipidmolecules.CENTRAL_ATOM_OF.values():
-                    coord_head = np.array(coords)
-                if atomname in [i[-1] for it in lipidmolecules.SCD_TAIL_ATOMS_OF.values() for i in it]:
-                    coord_base = np.array(coords)
+                #logger.debug("Linepars: %s %s %s %s", resid, resname, atomname, coords)
+                if resname not in sysinfo_obj.molecules:
+                    continue
+                last_tail_atm = lipidmolecules.scd_tail_atoms_of(resname)[0][-1]
+                logger.debug("Atmn/last_tail %s/%s", atomname, last_tail_atm)
                 if old_resid != resid:
-                    if coord_head is None or coord_base is None:
-                        continue
+                    logger.debug("Resid/resname/atmname %s/%s/%s", resid, resname, atomname)
+                    logger.debug("Coords head/base: %s/%s", coord_head, coord_base)
                     new_coords = coord_head - coord_base
                     cos = np.dot(new_coords, np.array([0.0,0.0,1.0]))/np.linalg.norm(new_coords)
                     if cos <= 0:
                         sum_upper += 1
-                        outputdict[old_resid] = 0
+                        leaflet = 0
                     else:
                         sum_lower += 1
-                        outputdict[old_resid] = 1
-                    #vecdir = np.arccos(cos)
-                    #print(vecdir, coord_head, coord_base)
+                        leaflet = 1
+                    print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
                     old_resid = resid
                     coord_head = coord_base = None
+                if atomname in lipidmolecules.CENTRAL_ATOM_OF.values():
+                    coord_head = np.array(coords)
+                    logger.debug("Added head %s", atomname)
+                if atomname == last_tail_atm:
+                    coord_base = np.array(coords)
+                    logger.debug("Added tail %s", atomname)
+        if coord_base is not None and coord_head is not None:
+            new_coords = coord_head - coord_base
+            cos = np.dot(new_coords, np.array([0.0,0.0,1.0]))/np.linalg.norm(new_coords)
+            if cos <= 0:
+                sum_upper += 1
+                leaflet = 0
+            else:
+                sum_lower += 1
+                leaflet = 1
+            print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
         print("UP:", sum_upper, "LOW", sum_lower)
-    with open(outputfilename, "w") as outf:
-        print("{: <7} {: <5}".format('resid', 'leaflet'), file=outf)
-        for res in range(*sysinfo_obj.MOLRANGE):
 
-            print("{: <7} {: <5}".format(res, outputdict[res]), file=outf)
+def tilt_of_molecules(coordinates, *mols):
+    ''' Calculates the tilt angle of a group of molecules
+        The variable mols carries lists of atomlist for each molecule
+    '''
+    tiltangle = None
+    return tiltangle
 
 def calc_neighbor_distribution(minscd, maxscd, write='on', binwidth=0.2,
                                count_type='Ntot',
