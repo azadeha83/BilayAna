@@ -28,7 +28,6 @@ class SysInfo():
         -number of lipids in system
         -number of atoms of lipids in system
         -
-
     '''
 
     NUMBEROFMOLECULES = 'all'
@@ -87,7 +86,7 @@ class SysInfo():
               .format(self.system_size, self.number_of_lipids))
         if self.NUMBEROFMOLECULES == 'all':
             self.NUMBEROFMOLECULES = self.number_of_lipids
-        self.MOLRANGE = [self.startres, self.startres + self.NUMBEROFMOLECULES + 1 ] # +1 for range()
+        self.MOLRANGE = [self.startres, self.startres + self.NUMBEROFMOLECULES ]
 
     def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
@@ -123,6 +122,7 @@ class SysInfo():
                     lipid = grps[1].strip()
                     ind = int(grps[3].strip())
                     if firstres:
+                        firstres = False
                         self.startres = resid
                 #resid = int(float(line[:5].strip()))
                 #lipid = line[5:9]
