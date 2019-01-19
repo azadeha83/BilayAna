@@ -117,10 +117,10 @@ HEAD_ATOMS_OF = {\
     'PS':HEADATM['PS']+GLYCATM,
     'PI':HEADATM['PI']+GLYCATM,
     'PA':HEADATM['PA']+GLYCATM,
-    #'CHL1':['all'],
+    'CHL1':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10'],
     #'ch1m':['all'],
     #'CHIM':['all'],
-    #'ERG':['all'],
+    'ERG':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10'],
                 }
 
 TAIL_ATOMS_OF = {\
@@ -134,10 +134,10 @@ TAIL_ATOMS_OF = {\
     'PL':[TAILCARBS['PL'][0], TAILHYDR['PL'][0], TAILCARBS['PL'][1], TAILHYDR['PL'][1],],
     #'DPPC':[tailcarbons_of['DPPC'][0], tailhydr_of['DPPC'][0], tailcarbons_of['DPPC'][1], tailhydr_of['DPPC'][1]],
     #'DUPC':[tailcarbons_of['DUPC'][0], tailhydr_of['DUPC'][0], tailcarbons_of['DUPC'][1], tailhydr_of['DUPC'][1]],
-    #'CHL1':['all'],
+    'CHL1':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25']],
     #'ch1m':['all'],
     #'CHIM':['all'],
-    #'ERG':['all'],
+    'ERG':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25']],
                 }
 
 CENTRAL_ATOM_OF = {
@@ -187,7 +187,7 @@ def central_atom_of(lipid):
 def head_atoms_of(lipid):
     ''' Returns a list of all head atoms for specified lipid species '''
     if is_sterol(lipid):
-        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+        return HEAD_ATOMS_OF[lipid]
     else:
         head = lipid[-2:]
         return HEAD_ATOMS_OF[head]
@@ -195,7 +195,8 @@ def head_atoms_of(lipid):
 def tail_atoms_of(lipid):
     ''' Returns a list of all tail atoms for specified lipid species '''
     if is_sterol(lipid):
-        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+        logger.warning("WARNING: No hydrogens are included")
+        return TAIL_ATOMS_OF[lipid]
     else:
         tail = lipid[:-2]
         return TAIL_ATOMS_OF[tail]
@@ -203,7 +204,7 @@ def tail_atoms_of(lipid):
 def tailcarbons_of(lipid):
     ''' Returns only carbon atoms of tail '''
     if is_sterol(lipid):
-        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+        return TAIL_ATOMS_OF[lipid]
     else:
         tail = lipid[:-2]
         return TAILCARBS[tail]
@@ -211,7 +212,7 @@ def tailcarbons_of(lipid):
 def tailhydr_of(lipid):
     ''' Returns only hydrogen atoms of tail '''
     if is_sterol(lipid):
-        raise ValueError("Lipid is a sterol, so no distinction head/tail can be made.")
+        raise ValueError("Hydrogens of sterol not (yet?) included.")
     else:
         tail = lipid[:-2]
         return TAILHYDR[tail]
