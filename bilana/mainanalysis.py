@@ -9,6 +9,9 @@ import pprint
 import re
 import bisect
 import logging
+
+import MDAnalysis as mda
+
 from time import localtime, strftime
 from bilana.common import AutoVivification, GRO_format
 from bilana.energyfilecreator import read_scdinput
@@ -83,7 +86,8 @@ class Scd():
                     atom = grps[2].strip()
                     lipidtype = grps[1].strip()
                     if lipidtype[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
-                        and lipidtype not in lipidmolecules.STEROLS:
+                        and lipidtype not in lipidmolecules.STEROLS\
+                        and lipidtype not in lipidmolecules.PROTEINS:
                         logger.debug("Skip: %s", lipidtype)
                         continue
                     if not lipidtype_old:
@@ -243,11 +247,108 @@ def create_leaflet_assignment_file(sysinfo_obj):
             print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
         print("UP:", sum_upper, "LOW", sum_lower)
 
-def tilt_of_molecules(coordinates, *mols):
-    ''' Calculates the tilt angle of a group of molecules
-        The variable mols carries lists of atomlist for each molecule
+def calc_avg_tilt(systeminfo, outputfname="bilayer_tilt.dat"):
+    ''' Calculate the tilt of blocks of molecules (host + its neighbors) '''
+    neiblist = gmxauto.Neighbors(systeminfo).get_neighbor_dict()
+    uni = mda.Universe(systeminfo.tprpath, systeminfo.trjpath)
+    len_traj = len(uni.trajectory)
+    with open(outputfname, "w") as outf:
+        print("{: <15}{: <5}{: <15}{: <15}{: <15}{: <9}{: <15}{: <15}{: <15}"\
+            .format('time', 'res', 'scd', 'tiltangle', 'cos_tiltangle', 'leaflet', 'x' , 'y', 'z'), file=outf)
+        for res in range(*systeminfo.MOLRANGE):
+            for t in range(len_traj):
+                time = uni.trajectory[t].time
+                resname = systeminfo.resid_to_lipid[res]
+                xyz = uni.select_atoms("resid {} and name {}".format(res -1, lipidmolecules.central_atom_of(resname))).positions[0]
+                leaflet = systeminfo.res_to_leaflet[res]
+                try:
+                    neibs = neiblist[res][time]
+                except KeyError:
+                    continue
+
+                #for i in neibs:
+                #    resname = systeminfo.resid_to_lipid[i]
+                #    if resname not in systeminfo.molecules\
+                #        or lipidmolecules.is_sterol(resname)\
+                #        or lipidmolecules.is_protein(resname):
+                #        neibs.remove()
+
+                lipid_block = [res] + neibs
+
+                logger.debug("Resid %s at time %s and neibs %s", res, time, neibs)
+
+                #if not leaflet:
+                #    turn = 180
+                #else:
+                #    turn = 0
+                cos_tiltangle = tilt_of_molecules(uni, lipid_block, time)
+                tiltangle = np.arccos(cos_tiltangle)*(180/np.pi) #- turn
+                if abs(tiltangle) > 90:
+                    tiltangle = tiltangle - 180
+                scd = 0.5 * (3 * cos_tiltangle**2 - 1)
+                print("{: <15}{: <5}{: <15.5f}{: <15.5f}{: <15.5f}{: <9}{: <15.5f}{: <15.5f}{: <15.5f}"\
+                    .format(time, res, scd, tiltangle, cos_tiltangle, leaflet, *xyz), file=outf)
+
+def tilt_of_molecules(mda_universe, list_of_resids, time):
+    ''' Calculates the tilt angle of a group of molecules in list_of_resids
+        at a time <time / ps>
+        Tilt is calculated as follows:
+        angle between vector spanned by
+            COM of HEAD
+            COM of TAILHALF1
+            COM of TAILHALF2
+        and z axis
     '''
-    tiltangle = None
+    def get_indices(wanted_atms, atoms_list):
+        ''' Returns the mask to choose correct indices in mda.positions '''
+        return np.isin(atoms_list, wanted_atms)
+
+    # Set frame
+    frame_n = int(time / mda_universe.trajectory.dt)
+    mda_universe.trajectory[frame_n]
+
+    # Get the tilt per resid
+    tilts = []
+    for resid in list_of_resids:
+        resid = resid - 1 # Because mda is weird
+        selection = mda_universe.select_atoms("resid {}".format(resid))
+        atms_res = selection.names
+        resname = selection.resnames[0]
+
+        logger.debug("resid %s\natms_res %s\nresname %s", resid, atms_res, resname)
+        #if lipidmolecules.is_sterol(resname):
+        #    continue
+
+
+        # Choose atoms along which tilt is to be calculated
+        head_atmnames = lipidmolecules.head_atoms_of(resname)
+        tail_atmnames = lipidmolecules.tailcarbons_of(resname)
+        logger.debug("Atomnames of tail: %s", tail_atmnames)
+        tail_atmnames = [i for lt in tail_atmnames for i in lt]
+        logger.debug("Atomnames of head: %s", head_atmnames)
+        tail1 = tail_atmnames[int(np.round(len(tail_atmnames)/2)):]
+        tail2 = tail_atmnames[:int(np.round(len(tail_atmnames)/2))]
+        logger.debug("Names of tail1: %s\nand tail2: %s: ", tail1, tail2)
+
+        # Get coords from mda_universe
+        logger.debug("Selection matrix %s", get_indices(head_atmnames, atms_res))
+        head_com  = selection[get_indices(head_atmnames, atms_res)].center_of_mass(pbc=True)
+        tail1_com = selection[get_indices(tail1, atms_res)].center_of_mass(pbc=True)
+        tail2_com = selection[get_indices(tail2, atms_res)].center_of_mass(pbc=True)
+        logger.debug("COM of:\nhead:%s\ntail1:%s\ntail2:%s", head_com, tail1_com, tail2_com)
+
+        # Calculate average tilt between vectors head -> tail1 and head -> tail2
+        zvec = np.array([0, 0, 1])
+        diff_ht1 = head_com-tail1_com
+        diff_ht2 = head_com-tail2_com
+        logger.debug("Diff1: %s, diff2: %s", diff_ht1, diff_ht2)
+        cos1 = np.dot(diff_ht1, zvec) / (np.linalg.norm(diff_ht1))
+        cos2 = np.dot(diff_ht2, zvec) / (np.linalg.norm(diff_ht2))
+        logger.debug("cos1: %s, cos2 %s", cos1, cos2)
+        avg_cos = (cos1 + cos2) / 2.0
+        tilts.append(avg_cos)
+    tiltangle = np.mean(tilts)
+    logger.debug("Average tilt of group %s", tiltangle)
     return tiltangle
 
 def calc_neighbor_distribution(minscd, maxscd, write='on', binwidth=0.2,
