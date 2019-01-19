@@ -104,8 +104,8 @@ def submit_energycalcs():
         divisor = get_minmaxdiv(startdivisor, systemsize)
         lipids_per_part = systemsize//divisor
         for jobpart in range(divisor):
-            start_res = str((jobpart*lipids_per_part)+1)
-            end_res = str(((jobpart+1)*lipids_per_part))
+            start_res = str((jobpart*lipids_per_part)+1 + mysystem.MOLRANGE[0] - 1 )
+            end_res = str(((jobpart+1)*lipids_per_part) + mysystem.MOLRANGE[0] - 1 )
             jobfile_name = str(start_res)+'-'+str(end_res)+'_'+jobname
             jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
             write_jobscript(jobscript_name, lipidpart, start_res, end_res, overwrite=overwrite)
