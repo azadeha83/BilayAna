@@ -56,22 +56,28 @@ class Scd():
     def __init__(self, systeminfo):
         self.systeminfo = systeminfo
         self.atomlist = lipidmolecules.scd_tail_atoms_of
+        self.neiblist = gmxauto.Neighbors(self.systeminfo).get_neighbor_dict()
+        self.components = self.systeminfo.molecules
         #print(self.atomlist)
     def create_scdfile(self, grofilename=None, outputfile='scd_distribution.dat'):
+        # Check if trajectory is already converted to .gro format
         if grofilename is None:
             grofilename = 'traj_complete.gro'
             grofilepath = ''.join([self.systeminfo.datapath, '/grofiles/'])
             gmxauto.produce_gro(self.systeminfo, grofilename=grofilename)
         else:
             grofilepath = ''
+        # Start reading grofile and calculating scd
         with open(grofilepath+grofilename,"r") as grofile, open(outputfile, "w") as scdfile:
-            print("Time     Residue     Type      Scd", file=scdfile)
+            components = self.systeminfo.molecules
+            print("{: <12}{: <10}{: <7}{: <15}".format("Time", "Residue", "Type", "Scd") + (len(components)*'{: ^7}').format(*components), file=scdfile)
             resid_old = 0
             time = None
             lipidtype_old = ''
             coorddict = {}
             print(strftime("%H:%M:%S :", localtime()),"... read data from .gro-file ...")
             for line in grofile:
+                # In gro each frame starts with time annotation t=
                 if 't=' in line:
                     re_time = re.compile(r'.*t=\s+(\d+\.\d+).*')
                     time_tmp = float(re_time.match(line).group(1))
@@ -80,42 +86,72 @@ class Scd():
                     if float(self.systeminfo.t_end) < time:
                         break
                 regmatch = GRO_format.regexp.match(line)
-                #regmatch_box = GRO_format.regexp_box.match(line)
+
+                # If matched: Line is normal atom indicator -> See common/GROM_format
                 if float(self.systeminfo.t_start) <= time and regmatch is not None:
                     grps = regmatch.groups()
                     atom = grps[2].strip()
                     lipidtype = grps[1].strip()
+
+                    # Skip molecules that are not in bilayer
                     if lipidtype[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
                         and lipidtype not in lipidmolecules.STEROLS\
                         and lipidtype not in lipidmolecules.PROTEINS:
                         logger.debug("Skip: %s", lipidtype)
                         continue
+
+                    # Initialize lipidtype_old (last lipidtype that was used for calculation)
                     if not lipidtype_old:
                         lipidtype_old = lipidtype
+
                     all_atmlst = [atm for atmlst in self.atomlist(lipidtype) for atm in atmlst]
-                    if atom in all_atmlst and lipidtype in self.systeminfo.molecules:
+                    if atom in all_atmlst:# and lipidtype in self.systeminfo.molecules:
                         resid = int(grps[0].strip())
                         logger.debug("Groups %s", grps)
                         if not resid_old:
                             logger.debug("Setting resid_old from %s to %s", resid_old, resid)
                             resid_old = resid
                         if resid != resid_old and coorddict:
+                            # New entry for molecule started in gro, now calculating for resid_old
                             logger.debug("Resid / resid_old: %s / %s", resid, resid_old)
                             logger.debug("Atomlist %s", self.atomlist(lipidtype_old))
                             logger.debug("coordinates: %s", coorddict)
                             scd_value = self.scd_of_res(coorddict, self.atomlist(lipidtype_old))
                             coorddict = {}
-                            print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
+                            # Counting the number of neighbors with type
+                            neibs = self.neiblist[resid_old][float(time)]
+                            neib_comp_list = []
+                            for lip in self.components:
+                                ncomp = [self.systeminfo.resid_to_lipid[N] for N in neibs].count(lip)
+                                neib_comp_list.append(ncomp)
+
+                            # Print results to output file
+                            print("{: <12.2f}{: <10}{: <7}{: <15.8}".format(
+                                time, resid_old, lipidtype_old, scd_value)\
+                                + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
+                                file=scdfile)
+
+                            # Reset all indicators
                             resid_old = resid
                             time = time_tmp
                             lipidtype_old = lipidtype
+                        # Read new coordinates of <resid> and <atom>
                         coordinates = [float(x) for x in grps[4:7]]
                         coorddict[atom] = coordinates
-                    else:
+                    else: # Not matched
                         continue
+            # To calculate the last value
             scd_value = self.scd_of_res(coorddict, self.atomlist(lipidtype_old))
             coorddict = {}
-            print("{: <10}{: <8}{: <6}{: <20}".format(time, resid_old, lipidtype_old, scd_value), file=scdfile)
+            neibs = self.neiblist[resid_old][float(time)]
+            neib_comp_list = []
+            for lip in self.components:
+                ncomp = [self.systeminfo.resid_to_lipid[N] for N in neibs].count(lip)
+                neib_comp_list.append(ncomp)
+            print("{: <12.2f}{: <10}{: <7}{: <15.8}".format(
+                time, resid_old, lipidtype_old, scd_value)\
+                + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
+                file=scdfile)
         print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
         return
 
