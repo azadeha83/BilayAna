@@ -11,6 +11,7 @@
 '''
 
 import os
+import MDAnalysis as mda
 from bilana import lipidmolecules
 from bilana import common as com
 import warnings
@@ -74,13 +75,17 @@ class SysInfo():
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids = self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
+
+        # Create mda universe
+        self.universe = mda.Universe(self.tprpath, self.trjpath)
+        self.t_end_real = int(self.universe.trajectory[-1].time)
+        self.dt = int(self.universe.trajectory.dt)
         #''' Time information '''
-        if self.times[1] == 'inf':
-            self.t_end = 1000000000 # Ugly but works
-        else:
+        if int(self.times[1]) < self.t_end_real:
             self.t_end = int(self.times[1])
+        else:
+            self.t_end = int(self.t_end_real)
         self.t_start = int(self.times[0])
-        self.dt = int(self.times[2])
         #####
         print('Total number of atoms: {}\nNumber of lipids: {}\n\n'
               .format(self.system_size, self.number_of_lipids))
