@@ -4,12 +4,12 @@
  '''
 import os
 #import sys
-import numpy as np
 import pprint
 import re
 import bisect
 import logging
 
+import numpy as np
 import MDAnalysis as mda
 
 from time import localtime, strftime
@@ -50,6 +50,7 @@ def is_neighbor_in_leaflet(systeminfo_inst):
                 if neib_leaflet != host_leaflet:
                     host_has_interleafletneib.append([host, neib])
     pp.pprint(host_has_interleafletneib)
+
 class Scd():
     ''' All about calculating the lipid Scd order parameter '''
 
@@ -549,3 +550,26 @@ def calc_averagedistance(self,distancefile):
         for key in distdata:
             avg=sum(distdata[key])/len(distdata[key])
             print("{0: <5} {1: <20}".format(key,avg),file=outputf)
+
+def write_neighbortype_distr(systeminfo, fname="neighbortype_distribution.dat"):
+    '''
+        Creates datafile < fname > with columns:
+        < time >  < residue > < resname > < N comp 1 > < N comp 2 > ... < N comp i >
+    '''
+    neiblist = gmxauto.Neighbors(systeminfo).get_neighbor_dict()
+    components = systeminfo.molecules
+    with open(fname, "w") as outf:
+        print("{: <12}{: <10}{: <7}".format("time", "resid", "lipidtype")\
+            + (len(components)*'{: ^7}').format(*components),
+            file=outf)
+        for resid in range(*systeminfo.MOLRANGE):
+            lipidtype = systeminfo.resid_to_lipid[resid]
+            for time in range(systeminfo.t_start, systeminfo.t_end, systeminfo.dt):
+                neibs = neiblist[resid][float(time)]
+                neib_comp_list = []
+                for lip in components:
+                    ncomp = [systeminfo.resid_to_lipid[N] for N in neibs].count(lip)
+                    neib_comp_list.append(ncomp)
+                print("{: <12}{: <10}{: <7}".format(time, resid, lipidtype)\
+                    + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
+                    file=outf)
