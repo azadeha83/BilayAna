@@ -66,15 +66,11 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
           'Converting trajectory-file to structure-file ...\n')
     generate_index_file(mysystem.gropath, mysystem.molecules)
     os.makedirs(mysystem.datapath+'/grofiles', exist_ok=True)
-    grofile_output = ''.join([mysystem.datapath, '/grofiles/', grofilename])
-    print(strftime("%H:%M:%S :", localtime()),
-          "... Start conversion from .trj to .gro ...")
-    print(mysystem.molecules)
-    #inp_str = str('_'.join(mysystem.molecules)+'\n').encode()
-    inp_str = '!TIP3 \n'.encode()
+    grofile_outname = ''.join([mysystem.datapath, '/grofiles/', grofilename])
+    inp_str = '! Water \n'.encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
-        '-o', grofile_output, '-n', 'index.ndx',
+        '-o', grofile_outname, '-n', 'index.ndx',
         '-b', str(mysystem.t_start), #'-e', str(self.sysinfo.t_end),
         '-dt', str(mysystem.dt),
         '-pbc', 'whole',
@@ -85,7 +81,7 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
         logfile.write(150*'_')
         logfile.write(out.decode())
         logfile.write(150*'_')
-    return grofile_output
+    return grofile_outname
 
 def generate_index_file(gropath, *args):
     ''' Creates an indexfile with all relevant entries

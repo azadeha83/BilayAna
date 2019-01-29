@@ -147,7 +147,6 @@ def initialize_system():
                 '\nmysystem = SysInfo("inputfile")'
                 '\ngmx.Neighbors(mysystem).determine_neighbors(refatoms="{0}")'
                 '\ngmx.Neighbors(mysystem).create_indexfile()'
-                '\ngmx.produce_gro(mysystem)'
                 '\nmainanalysis.Scd(mysystem).create_scdfile()'
                 '\nmainanalysis.create_leaflet_assignment_file(mysystem)'
                 '\nif os.path.isfile("initialize.sh"):'
