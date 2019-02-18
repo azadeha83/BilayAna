@@ -7,13 +7,7 @@ from bilana.systeminfo import SysInfo
 #from src import gromacstoolautomator as gmx
 #from src import mainanalysis
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-ch = logging.StreamHandler()
-#ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+logger = logging.getLogger("BilAna.command_line")
 
 def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
     username = os.environ['LOGNAME']
@@ -145,12 +139,12 @@ def initialize_system():
                 '\nfrom bilana import mainanalysis'
                 '\nfrom bilana.systeminfo import SysInfo'
                 '\nmysystem = SysInfo("inputfile")'
-                '\ngmx.Neighbors(mysystem).determine_neighbors(refatoms="{0}")'
+                '\ngmx.Neighbors(mysystem).determine_neighbors(refatoms="{0}", overwrite=False)'
                 '\ngmx.Neighbors(mysystem).create_indexfile()'
                 '\nmainanalysis.Scd(mysystem).create_scdfile()'
+                '\nmainanalysis.write_neighbortype_distr(mysystem)'
                 '\nmainanalysis.create_leaflet_assignment_file(mysystem)'
-                '\nif os.path.isfile("initialize.sh"):'
-                '\n    subprocess.call("./initialize.sh")'
+                #'\nmainanalysis.calc_avg_tilt(mysystem)'
                 '\nos.remove(sys.argv[0])'.format(refatoms),\
                 file=scriptf)
             write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)

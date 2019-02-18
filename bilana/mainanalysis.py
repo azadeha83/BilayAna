@@ -22,17 +22,7 @@ from bilana.systeminfo import SysInfo
 pp = pprint.PrettyPrinter()
 
 
-logger = logging.getLogger()
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-ch = logging.StreamHandler()
-logger.setLevel(logging.INFO)
-ch.setLevel(logging.INFO)
-#logger.setLevel(logging.DEBUG)
-#ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-#logger.addHandler(ch)
-logger.debug("Initialized logger with handers %s", logger.handlers)
-
+logger = logging.getLogger("BilAna.mainanalysis")
 
 
 def is_neighbor_in_leaflet(systeminfo_inst):
@@ -82,6 +72,7 @@ class Scd():
                 if 't=' in line:
                     re_time = re.compile(r'.*t=\s+(\d+\.\d+).*')
                     time_tmp = float(re_time.match(line).group(1))
+                    logger.info("At time %s", time_tmp)
                     if time is None:
                         time = time_tmp
                     if float(self.systeminfo.t_end) < time:
@@ -98,7 +89,7 @@ class Scd():
                     if lipidtype[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
                         and lipidtype not in lipidmolecules.STEROLS\
                         and lipidtype not in lipidmolecules.PROTEINS:
-                        logger.debug("Skip: %s", lipidtype)
+                        #logger.debug("Skip: %s", lipidtype)
                         continue
 
                     # Initialize lipidtype_old (last lipidtype that was used for calculation)
@@ -108,7 +99,6 @@ class Scd():
                     all_atmlst = [atm for atmlst in self.atomlist(lipidtype) for atm in atmlst]
                     if atom in all_atmlst:# and lipidtype in self.systeminfo.molecules:
                         resid = int(grps[0].strip())
-                        logger.debug("Groups %s", grps)
                         if not resid_old:
                             logger.debug("Setting resid_old from %s to %s", resid_old, resid)
                             resid_old = resid
@@ -142,17 +132,18 @@ class Scd():
                     else: # Not matched
                         continue
             # To calculate the last value
-            scd_value = self.scd_of_res(coorddict, self.atomlist(lipidtype_old))
-            coorddict = {}
-            neibs = self.neiblist[resid_old][float(time)]
-            neib_comp_list = []
-            for lip in self.components:
-                ncomp = [self.systeminfo.resid_to_lipid[N] for N in neibs].count(lip)
-                neib_comp_list.append(ncomp)
-            print("{: <12.2f}{: <10}{: <7}{: <15.8}".format(
-                time, resid_old, lipidtype_old, scd_value)\
-                + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
-                file=scdfile)
+            if lipidtype_old:
+                scd_value = self.scd_of_res(coorddict, self.atomlist(lipidtype_old))
+                coorddict = {}
+                neibs = self.neiblist[resid_old][float(time)]
+                neib_comp_list = []
+                for lip in self.components:
+                    ncomp = [self.systeminfo.resid_to_lipid[N] for N in neibs].count(lip)
+                    neib_comp_list.append(ncomp)
+                print("{: <12.2f}{: <10}{: <7}{: <15.8}".format(
+                    time, resid_old, lipidtype_old, scd_value)\
+                    + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
+                    file=scdfile)
         print(strftime("%H:%M:%S :", localtime()),"Finished reading.")
         return
 

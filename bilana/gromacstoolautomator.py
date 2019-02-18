@@ -17,19 +17,12 @@ from bilana import lipidmolecules #,systeminfo
 #inputfile = sys.argv[1]
 #mysystem = systeminfo.SysInfo(inputfile)
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-logger.debug("Initialized logger with handers %s", logger.handlers)
+logger = logging.getLogger("BilAna.gromacstoolautomator")
 
 gmx_exec = 'gmx' #'gmx_5.0.4_mpi'
 os.environ["GMX_MAXBACKUP"] = "-1"
 
-def exec_gromacs(cmd,inp_str=None):
+def exec_gromacs(cmd, inp_str=None):
     ''' Execute Gromacs commands.
         arglist (cmd) is list of arguments like
             "['gmx cmd', '-f', 'tprfile', '-e', 'en.edr']"
@@ -67,11 +60,11 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
     generate_index_file(mysystem.gropath, mysystem.molecules)
     os.makedirs(mysystem.datapath+'/grofiles', exist_ok=True)
     grofile_outname = ''.join([mysystem.datapath, '/grofiles/', grofilename])
-    inp_str = '! Water \n'.encode()
+    inp_str = ' non-Water \n'.encode()
     gmx_traj_arglist = [
         gmx_exec, 'trjconv', '-s', mysystem.tprpath, '-f', mysystem.trjpath,
         '-o', grofile_outname, '-n', 'index.ndx',
-        '-b', str(mysystem.t_start), #'-e', str(self.sysinfo.t_end),
+        '-b', str(mysystem.t_start), #'-e', str(16.0),
         '-dt', str(mysystem.dt),
         '-pbc', 'whole',
         ]

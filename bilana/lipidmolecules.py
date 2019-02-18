@@ -2,14 +2,7 @@
 
 import logging
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
+logger = logging.getLogger("BilAna.lipidmolecules")
 
 # Glycerolpart, also carbonylpart of FA is included
 GLYCATM = ['C1', 'O11', 'C2', 'O21', 'C21', 'O22', 'C3', 'O31', 'C31', 'O32', 'HA', 'HB', 'HY', 'HX', 'HS', ]
