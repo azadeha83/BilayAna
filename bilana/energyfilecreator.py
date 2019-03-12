@@ -147,6 +147,8 @@ class EofScd():
     def write_output_save_memory(self, energyfile, timetoscd, wantedpair, endtime):
         components = self.components.copy()
         if 'CHL1' in self.mysystem.molecules:
+            components += ["CHL1_host"]
+            components += ["CHL1_neib"]
             components += ['CHL1_both']
         if energyfile == 'all_energies.dat':
             outname = ''.join(['Eofscd', wantedpair, self.parts, '.dat'])
@@ -164,7 +166,7 @@ class EofScd():
                             "Interaction", "DeltaScd", "AvgScd",
                             "Etot", "Evdw",
                             "Ecoul", "Ntot")\
-                            + (len(components)*'{: ^7}').format(*components),
+                            + (len(components)*'{: <10}').format(*components),
                   file=outf)
             print(len(self.components)*'{: ^7}'.format(*self.components))
             efile.readline()
@@ -199,7 +201,7 @@ class EofScd():
                 #print(time, respair, end='\r')
                 Etot = float(cols[6])
                 COUL = float(cols[5])
-                VDW = float(cols[4])
+                VDW  = float(cols[4])
                 interactiontype = cols[3]
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
                 #new_pair_neibs =list( (set(neighbors) & set(neighbors_neib)) - set([host]) - set([neib]))
@@ -214,7 +216,14 @@ class EofScd():
                 for lip in self.components:
                     ncomp = [self.mysystem.resid_to_lipid[N] for N in pair_neibs].count(lip)
                     neib_comp_list.append(ncomp)
+
                 if 'CHL1' in self.mysystem.molecules:
+                    host_chol = [self.mysystem.resid_to_lipid[N] for N in neighbors if N != neib].count('CHL1')
+                    neib_comp_list.append(host_chol)
+
+                    hostneib_chol = [self.mysystem.resid_to_lipid[N] for N in neighbors_neib].count('CHL1')
+                    neib_comp_list.append(hostneib_chol)
+
                     shared_neighbors = list(set(neighbors) & set(neighbors_neib))
                     shared_chol = [self.mysystem.resid_to_lipid[N]\
                         for N in shared_neighbors].count('CHL1')
@@ -227,12 +236,12 @@ class EofScd():
                       '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'
                       '{: <15}{: <15.5f}{: <15.5f}'
                       '{: <15.5f}{: <15.5f}'
-                      '{: <15.5f}{: <5}'\
+                      '{: <15.5f}{: <15}'\
                       .format(time, host, scd_host, neib, scd_neib,
                               interactiontype, delta_scd, avg_scd,
                               float(Etot), float(VDW),
                               float(COUL), ntot)\
-                      + (len(neib_comp_list)*'{: <7}').format(*neib_comp_list),
+                      + (len(neib_comp_list)*'{: <10}').format(*neib_comp_list),
                       file=outf)
 
     def write_output_selfinteraction(self, energyfile, lipid, timetoscd, endtime):
