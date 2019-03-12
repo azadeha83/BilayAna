@@ -68,7 +68,12 @@ def produce_gro(mysystem, grofilename='/traj_complete.gro'):
         '-dt', str(mysystem.dt),
         '-pbc', 'whole',
         ]
-    out, err = exec_gromacs(gmx_traj_arglist, inp_str)
+    try:
+        out, err = exec_gromacs(gmx_traj_arglist, inp_str)
+    except ChildProcessError:
+        inp_str = ' !TIP3 \n'.encode()
+        out, err = exec_gromacs(gmx_traj_arglist, inp_str)
+
     with open("gmx_traj_compl.log","w") as logfile:
         logfile.write(err.decode())
         logfile.write(150*'_')
@@ -572,6 +577,18 @@ class Neighbors():
                     'allOAtoms = resname CHL1 and name O3 and not host;\n'
                     'allTail1Atoms = resname DPPC DUPC and name C34 and not host;\n'
                     'allTail2Atoms = resname DPPC DUPC and name C24 and not host;\n'
+                    'neibOs = allOAtoms and within {1} of host;\n'
+                    'neibTail1 = allTail1Atoms and within {1} of host;\n'
+                    'neibTail2 = allTail2Atoms and within {1} of host;\n'
+                    'neibs = neibOs or neibTail1 or neibTail2;\n'
+                    'neibs;'\
+                    .format(resid, self.cutoff), file=selection)
+            elif refatoms == 'glycerol':
+                print(
+                    'host = resid {0} and name C31 C21 O3;\n'
+                    'allOAtoms = resname CHL1 and name O3 and not host;\n'
+                    'allTail1Atoms = resname DPPC DUPC and name C31 and not host;\n'
+                    'allTail2Atoms = resname DPPC DUPC and name C21 and not host;\n'
                     'neibOs = allOAtoms and within {1} of host;\n'
                     'neibTail1 = allTail1Atoms and within {1} of host;\n'
                     'neibTail2 = allTail2Atoms and within {1} of host;\n'
