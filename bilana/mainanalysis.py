@@ -23,7 +23,11 @@ pp = pprint.PrettyPrinter()
 
 
 logger = logging.getLogger("BilAna.mainanalysis")
-
+#logger.setLevel(logging.DEBUG)
+SH = logging.StreamHandler()
+SH.setLevel(logging.WARNING)
+SH.setFormatter(logging.Formatter('%(asctime)s %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(SH)
 
 def is_neighbor_in_leaflet(systeminfo_inst):
     ''' Searches for interleaflet neighborhood '''
@@ -214,11 +218,12 @@ def get_neighbor_of(hostres, time):
                     return []
     print(time, "I should never get here...")
 
-def create_leaflet_assignment_file(sysinfo_obj):
+def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
     ''' Creates a file with that assigns all lipids to upper or lower leaflet
                         !Attention!
             !Flip flops of Cholesterol are not considered! Though should it?
     '''
+    logger.setLevel(verbosity)
     outputfilename = 'leaflet_assignment.dat'
     grofile_path = sysinfo_obj.gropath
     coord_head, coord_base = None, None
@@ -242,7 +247,8 @@ def create_leaflet_assignment_file(sysinfo_obj):
                 if resname not in sysinfo_obj.molecules:
                     continue
                 last_tail_atm = lipidmolecules.scd_tail_atoms_of(resname)[0][-1]
-                logger.debug("Atmn/last_tail %s/%s", atomname, last_tail_atm)
+                head_atm = lipidmolecules.central_atom_of(resname)
+                #logger.debug("Atmn/last_tail %s/%s", atomname, last_tail_atm)
                 if old_resid != resid:
                     logger.debug("Resid/resname/atmname %s/%s/%s", resid, resname, atomname)
                     logger.debug("Coords head/base: %s/%s", coord_head, coord_base)
@@ -257,7 +263,7 @@ def create_leaflet_assignment_file(sysinfo_obj):
                     print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
                     old_resid = resid
                     coord_head = coord_base = None
-                if atomname in lipidmolecules.CENTRAL_ATOM_OF.values():
+                if atomname == head_atm:
                     coord_head = np.array(coords)
                     logger.debug("Added head %s", atomname)
                 if atomname == last_tail_atm:
