@@ -1,79 +1,88 @@
-import numpy as np
-import re
+'''
+    Definitions that are used by multiple modules are stored here
+'''
+import os
+import subprocess
 
-
-class AutoVivification(dict):
-    """Implementation of perl's autovivification feature."""
-    def __getitem__(self, item):
-        try:
-            return dict.__getitem__(self, item)
-        except KeyError:
-            value = self[item] = type(self)()
-            return value
-
-
-def calculate_geometriccenter(self,coordinateinput):
-    geocenter=[0,0,0]
-    for atomcoords in coordinateinput:
-        for dimension in atomcoords:
-            geocenter[atomcoords.index(dimension)]+=dimension
-    geocenter=[x/len(coordinateinput) for x in geocenter]
-    return np.array(geocenter)
-
-class PDB_format():
-    #                    Record   Serial   atomname    resn    resid        x       y           z    Rest
-    pdb_string_format = '{: <4}  {: >5} {: >2}{: <2}{}{: >4}{}{: >4}{}   {: >8.3f}{: >8.3f}{: >8.3f}{}'#{: >6.2f}{: >6.2f}'
-    pdb_pattern = r"""
-            ^
-            ATOM              (?# Record Type)
-    \s+
-            (\d+)             (?# Serial numbers  Grp 1)
-    \s*
-            (\w+?)([\d,\w,\']+)       (?# Atom names;     Grp 2+3)
-    \s+
-            ([\w,\d]+)        (?# Residue name    Grp 4)
-    \s+
-            (\d+)             (?# Resid           Grp 5)
-    \s+
-            (-?\d+\.\d+)      (?# X               Grp 6-8)
-    \s*
-            (-?\d+\.\d+)      (?# Y)
-    \s*
-            (-?\d+\.\d+)      (?# Z)
-            (.*)              (?# Remainder)
-                """
-    pdb_pattern = ''.join(pdb_pattern.split()) # Remove all whitespaces in above defined pattern
-    regexp = re.compile(pdb_pattern)
-
-
-class GRO_format():
-    ''' Provides regexp for .gro structure file format
-    Entries are ordered as follows
-    #grp     Name
-    1       resid
-    2       resname
-    3       atom name
-    4       atom number
-    5-7     x y z
-    8       velocities (rest)
+def exec_gromacs(cmd, inp_str=None):
     '''
-    #                     resid resnm atmnm atmnr   x        y         z         vx      vy        vz
-    gro_string_format = '{: >5}{: <5}{: >5}{: >5}{: >8.3f}{: >8.3f}{: >8.3f}{: >8.4f}{: >8.4f}{: >8.4f} '
-    gro_pattern = r"""
-        ([\s,\d]{5})           (?# Resid       Grp 1)
-        ([\s,\w]{5})           (?# Resname     Grp 2)
-        ([\w,\s,\d,\']{5})           (?# Atom name   Grp 3)
-        ([\s,\d]{5})           (?# Atom number Grp 4)
-    \s*
-            (-?\d+\.\d+)      (?# X               Grp 5-7)
-    \s*
-            (-?\d+\.\d+)      (?# Y)
-    \s*
-            (-?\d+\.\d+)      (?# Z)
-    \s*
-            (.*)            (?# The rest velocities Grp 8)
-    """
-    gro_pattern = ''.join(gro_pattern.split())
-    regexp = re.compile(gro_pattern)
-    gro_box_pattern = r'\s*(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)$'
-    regexp_box = re.compile(gro_box_pattern)
+        Execute Gromacs commands.
+        cmd variable stores the actual terminal command (can be anything,
+        but here is specifically for gromacs)
+        cmd must be a list with items being the strings (no whitespaces) of the command
+            "['gmx cmd', '-f', 'tprfile', '-e', 'en.edr']"
+        if a command needs user input (STDIN, like in gmx make_ndx) inp_str can be parsed
+        as string
+    '''
+    if inp_str is None:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+    else:
+        try:
+            inp_str = inp_str.encode()
+        except AttributeError:
+            pass
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = proc.communicate(inp_str)
+    proc.wait()
+    proc.stdout.close()
+    proc.stderr.close()
+    if proc.returncode != 0:
+        if proc.returncode == 132:
+            raise ChildProcessError("Core was dumped. This is probably due to an incompatible gromacs version")
+        try:
+            err = err.decode()
+            print(err)
+        except UnboundLocalError:
+            pass
+        raise ChildProcessError(
+            'Failed to execute command "{}" and input "{}"'\
+            .format(' '.join(cmd), inp_str))
+    return out.decode(), err.decode()
+
+def get_minmaxdiv(startdiv, numerator, direction=-1):
+    print(startdiv)
+    startdiv = int(startdiv)
+    if startdiv < 2 and direction == 1:
+        startdiv += 1
+    #elif startdiv > numerator//2 and direction == 1:
+    #    raise ValueError("Divisor became too high.")
+    if direction == 1:
+        rangelist = [startdiv, 2*startdiv, 1]
+    elif direction == -1:
+        rangelist = [startdiv, startdiv//2, -1]
+    else:
+        raise ValueError("Wrong input for direction. Choose either -1 or 1.")
+    if numerator % startdiv != 0:
+        for new_div in range(*rangelist):
+            if numerator % new_div == 0:
+                print("found it", new_div)
+                return new_div
+        new_startdiv = int(startdiv*(2*direction))
+        print('No value found. Restarting with {} as start value'.format(new_startdiv))
+        return get_minmaxdiv(new_startdiv, numerator, direction)
+    else:
+        return startdiv
+
+def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
+    username = os.environ['LOGNAME']
+    if not prio:
+        queue = 'short'
+    else:
+        queue = 'prio'
+    with open(submitout, "w") as sfile:
+        print('#!/bin/bash'
+              '\n#SBATCH -A q0heuer'
+              '\n#SBATCH -p {queue}'
+              '\n#SBATCH --output={jobname}.out'
+              '\n#SBATCH --mail-type=fail'
+              '\n#SBATCH --mail-user={username}@wwu.de'
+              '\n#SBATCH --time=18:00:00'
+              '\n#SBATCH --ntasks=1'
+              '\n#SBATCH --nodes=1'
+              '\n#SBATCH --cpus-per-task={ncores}'
+              '\n#SBATCH --mem={mem}'
+              '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
+              '\nsrun $@'.format(**locals()), file=sfile)

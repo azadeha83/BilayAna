@@ -1,8 +1,8 @@
 ''' Contains information about lipid molecules '''
+from .. import log
 
-import logging
+LOGGER = log.LOGGER
 
-logger = logging.getLogger("BilAna.lipidmolecules")
 
 # Glycerolpart, also carbonylpart of FA is included
 GLYCATM = ['C1', 'O11', 'C2', 'O21', 'C21', 'O22', 'C3', 'O31', 'C31', 'O32', 'HA', 'HB', 'HY', 'HX', 'HS', ]
@@ -143,6 +143,7 @@ INCLUDED_HEADS = ['PC', 'PE', 'PS', 'PI', 'PA']
 #described_molecules = ['DPPC', 'DUPC', 'CHL1', 'CHIM', 'ERG', 'ch1m']
 STEROLS = ['CHL1', 'CHIM', 'ERG', 'ch1m']
 PROTEINS = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS',]
+SOLVENTS = ["TIP3", "SOL", "CL", "POT", "NA"]
 SHORTESTCHAIN = len(TAILCARBS['DM'])
 
 
@@ -160,7 +161,7 @@ def is_protein(lipid):
 
 def central_atom_of(lipid):
     ''' Return the central atom of specified lipid as string '''
-    logging.debug("Lipid: %s", lipid)
+    LOGGER.debug("Lipid: %s", lipid)
     if is_sterol(lipid):
         return CENTRAL_ATOM_OF[lipid]
     elif is_protein(lipid):
@@ -180,7 +181,7 @@ def head_atoms_of(lipid):
 def tail_atoms_of(lipid):
     ''' Returns a list of all tail atoms for specified lipid species '''
     if is_sterol(lipid):
-        logger.warning("WARNING: No hydrogens are included")
+        LOGGER.warning("WARNING: No hydrogens are included")
         return TAIL_ATOMS_OF[lipid]
     else:
         tail = lipid[:-2]

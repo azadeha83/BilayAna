@@ -1,12 +1,9 @@
 #System info
-System: dppc
-Lipidmolecules: dppc
-Temperature: XXX
+System: dppc_chol20
+Lipidmolecules: dppc,chol
+Temperature: 290
 Timeframe: 0,1000000,1000
 cutoff: 1.0
 
 # absolute path to mdfiles
 mdfiles: /scratch/f_kell07/mdfiles
-
-
-

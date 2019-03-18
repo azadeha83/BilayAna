@@ -1,3 +1,4 @@
 bilana.egg-info
 bilana/__pycache__/
 .vscode
+.*
