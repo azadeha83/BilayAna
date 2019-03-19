@@ -1,3 +1,8 @@
+'''
+    This module stores functions that write script files for various calculations
+    They are used in __main__.py
+    All functions must use the same keyword parameter names and the *args and **kwargs parameters as input
+'''
 import os
 import subprocess
 from .common import write_submitfile
@@ -13,7 +18,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     overwrite=True,
     cores=8,
     **kwargs,):
-    ''' Divide energyruns into smaller parts for faster computation '''
+    ''' Divide energyruns into smaller parts for faster computation and submit those runs '''
     complete_name = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_name)
     mysystem = SysInfo(inputfilename)
@@ -32,6 +37,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
                 '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
+                '\nenergy_instance.info()'
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
                 file=jobf)
@@ -60,6 +66,7 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nfrom bilana.analysis.neighbors import Neighbors'
             '\nfrom bilana.analysis.order import Order'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
+            '\nneib_inst.info()'
             '\norder_inst = Order(inputfilename="{0}")'
             '\nsysinfo_inst = bilana.SysInfo(inputfilename="{0}")'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
@@ -120,7 +127,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
             '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
-            '\nenergy_instance.run_calculation(resids={4})'
+            '\nenergy_instance.info()'
             '\nif energy_instance.check_exist_xvgs():'
             '\n    energy_instance.write_energyfile()'
             '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
@@ -128,7 +135,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nelse:'
             '\n    print("Submitting missing energy calculations")'
             '\n    os.chdir("{0}")'
-            '\n    cmd = ["bilana", "energy", "-f", "{0}", "-i", "{2}", -N, "{3}"'
+            '\n    cmd = ["python", "-m", "bilana", "energy", "-f", "{0}", "-i", "{2}", -N, "{3}"'
             '\n        "{6}", --divisor, "{7}", -J, "en" ]'
             '\n    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)'
             '\n    out, err = proc.communicate()'
@@ -152,7 +159,7 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
     energyfilename="all_energies.dat",
     scdfilename="scd_distribution.dat",
     **kwargs,):
-    ''' Check if all energy files exist and write table with all energies '''
+    ''' Write eofscd file from table containing all interaction energies '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
@@ -180,7 +187,7 @@ def write_nofscd(systemname, temperature, jobname, *args,
     neighborfilename="neighbor_info",
     scdfilename="scd_distribution.dat",
     **kwargs,):
-    ''' Check if all energy files exist and write table with all energies '''
+    ''' Write nofscd file from files containing the order parameter distribution and the neighbor mapping of the system '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'

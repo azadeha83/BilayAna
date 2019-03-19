@@ -11,6 +11,7 @@
 '''
 
 import os
+import re
 import MDAnalysis as mda
 from . import log
 from .definitions import lipidmolecules
@@ -35,8 +36,6 @@ class SysInfo():
     '''
     LOGGER = LOGGER
 
-    NUMBEROFMOLECULES = 'all'
-
     def __init__(self, inputfilename="inputfile"):
         LOGGER.debug("Initialize")
         self.startres = 1 # Initialize value
@@ -48,25 +47,27 @@ class SysInfo():
         os.makedirs(cwd+'/energyfiles/', exist_ok=True)
 
         # ''' general system information '''
-        self.system = self.system_info['System']
-        self.temperature = self.system_info['Temperature']
-        self.cutoff = float(self.system_info['cutoff'])
-        self.molecules = sorted([x.strip() for x in\
-                           self.system_info['Lipidmolecules'].split(',')])
-        if 'CHOL' in self.molecules:    # This must be declared immediately !!!
+        self.system       = self.system_info['System']
+        self.temperature  = self.system_info['Temperature']
+        self.cutoff       = float(self.system_info['cutoff'])
+        self.times        = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
+        self.molecules    = sorted([x.strip() for x in\
+                                self.system_info['Lipidmolecules'].split(',')])
+        if 'CHOL' in self.molecules:
             self.molecules.append('CHL1')
             self.molecules.remove('CHOL')
         if 'WSC1' in self.molecules:
             self.molecules.remove('WSC1')
             self.molecules += lipidmolecules.PROTEINS
-        self.times = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
 
         # ''' absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
-        self.trjpath = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
-        self.gropath = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
-        self.toppath = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
-        self.tprpath = '{}/tpr/{}_{}.tpr'.format(self.mdfilepath, self.system, self.temperature)
+        self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
+        self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
+        self.toppath    = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
+        self.tprpath    = '{}/tpr/{}_{}.tpr'.format(self.mdfilepath, self.system, self.temperature)
+
+        # Check if all paths exist
         for fpath in [self.gropath, self.toppath, self.tprpath]: self.check_file_exists(fpath)
         try:
             self.check_file_exists(self.trjpath)
@@ -75,34 +76,32 @@ class SysInfo():
             self.check_file_exists(self.trjpath)
 
         # ''' outputpaths (specify _absolute_ paths! '''
-        self.indexpath = "{}/indexfiles/".format(cwd)
-        self.datapath = "{}/datafiles/".format(cwd)
-        self.temppath = "{}/tempfiles/".format(cwd)
+        self.indexpath  = "{}/indexfiles/".format(cwd)
+        self.datapath   = "{}/datafiles/".format(cwd)
+        self.temppath   = "{}/tempfiles/".format(cwd)
         self.energypath = "{}/energyfiles/".format(cwd)
+
         # ''' Dictionaries and info '''
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids, self.RESIDS =\
             self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
 
-        # ''' Create mda universe '''
-        self.universe = mda.Universe(self.gropath, self.trjpath)
-        self.t_end_real = int(self.universe.trajectory[-1].time)
-        self.dt = int(self.universe.trajectory.dt)
+        self.universe   = mda.Universe(self.gropath, self.trjpath)
+
         #''' Time information '''
+        self.t_end_real = int(self.universe.trajectory[-1].time)
+        self.dt         = int(self.universe.trajectory.dt)
         if int(self.times[1]) < self.t_end_real:
             self.t_end = int(self.times[1])
         else:
             self.t_end = int(self.t_end_real)
         self.t_start = int(self.times[0])
 
-        #####
-        print('Total number of atoms: {}\nNumber of lipids: {}\n\n'
-              .format(self.system_size, self.number_of_lipids))
-        if self.NUMBEROFMOLECULES == 'all':
-            self.NUMBEROFMOLECULES = self.number_of_lipids
-        self.MOLRANGE = self.RESIDS
-        self.RESNAMES = list(set(self.universe.residues.resnames))
+        # Set constants
+        self.NUMBEROFMOLECULES = self.number_of_lipids
+        self.MOLRANGE          = self.RESIDS
+        self.RESNAMES          = list(set(self.universe.residues.resnames))
         [self.RESNAMES.remove(solvent) for  solvent in lipidmolecules.SOLVENTS if solvent in self.RESNAMES]
 
     def read_infofile(self, inputfname):
@@ -112,12 +111,24 @@ class SysInfo():
         system_info = {}
         with open(inputfname,"r") as inputf:
             # Creates a list like [[system,dppc_chol],[temperature,290]]
-            filecontent = [x.split(': ') for x in [y.strip('\n') for y in inputf.readlines()]]
-            for info in filecontent:
-                if len(info) == 2 and not '#' in info[0]:
-                    system_info.update({info[0].strip(): info[1].strip()})
-                    print("{} : {}".format(info[0].strip(), info[1].strip()),"\n")
+            regex = re.compile(r'^([\w,\d,\s]*):([\w,\d,\s, \., /]*)#*.*$')
+            for line in inputf:
+                match = regex.match(line)
+                if match is not None:
+                    key = match.group(1).strip()
+                    item = match.group(2).strip().replace(" ", "").replace("\n", "")
+                    system_info[key] = item
         return system_info
+
+    def info(self):
+        ''' Print out information on system '''
+        for key, val in self.system_info.items():
+            print("{: <25}{: <20}".format(key+':', val))
+        print('')
+        print('{: <25}{: <20}'.format('Total number of atoms:', self.system_size))
+        print('{: <25}{: <20}'.format('Number of lipids:', self.number_of_lipids))
+        print('{: <25}{: <20}'.format('Residue types found:', ' '.join(self.RESNAMES)))
+        print('\n')
 
     def index_conversion_dict(self):
         ''' returns a dictionary for conversion
