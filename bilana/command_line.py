@@ -11,6 +11,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     neighborfile="neighbor_info",
     startdivisor=80,
     overwrite=True,
+    cores=8,
     **kwargs,):
     ''' Divide energyruns into smaller parts for faster computation '''
     complete_name = './{}_{}'.format(systemname, temperature)
@@ -34,7 +35,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
                 file=jobf)
-        write_submitfile('submit.sh', jobfile_name)
+        write_submitfile('submit.sh', jobfile_name, ncores=cores)
         cmd = ['sbatch', '-J', complete_name[2:]+str(jobpart)+'_'+jobname, 'submit.sh','python3', jobscript_name]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
@@ -44,6 +45,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
     refatoms="P",
+    cores=16,
     **kwargs):
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -64,10 +66,10 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nneib_inst.create_indexfile()'
             '\norder_inst.create_orderfile()'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
-            '\nanalysis.create_leaflet_assignment_file(sysinfo_inst)'
+            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
             '\nos.remove(sys.argv[0])'.format(inputfilename, refatoms),
             file=scriptf)
-        write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)
+        write_submitfile('submit.sh', jobfilename, mem='16G', ncores=cores, prio=False)
         cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
@@ -103,7 +105,6 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
     scdfilename="scd_distribution.dat",
     **kwargs,):
     ''' Check if all energy files exist and write table with all energies '''
-    raise NotImplementedError("Not yet implemented")
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
