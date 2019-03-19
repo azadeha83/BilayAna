@@ -29,7 +29,8 @@ class Energy(SysInfo):
         neighborfilename='neighbor_info',
         resindex_all='resindex_all',
         overwrite=True,
-        verbosity="INFO"):
+        verbosity="INFO",
+        ):
         super().__init__(inputfilename)
         log.set_verbosity(verbosity)
         knownparts = ['complete', 'head-tail', 'head-tailhalfs', 'carbons']
@@ -79,9 +80,7 @@ class Energy(SysInfo):
             4. .xvg tables are generate from .edr files
 
         '''
-        print('''\n____Rerunning MD for energyfiles,
-         creating xvgtables with relevant energies.____\n
-         Caution mdp-file must not have energy_grps indicated!\n''')
+        LOGGER.info('Rerunning MD for energyfiles')
         for res in resids:
             LOGGER.info('Working on lipid %s ...', res)
             all_neibs_of_res = list(set([neibs for t in self.neiblist[res].keys() for neibs in self.neiblist[res][t]]))
@@ -92,7 +91,7 @@ class Energy(SysInfo):
                 number_of_groupfragments = (nneibs//self.denominator)+1
             LOGGER.info("Needing %s energy run(s)", number_of_groupfragments)
             for groupfragment in range(number_of_groupfragments):
-                LOGGER.info("On fragment %s", groupfragment)
+                LOGGER.info("... on fragment %s ...", groupfragment)
 
                 g_energy_output = ''.join([\
                     self.energypath, '/xvgtables/energies_residue',\
@@ -322,7 +321,7 @@ class Energy(SysInfo):
         ''' Creates files: "all_energies_<interaction>.dat
             NOTE: This function is too long. It should be separated into smaller parts.
         '''
-        LOGGER.info('____ Create energy file ____')
+        LOGGER.info('Create energy file')
         with open(self.all_energies, "w") as energyoutput:
             print(
                   '{: <10}{: <10}{: <10}{: <20}'
@@ -424,7 +423,7 @@ class Energy(SysInfo):
                 LOGGER.debug("Processed neibs: %s", processed_neibs)
                 for pneib in processed_neibs:
                     LOGGER.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
-                    all_neibs_of_res.remove(pneib)
+                    all_neibs_of_res.remove(int(pneib))
                 if all_neibs_of_res:
                     LOGGER.warning("Missing neighbour-ids: %s", all_neibs_of_res)
                     raise ValueError('Not all neighbours found in xvgfile')

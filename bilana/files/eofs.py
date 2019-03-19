@@ -3,6 +3,7 @@
 '''
 from .io import *
 from .. import log
+from ..analysis import neighbors
 from ..analysis.neighbors import Neighbors
 from ..definitions import lipidmolecules
 
@@ -22,11 +23,11 @@ class EofScd(Neighbors):
             head-tailhalfs: Interaction energy where a distinction of the upper and lower part of the lipid chains is made
             carbons:        Interaction energy between the different carbon atoms of lipids. (A lot of data is produced here)
     '''
-    def __init__(self, part, inputfile="inputfile", energyfilename="all_energies.dat", scdfilename="scd_distribution.dat"):
-        super().__init__(inputfile)
+    def __init__(self, part, inputfilename="inputfile", energyfilename="all_energies.dat", scdfilename="scd_distribution.dat"):
+        super().__init__(inputfilename)
         self.energyfilename = energyfilename
         self.scdfilename = scdfilename
-        self.neiblist = self.get_neighbor_dict()
+        self.neiblist = neighbors.get_neighbor_dict()
         self.components = self.molecules
         self.part = part
 
@@ -61,14 +62,12 @@ class EofScd(Neighbors):
 
     def create_eofscdfile(self):
         ''' Creates files of data of E(S) for each lipid part'''
-        LOGGER.info("______________Creating EofScd input file____________")
         timetoscd, endtime = read_scdinput(self.scdfilename)
         for pair in self.lipidpairs:
             self.assemble_eofs(self.energyfilename, timetoscd, pair, endtime)
 
     def create_selfinteractionfile(self):
         ''' Creates files of data of E(S) for each lipid '''
-        LOGGER.info("______________Creating EofScd input file____________")
         timetoscd, endtime = read_scdinput(self.scdfilename)
         for lipid in self.molecules:
             self.assemble_eofs_selfinteraction(self.energyfilename, lipid, timetoscd, endtime)
@@ -98,7 +97,6 @@ class EofScd(Neighbors):
                             "Ecoul", "Ntot")\
                             + (len(components)*'{: <10}').format(*components),
                   file=outf)
-            print(len(self.components)*'{: ^7}'.format(*self.components))
             efile.readline()
             for line in efile:
                 cols = line.split()
