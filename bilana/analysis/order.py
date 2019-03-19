@@ -75,9 +75,14 @@ class Order(Neighbors):
         ''' Calculate the order parameter  '''
         scds_of_atoms = []
         scds_of_tails = []
-        resinfo = mda_uni.residues[resid-1]
+        resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
+        resname = list(set(resinfo.resnames))
+        if len(resname) > 1:
+            raise ValueError("Atomselection resulted in selection of multiple residues")
+        else:
+            resname = resname[0]
         # tailatms is like [Sn1atomlist, Sn2atomlist]
-        tailatms = lipidmolecules.scd_tail_atoms_of(resinfo.resname)
+        tailatms = lipidmolecules.scd_tail_atoms_of(resname)
         for tail in tailatms:
             for atomindex in range(len(tail)-1):
                 atm1, atm2 = tail[atomindex], tail[atomindex+1]
@@ -95,7 +100,7 @@ def calc_avg_tilt(inputfilename="inputfile", outputfname="bilayer_tilt.dat"):
     ''' Calculate the tilt of blocks of molecules (host + its neighbors) '''
     systeminfo = Neighbors(inputfilename)
     neiblist = systeminfo.get_neighbor_dict()
-    uni = mda.Universe(systeminfo.tprpath, systeminfo.trjpath)
+    uni = mda.Universe(systeminfo.gropath, systeminfo.trjpath)
     len_traj = len(uni.trajectory)
     with open(outputfname, "w") as outf:
         print("{: <15}{: <5}{: <15}{: <15}{: <15}{: <9}{: <15}{: <15}{: <15}"\
