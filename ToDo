@@ -1,15 +1,13 @@
 [ ] systeminfo.py
     [ ]    - Write function that checks correctness of structure file
-    [ ]    - Write function that checks of inputfile
+    [ ]    - Write function that checks inputfile
     [ ]    - Add warning if something seems strange (0 lipids found)
-    [ ]    - Change the way inputfile is read (regular expressions?) --> especially annoying for space separated lipid molecule parameter
+    [X]    - Change the way inputfile is read (regular expressions?) --> especially annoying for space separated lipid molecule parameter
     [X]    - Write function that gets list of resid to substitute MOLRANGE variable and to not use range function anymore
-    []     - Change print behavior of bilayer parameters such that it only prints if instance of SysInfo class is cast
+    [X]     - Change print behavior of bilayer parameters such that it only prints if instance of SysInfo class is cast
 
 [ ] msd.py
-    [ ]     - add function that handles calculation of msd
-    [ ]     - it must be possible to change the reference definition (ATOM vs COM)
-    [ ]     - storage of data in ./datafiles/rdf/
+    [ ]     - add function that handles calculation of msd it must be possible to change the reference definition (ATOM vs COM). storage of data in ./datafiles/rdf/
 
 [ ] leaflets.py
     [ ]    - add module docstring
@@ -23,21 +21,20 @@
         [ ] Add module docstring
         [ ] Fix calc_neighbor_distribution function
 
-[ ] command_line.py
-     [ ] Add module docstring
-     [X] Change jobscripts to conform with new way of calculation
-
 !!![ ] Documentation: README
 
-
-[ ] change setup.py to create just one installation that controls everything
 ?[ ] create virtual env
 ?[ ] Add testing
 
 
+[X] change setup.py to create just one installation that controls everything
 [X] write __main__ using argparse
 [X] write requirements file
 [X] Add license file
+
+[X] command_line.py
+     [X] Add module docstring
+     [X] Change jobscripts to conform with new way of calculation
 
 [X] nofs.py
         [X]    - add module docstring
