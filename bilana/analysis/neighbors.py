@@ -8,14 +8,13 @@ This module automates certain tasks in gromacs:
 '''
 import os
 from .. import log
-from ..common import exec_gromacs
+from ..common import exec_gromacs, loop_to_pool, GMXNAME
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
 
 LOGGER = log.LOGGER
 LOGGER = log.create_filehandler("bilana_wrapgmx.log", LOGGER)
 
-GMXNAME = 'gmx'
 
 class Neighbors(SysInfo):
     '''
@@ -27,14 +26,70 @@ class Neighbors(SysInfo):
             2. Use selectionfiles to create neighbor_info file (controlled in determine_neighbors())
         - Create index file for energy runs in create_indexfile()
     '''
-
     LOGGER = LOGGER
 
-    def determine_neighbors(self, refatoms='P', overwrite=True):
+    def determine_neighbors(self, parallel=True, **kwargs):
+        if parallel:
+            self._determine_neighbors_parallel(**kwargs)
+        else:
+            self._determine_neighbors_serial(**kwargs)
+    def _determine_neighbors_parallel(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
+        ''' Creates "neighbor_info" containing all information on lipid arrangement '''
+        LOGGER.info("____Determining neighbors____\n")
+        os.makedirs(self.datapath+'/neighborfiles', exist_ok=True)
+        cmdlists = []
+        datafileoutputs = []
+        # Get command lists
+        LOGGER.info("preparing files ...")
+        for residue in  self.MOLRANGE:
+            if residue not in self.resid_to_lipid.keys():
+                continue
+            selectionfile = self.create_selectionfile_neighborsearch(residue, refatoms=refatoms)
+            if selectionfile is None:
+                continue
+            indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.indexpath, residue)
+            datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.datapath, residue)
+            datafileoutputs.append(datafileoutput)
+            if os.path.isfile(datafileoutput) and not overwrite:
+                print("Neighbor file of residue {} already exists. Skipping.".format(residue))
+            else:
+                cmdlist=[
+                    GMXNAME, 'select', '-s', self.tprpath, '-f', self.trjpath,
+                    '-sf', selectionfile,'-on', indexoutput,'-oi', datafileoutput,
+                    '-b', str(self.t_start), '-e', str(self.t_end),
+                    '-dt', str(self.dt),
+                    ]
+                cmdlists.append(cmdlist)
+        LOGGER.info("Running gromacs processes ...")
+        if cmdlists:
+            outputlogs = loop_to_pool(exec_gromacs, cmdlists)
+            with open("gmx_select_determineneighbors.log","w") as logfile:
+                for out, err in outputlogs:
+                    logfile.write(out)
+                    logfile.write(err)
+        LOGGER.info("Read output")
+        neibfiledata = loop_to_pool(_process_neighborfileoutput, datafileoutputs)
+        neibfiledata = [i for tup in neibfiledata for i in tup]
+        neibfiledata.sort()
+        LOGGER.info("Print output to file %s", outputfilename)
+        with open(outputfilename, "w") as outfile:
+            print('{: <10}{: <25}{: <10}{: >25}'.format('Resid', 'Time', 'Number_of_neighbors', 'List_of_Neighbors'), file=outfile)
+            for datatup in neibfiledata:#datatup is (residue, time, nneibs, neibindeces)
+                LOGGER.debug("Writing %s", datatup)
+                residue  = datatup[0]
+                time     = datatup[1]
+                nneibs   = datatup[2]
+                neibindeces = [int(x) for x in datatup[3]]
+                neibresids  = [self.index_to_resid[x] for x in neibindeces]
+                neibstring  = ','.join([str(x) for x in neibresids])
+                print('{: <10}{: <25}{: <10}{: >25}'.format(residue, time, nneibs, neibstring), file=outfile)
+
+
+    def _determine_neighbors_serial(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
         ''' Creates "neighbor_info" containing all information on lipid arrangement '''
         LOGGER.info("\n____Determining neighbors____\n")
         os.makedirs(self.datapath+'/neighborfiles', exist_ok=True)
-        with open("neighbor_info", "w") as outfile:
+        with open(outputfilename, "w") as outfile:
             print('{: <10}{: <20}{: <10}{: >25}'.format('Resid', 'Time', 'Number_of_neighbors', 'List_of_Neighbors'), file=outfile)
             for residue in  self.MOLRANGE:
                 if residue not in self.resid_to_lipid.keys():
@@ -76,7 +131,7 @@ class Neighbors(SysInfo):
                 cutoff
             returns name of created selectionfile
         '''
-        filename = "{}/sf".format(self.temppath)
+        filename = "{}/selection_resid{}".format(self.temppath, resid)
         hosttype = self.resid_to_lipid[resid]
         if hosttype not in self.molecules:
             return
@@ -162,7 +217,7 @@ class Neighbors(SysInfo):
             self.create_selectionfile_indexcreation(selectionfilename, mol)
             outputindex = self.indexpath+"/resid_"+str(mol)+".ndx"
             gmx_select_arglist = [GMXNAME, 'select', '-s',
-                                  self.gropath, '-sf',
+                                  self.tprpath, '-sf',
                                   selectionfilename, '-on', outputindex,
                                   ]
             out, err = exec_gromacs(gmx_select_arglist)
@@ -312,3 +367,19 @@ def get_neighbor_dict(neighbor_filename='neighbor_info', verbose='off'):
                     print("No neighbors of residue {} at time {}."\
                             .format(cols[0], cols[1]))
     return neibdict
+
+def _process_neighborfileoutput(datafileoutput):
+    ''' Definition on module level to be picklable for parallelization '''
+    residue = int(os.path.basename(datafileoutput.replace("neighbors_of_residue", "")).replace(".dat", ""))
+    data = []
+    with open(datafileoutput,"r") as datfile:
+        for line in datfile:
+            cols = line.split()
+            time = cols.pop(0)
+            nneibs = cols.pop(0)
+            neibindeces = cols[:]
+            #neibindeces = [int(x) for x in cols]
+            #neibresid = [in2res[x] for x in neibindeces]
+            #neibindexlist = ','.join([str(x) for x in neibresid])
+            data.append((residue, time, nneibs, neibindeces))
+    return data
