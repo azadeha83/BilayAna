@@ -4,7 +4,7 @@
 '''
 import logging
 LOGGER = logging.getLogger("BilAna")
-LOGGER.setLevel(logging.WARNING)
+LOGGER.setLevel(logging.INFO)
 
 # Creating Streamhandler -- This handler will write to console
 SH = logging.StreamHandler()
