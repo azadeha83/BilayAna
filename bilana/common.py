@@ -3,6 +3,19 @@
 '''
 import os
 import subprocess
+from multiprocessing import Pool
+
+GMXNAME = "gmx"
+
+def loop_to_pool(func, datarray, mode="map"):
+    ''' '''
+    with Pool(len(os.sched_getaffinity(0))) as pool:
+        if mode == "map":
+            data_outputs = pool.map(func, datarray)
+        elif mode == "starmap":
+            data_outputs = pool.starmap(func, datarray)
+    pool.join()
+    return data_outputs
 
 def exec_gromacs(cmd, inp_str=None):
     '''
