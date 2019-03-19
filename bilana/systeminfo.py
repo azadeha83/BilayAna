@@ -42,10 +42,10 @@ class SysInfo():
         self.startres = 1 # Initialize value
         self.system_info = self.read_infofile(inputfilename)
         cwd = os.getcwd()
-        os.makedirs(cwd+'/datafiles', exist_ok=True)
-        os.makedirs(cwd+'/indexfiles', exist_ok=True)
-        os.makedirs(cwd+'/tempfiles', exist_ok=True)
-        os.makedirs(cwd+'/energyfiles', exist_ok=True)
+        os.makedirs(cwd+'/datafiles/', exist_ok=True)
+        os.makedirs(cwd+'/indexfiles/', exist_ok=True)
+        os.makedirs(cwd+'/tempfiles/', exist_ok=True)
+        os.makedirs(cwd+'/energyfiles/', exist_ok=True)
 
         # ''' general system information '''
         self.system = self.system_info['System']
@@ -75,10 +75,10 @@ class SysInfo():
             self.check_file_exists(self.trjpath)
 
         # ''' outputpaths (specify _absolute_ paths! '''
-        self.indexpath = "{}/indexfiles".format(cwd)
-        self.datapath = "{}/datafiles".format(cwd)
-        self.temppath = "{}/tempfiles".format(cwd)
-        self.energypath = "{}/energyfiles".format(cwd)
+        self.indexpath = "{}/indexfiles/".format(cwd)
+        self.datapath = "{}/datafiles/".format(cwd)
+        self.temppath = "{}/tempfiles/".format(cwd)
+        self.energypath = "{}/energyfiles/".format(cwd)
         # ''' Dictionaries and info '''
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
         self.system_size, self.number_of_lipids, self.RESIDS =\
@@ -86,7 +86,7 @@ class SysInfo():
         self.res_to_leaflet = self.assign_res_to_leaflet()
 
         # ''' Create mda universe '''
-        self.universe = mda.Universe(self.tprpath, self.trjpath)
+        self.universe = mda.Universe(self.gropath, self.trjpath)
         self.t_end_real = int(self.universe.trajectory[-1].time)
         self.dt = int(self.universe.trajectory.dt)
         #''' Time information '''
