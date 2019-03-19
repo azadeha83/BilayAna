@@ -4,14 +4,13 @@
 import os
 from . import neighbors
 from .. import log
-from ..common import exec_gromacs
+from ..common import exec_gromacs, GMXNAME
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
 
 LOGGER = log.LOGGER
 LOGGER = log.create_filehandler("bilana_energy.log", LOGGER)
 
-GMXNAME = "gmx"
 
 class Energy(SysInfo):
     '''
@@ -345,7 +344,7 @@ class Energy(SysInfo):
                 processed_neibs = []
                 for part in range(number_of_groupfragments):
                     LOGGER.debug("At part %s", part)
-                    xvgfilename = self.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
+                    xvgfilename = self.energypath+'xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
                     with open(xvgfilename,"r") as xvgfile:
                         res_to_row = {}
                         for energyline in xvgfile: #folderlayout is: time Coul_resHost_resNeib LJ_resHost_resNeib ...
