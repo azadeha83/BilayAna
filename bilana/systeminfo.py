@@ -12,6 +12,7 @@
 
 import os
 import re
+import numpy as np
 import MDAnalysis as mda
 from . import log
 from .definitions import lipidmolecules
@@ -92,8 +93,12 @@ class SysInfo():
         #''' Time information '''
         self.t_end_real = int(self.universe.trajectory[-1].time)
         self.dt         = int(self.universe.trajectory.dt)
-        if int(self.times[1]) < self.t_end_real:
-            self.t_end = int(self.times[1])
+        if self.times[1] == "inf":
+            self.times[1] = np.inf
+        else:
+            self.times[1] = int(self.times[1])
+        if self.times[1] < self.t_end_real:
+            self.t_end = self.times[1]
         else:
             self.t_end = int(self.t_end_real)
         self.t_start = int(self.times[0])
