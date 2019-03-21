@@ -51,7 +51,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
     refatoms="P",
-    cores=16,
+    cores=8,
     **kwargs):
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
