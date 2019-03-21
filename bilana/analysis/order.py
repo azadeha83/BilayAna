@@ -26,15 +26,17 @@ class Order(Neighbors):
     def __init__(self, inputfilename="inputfile"):
         super().__init__(inputfilename)
         self.atomlist = lipidmolecules.scd_tail_atoms_of
-        self.neiblist = neighbors.get_neighbor_dict()
         self.components = self.molecules
 
-    def create_orderfile(self, mode="CC", outputfile='scd_distribution.dat'):
+    def create_orderfile(self,
+        mode="CC", outputfile='scd_distribution.dat',
+        ):
         '''
             Calculate order parameter S = 0.5 (3cos^2(a)-1) of lipids.
             a is the angle between the bilayer normal and (set with mode):
                 CC -- Vector between Cn-Cn+2 carbon atoms of chain. Averaged over all the angles
         '''
+        neiblist = neighbors.get_neighbor_dict()
         if mode == "CC":
             calc_s = self.scc_of_res
         else:
@@ -47,7 +49,7 @@ class Order(Neighbors):
             len_traj = len(self.universe.trajectory)
             for t in range(len_traj):
                 time = self.universe.trajectory[t].time
-                if float(self.t_start) > time:
+                if float(self.t_start) > time or float(self.t_end) < time:
                     continue
                 for res in self.MOLRANGE:
                     LOGGER.debug("At time %s and residue %s", time, res)
@@ -59,7 +61,7 @@ class Order(Neighbors):
                         LOGGER.debug("Skipping")
                         continue
                     scd_value = calc_s(self.universe, res)
-                    neibs = self.neiblist[res][float(time)]
+                    neibs = neiblist[res][float(time)]
                     neib_comp_list = []
                     LOGGER.debug("Calculated order: %s", scd_value)
                     for lip in self.components:
@@ -73,21 +75,16 @@ class Order(Neighbors):
     @staticmethod
     def scc_of_res(mda_uni, resid):
         ''' Calculate the order parameter  '''
-        scds_of_atoms = []
-        scds_of_tails = []
         resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
-        resname = list(set(resinfo.resnames))
-        if len(resname) > 1:
-            raise ValueError("Atomselection resulted in selection of multiple residues")
-        else:
-            resname = resname[0]
+        resname = list(set(resinfo.resnames))[0]
         # tailatms is like [Sn1atomlist, Sn2atomlist]
         tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+        scds_of_tails = []
         for tail in tailatms:
+            scds_of_atoms = []
             for atomindex in range(len(tail)-1):
                 atm1, atm2 = tail[atomindex], tail[atomindex+1]
                 coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
-                #diffvector = np.subtract(*[np.array(ar) for ar in coords12])
                 diffvector = np.subtract(*coords12)
                 normdiffvector = np.linalg.norm(diffvector)
                 cos_angle = np.dot(diffvector, [0,0,1])/normdiffvector
