@@ -13,7 +13,7 @@ from ..systeminfo import SysInfo
 LOGGER = log.LOGGER
 GMXNAME = 'gmx'
 
-def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom'):
+def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom', binsize=0.002, refprot=False):
     ''' Calculates the RDF of sel relative to ref. '''
     LOGGER.info("Calculating radial distribution function")
     LOGGER.info("Ref: %s\nSel: %s\n", ref, sel)
@@ -25,15 +25,18 @@ def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom'):
             leas.readline()
             for line in leas:
                 cols = line.split()
-                if int(cols[1]):
+                if not int(cols[1]):
                     res_in_leaf.append(cols[0])
         select_one_leaflet = 'and resid '+' '.join(res_in_leaf)
     else:
         select_one_leaflet = 'and z<4'
     for selection in (('ref', ref), ('sel', sel)):
-        selectstring = '{} {}'.format(selection[1], select_one_leaflet)
+        if selection[0] == "ref" and refprot:
+            selectstring = '{}'.format(selection[1])
+        else:
+            selectstring = '{} {}'.format(selection[1], select_one_leaflet)
         select_fname = '{}/select{}_{}'.format(systeminfo.temppath,
-                                               selection[0], selection[1])
+                                               selection[0], selection[1]).replace(" ", "_")
         selectdict.update({selection[1]:select_fname})
         with open(select_fname, "w") as selfile:
             print("Selection for {} is:\n{}\n".format(selection[0], selectstring))
@@ -48,7 +51,7 @@ def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom'):
         '-o', outputfile,  '-cn', outputfile_cn,
         '-ref',  '-sf', selectdict[ref],
         '-sel',  '-sf', selectdict[sel],
-        '-selrpos', selrpos, '-seltype', seltype,
+        '-selrpos', selrpos, '-seltype', seltype, '-bin', str(binsize),
         ]
     out, err = exec_gromacs(g_rdf_arglist)
     rdf_log = 'rdf_{}-{}.log'.format(ref, sel).replace(" ", "")
