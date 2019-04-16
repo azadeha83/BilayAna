@@ -1,5 +1,12 @@
 
+import numpy as np
+import MDAnalysis as mda
 from . import neighbors
+from ..definitions import lipidmolecules
+from .. import log
+
+LOGGER = log.LOGGER
+
 def get_neighbor_of(hostres, time):
     'returns list of resids of neighbors of host resid; Inputs hostres: Resid host, time: Time as integer'
     time=float(time)
@@ -69,3 +76,40 @@ def write_neighbortype_distr(systeminfo, fname="neighbortype_distribution.dat"):
                 print("{: <12}{: <10}{: <7}".format(time, resid, lipidtype)\
                     + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
                     file=outf)
+
+def get_distance(systeminfo, refstr, selstr, outputname=None, dim=2):
+    ''' '''
+    outformat_str = "{: <20}{: <15}{: <15}{: >20}{: >15}{: >15}{: >15}"
+    outformat = "{: <20}{: <15}{: <15}{: >20}{: >15.5f}{: >15.5f}{: >15.5f}"
+    u = systeminfo.universe
+    len_traj = len(u.trajectory)
+    if outputname is None:
+        outputname = "distance_ref{}_sel{}_dim{}.dat".format(refstr, selstr, dim).replace(" ", "_")
+    with open(outputname, "w") as outf:
+        print(outformat_str.format("time", "resid", "resname", "distance", "x", "y", "z"), file=outf)
+        for t in range(len_traj):
+            time = u.trajectory[t].time
+            if systeminfo.t_end < time or systeminfo.t_start > time:
+                continue
+            LOGGER.info("Time %s", time)
+            sel     = u.select_atoms(selstr)
+            pos_ref = u.select_atoms(refstr).center_of_mass()
+            pos_sel = sel.positions
+            box     = u.dimensions
+            if dim == 2:
+                pos_ref[2] = 0
+                pos_sel[:,2] = 0
+                box[2] = 1
+            elif dim == 3:
+                pass
+            else:
+                raise ValueError("Dimension not possible. Use either 2 or 3")
+            LOGGER.debug("Sel %s", sel,)
+            LOGGER.debug("Resids %s", sel.resids)
+            pos_array = mda.lib.distances.distance_array(pos_ref, pos_sel, box=box)[0]
+            LOGGER.debug("Array: %s", pos_array)
+            for ind, res in enumerate(sel.resids):
+                resname = sel[ind].resname
+                pos = sel[ind].position
+                dist = pos_array[ind]
+                print(outformat.format(time, res, resname, dist, *pos), file=outf)
