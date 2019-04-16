@@ -5,3 +5,4 @@ from . import leaflets
 from . import msd
 from . import order
 from . import rdf
+from . import protein
