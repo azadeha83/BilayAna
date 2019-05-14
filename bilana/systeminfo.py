@@ -67,6 +67,7 @@ class SysInfo():
         self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.toppath    = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
         self.tprpath    = '{}/tpr/{}_{}.tpr'.format(self.mdfilepath, self.system, self.temperature)
+        self.edrpath    = '{}/enr/{}_{}.edr'.format(self.mdfilepath, self.system, self.temperature)
 
         # Check if all paths exist
         for fpath in [self.gropath, self.toppath, self.tprpath]: self.check_file_exists(fpath)
