@@ -42,7 +42,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
                 file=jobf)
         write_submitfile('submit.sh', jobfile_name, ncores=cores)
-        cmd = ['sbatch', '-J', complete_name[2:]+str(jobpart)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+        cmd = ['sbatch', '-J', complete_name[2:]+str(jobpart)+'_'+jobname, "--get-user-env", 'submit.sh','python3', jobscript_name]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
         print(out.decode(), err.decode())
