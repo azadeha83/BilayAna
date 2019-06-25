@@ -7,6 +7,8 @@ This module automates certain tasks in gromacs:
     4. Class MSD():      Calculate the MSD of sel atoms
 '''
 import os
+import numpy as np
+import MDAnalysis as mda
 from .. import log
 from ..common import exec_gromacs, loop_to_pool, GMXNAME
 from ..systeminfo import SysInfo
@@ -28,11 +30,83 @@ class Neighbors(SysInfo):
     '''
     LOGGER = LOGGER
 
-    def determine_neighbors(self, parallel=True, **kwargs):
-        if parallel:
-            self._determine_neighbors_parallel(**kwargs)
+    def determine_neighbors(self, option="2D", parallel=True, **kwargs):
+        ''' Controller for different determine neighbor functions '''
+        LOGGER.info("Determining neighbors...")
+        if option == "gmx":
+            if parallel:
+                self._determine_neighbors_parallel(**kwargs)
+            else:
+                self._determine_neighbors_serial(**kwargs)
+        elif option == "2D":
+            self._determine_neighbors_2d(**kwargs)
         else:
-            self._determine_neighbors_serial(**kwargs)
+            raise ValueError("Invalid value for options.")
+
+    def _determine_neighbors_2d(self, refatoms="name P O3", mode="atom", outputfilename="neighbor_info", _2D=True, **kwargs):
+        ''' Creates neighbor_info file based on 2d distances (xy plane) '''
+        traj_len = len(self.universe.trajectory)
+        with open(outputfilename, "w") as outf:
+            print("{: <20}{: <20}{: <20}{: <20}".format("Resid", "Time", "Number_of_neighbors", "List_of_Neighbors"), file=outf)
+            for t in range(traj_len):
+                time = self.universe.trajectory[t].time
+                if self.t_end < time or self.t_start > time:
+                    continue
+                LOGGER.info("Time %s", time)
+                refatomgrp = self.universe.select_atoms(refatoms)
+                leaflets = self.get_ref_postions(mode, refatomgrp)
+                for leaf in leaflets:
+                    if _2D:
+                        for i in range(len(leaf)): # Make it "2D"
+                            leaf[i][1][2] = 0
+                    leafoutput = {}
+                    for res, coord in leaf:
+                        res += 1
+                        neiblist  = []
+                        if res in leafoutput.keys():
+                            neiblist = leafoutput[res]
+
+                        pos_array = mda.lib.distances.distance_array(coord, np.array([j for i, j in leaf]), box=self.universe.dimensions)
+                        neiblist_tmp = [leaf[i][0]+1 for i,j in enumerate(pos_array[0]) if j <= self.cutoff*10]
+                        neiblist += [str(n) for n in neiblist_tmp if n != res]
+                        neiblist = list(set(neiblist))
+                        leafoutput[res] = neiblist
+                    for res, neiblist in leafoutput.items():
+                        n_neibs = len(neiblist)
+                        print("{: <20}{: <20}{: <20}{: <20}".format(res, time, n_neibs, ','.join(neiblist)), file=outf)
+
+    def get_ref_postions(self, mode, refatomgrp):
+        ''' Possible modes atom, center, tails'''
+        modes = ["atom", "center", "tails"]
+        if mode == "atom":
+            if len(refatomgrp.resids) != len(set(refatomgrp.resids)):
+                raise ValueError("Refatoms string leads to more than one entry per molecule")
+            center = refatomgrp.center_of_mass()
+            leaf1 = [(resid, pos) for resid, pos  in enumerate(refatomgrp.positions) if pos[2] >= center[2]]
+            leaf2 = [(resid, pos) for resid, pos  in enumerate(refatomgrp.positions) if pos[2] <  center[2]]
+        elif mode == "center":
+            center = refatomgrp.center_of_mass()
+            positions = []
+            for res in refatomgrp.residues:
+                pos = res.atoms.center_of_mass()
+                positions.append(pos)
+            leaf1 = [(resid, pos) for resid, pos  in enumerate(positions) if pos[2] >= center[2]]
+            leaf2 = [(resid, pos) for resid, pos  in enumerate(positions) if pos[2] <  center[2]]
+        elif mode == "tails":
+            center = refatomgrp.center_of_mass()
+            positions = []
+            reslist = []
+            for atm in refatomgrp.atoms:
+                resid = atm.resid - 1
+                positions.append((resid, atm.position))
+                reslist.append(resid)
+            leaf1 = [(resid, pos) for resid, pos  in positions if pos[2] >= center[2]]
+            leaf2 = [(resid, pos) for resid, pos  in positions if pos[2] <  center[2]]
+        else:
+            raise ValueError("Invalid mode, choose one of {}".format(modes))
+        return (leaf1, leaf2)
+
+
     def _determine_neighbors_parallel(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
         ''' Creates "neighbor_info" containing all information on lipid arrangement '''
         LOGGER.info("____Determining neighbors____\n")
