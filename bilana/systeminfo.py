@@ -41,16 +41,18 @@ class SysInfo():
         self.startres = 1 # Initialize value
         self.system_info = self.read_infofile(inputfilename)
         cwd = os.getcwd()
-        os.makedirs(cwd+'/datafiles/', exist_ok=True)
-        os.makedirs(cwd+'/indexfiles/', exist_ok=True)
-        os.makedirs(cwd+'/tempfiles/', exist_ok=True)
+        os.makedirs(cwd+'/datafiles/',   exist_ok=True)
+        os.makedirs(cwd+'/indexfiles/',  exist_ok=True)
+        os.makedirs(cwd+'/tempfiles/',   exist_ok=True)
         os.makedirs(cwd+'/energyfiles/', exist_ok=True)
 
         # ''' general system information '''
         self.system       = self.system_info['System']
         self.temperature  = self.system_info['Temperature']
         self.cutoff       = float(self.system_info['cutoff'])
-        self.times        = [x for x in self.system_info['Timeframe'].split(',')] # Start,End,step
+        self.times        = [int(x) for x in self.system_info['Timeframe'].split(',')] # Start,End,step
+        if len(self.times) < 3:
+            self.times.append(None)
         self.molecules    = sorted([x.strip() for x in\
                                 self.system_info['Lipidmolecules'].split(',')])
         if 'CHOL' in self.molecules:
@@ -67,6 +69,8 @@ class SysInfo():
         self.toppath    = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
         self.tprpath    = '{}/tpr/{}_{}.tpr'.format(self.mdfilepath, self.system, self.temperature)
 
+        self.trjpath_whole = '{}/md_trj/{}_{}_whole.xtc'.format(self.mdfilepath, self.system, self.temperature)
+        
         # Check if all paths exist
         for fpath in [self.gropath, self.toppath, self.tprpath]: self.check_file_exists(fpath)
         try:
@@ -87,11 +91,20 @@ class SysInfo():
             self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
 
-        self.universe   = mda.Universe(self.gropath, self.trjpath)
+        if os.path.isfile(self.trjpath_whole):
+            LOGGER.info("Loading pbc whole trajectory into universe")
+            self.universe   = mda.Universe(self.gropath, self.trjpath_whole)
+        else:
+            LOGGER.info("Reading raw traj")
+            self.universe   = mda.Universe(self.gropath, self.trjpath)
 
         #''' Time information '''
         self.t_end_real = int(self.universe.trajectory[-1].time)
-        self.dt         = int(self.universe.trajectory.dt)
+        if self.times[2] is None or self.times[2] < int(self.universe.trajectory.dt):
+            LOGGER.warning("Time step in input file smaller than actual time step read from MDAnalysis. Using MDA.dt")
+            self.dt         = int(self.universe.trajectory.dt)
+        else:
+            self.dt         = self.times[2]
         if int(self.times[1]) < self.t_end_real:
             self.t_end = int(self.times[1])
         else:
@@ -178,6 +191,8 @@ class SysInfo():
             lipids_found = list(set(lipids_found))
             resids = list(set(resids))
             number_of_lipids = len(resids)
+            if not number_of_lipids:
+                raise ValueError("No lipid found! Name of mols wrong?")
             if len(lipids_found) != len(self.molecules):
                 LOGGER.warning("Not all lipids, given in the input file, found in structure file!")
         LOGGER.debug("Output: %s %s %s", system_size, number_of_lipids, resids)
