@@ -79,7 +79,7 @@ def get_minmaxdiv(startdiv, numerator, direction=-1):
     else:
         return startdiv
 
-def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
+def write_submitfile(submitout, jobname, ncores=2, mem='2G', prio=False):
     username = os.environ['LOGNAME']
     if not prio:
         queue = 'short'
