@@ -104,10 +104,10 @@ class EofScd(Neighbors):
                     continue
                 time = float(cols[0])
                 if time > self.t_end:
-                    LOGGER.warning("Maybe did not use whole trajectory (%s vs %s)",
+                    LOGGER.warning("Maybe did not use whole trajectory ( %s (real) vs %s (used) )",
                         endtime, self.t_end
                         )
-                    break
+                    continue
                 if time < float(self.t_start) or time % self.dt != 0:
                     continue
                 elif time > float(endtime):
