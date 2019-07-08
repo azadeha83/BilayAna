@@ -74,10 +74,12 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nsysinfo_inst = bilana.SysInfo(inputfilename="{0}")'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
             '\nneib_inst.create_indexfile()'
-            '\norder_inst = Order(inputfilename="{0}")'
-            '\norder_inst.create_orderfile()'
+            '\norder.calc_tilt(sysinfo_inst)'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
-            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'.format(inputfilename, refatoms),
+            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
+            '\norder_inst = Order(inputfilename="{0}")'
+            '\norder_inst.create_orderfile()'\
+            .format(inputfilename, refatoms),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem='16G', ncores=cores, prio=prio)
@@ -99,7 +101,7 @@ def calc_scd(systemname, temperature, jobname, *args,
         print(
             'import os, sys'
             '\nfrom bilana.analysis.order import Order'
-            '\nOrder(inputfilename="{0}").create_scdfile()'
+            '\nOrder(inputfilename="{0}").create_orderfile()'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
         if not dry:
