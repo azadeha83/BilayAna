@@ -32,8 +32,18 @@ PARSER.add_argument('--divisor',  action="store", metavar="#divisor", required=F
 # On/Off flags
 PARSER.add_argument('--overwrite', action="store_true", required=False, help="If this flag is set all files will be overwritten")
 PARSER.add_argument('--debug', action="store_true", help="Sets logger to debug mode. This will print out a lot.")
+PARSER.add_argument('--dryrun', action="store_true", help="If set, jobscripts are not submitted.")
+
+# Arbitrary flags
+PARSER.add_argument('--arbitrary', nargs='*', help="Store kwargs that is not yet listed in other arguments. Input like key:val")
 
 ARGS = PARSER.parse_args()
+
+kwargs = {}
+if ARGS.arbitrary is not None:
+    for string in ARGS.arbitrary:
+        key, val = string.split(':')
+        kwargs[key] = val
 
 if ARGS.debug:
     LOGGER.setLevel("DEBUG")
@@ -61,6 +71,8 @@ def run_cmd():
         energyfilename=ARGS.energyfile,
         overwrite=ARGS.overwrite,
         startdivisor=ARGS.divisor,
+        dry=ARGS.dryrun,
+        **kwargs,
         )
 
 run_cmd()

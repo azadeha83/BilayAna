@@ -1,6 +1,7 @@
-
-import numpy as np
 import re
+import numpy as np
+import pandas as pd
+import MDAnalysis as mda
 from ..definitions import lipidmolecules
 from .. import log
 LOGGER = log.LOGGER
@@ -83,3 +84,20 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
                 leaflet = 1
             print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
         LOGGER.info("UP: %s LOW: %s", sum_upper, sum_lower)
+
+
+def calc_thickness(universe, ref_atomname, fname="bilayer_thickness"):
+    ''' Calculate thickness by reference atoms '''
+    fstr = "{: <15}{: <15}"
+    fstr2 = "{: <15}{: <15.3f}"
+    with open(fname, "w") as outf:
+        print(fstr.format("time", "thickness"), file=outf)
+        for t in range(universe.trajectory.n_frames):
+            time= universe.trajectory[t].time
+            LOGGER.info("At %s", time)
+            sel = universe.select_atoms("name {}".format(ref_atomname))
+            pos = sel.positions
+            upper = pd.Series(pos[len(pos)//2:, 2])
+            downer= pd.Series(pos[:len(pos)//2, 2])
+            thickness =  downer.mean() - upper.mean()
+            print(fstr2.format(time, thickness), file=outf)

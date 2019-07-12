@@ -16,7 +16,8 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     neighborfile="neighbor_info",
     startdivisor=80,
     overwrite=True,
-    cores=8,
+    cores=2,
+    dry=False,
     **kwargs,):
     ''' Divide energyruns into smaller parts for faster computation and submit those runs '''
     complete_name = './{}_{}'.format(systemname, temperature)
@@ -41,17 +42,20 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
                 file=jobf)
-        write_submitfile('submit.sh', jobfile_name, ncores=cores)
-        cmd = ['sbatch', '-J', complete_name[2:]+str(jobpart)+'_'+jobname, "--get-user-env", 'submit.sh','python3', jobscript_name]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        print(out.decode(), err.decode())
+        if not dry:
+            write_submitfile('submit.sh', jobfile_name, ncores=cores)
+            cmd = ['sbatch', '-J', complete_name[2:]+str(jobpart)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
 
 
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
     refatoms="P",
-    cores=8,
+    cores=2,
+    prio=False,
+    dry=False,
     **kwargs):
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -67,23 +71,26 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nfrom bilana.analysis.order import Order'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
-            '\norder_inst = Order(inputfilename="{0}")'
             '\nsysinfo_inst = bilana.SysInfo(inputfilename="{0}")'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
             '\nneib_inst.create_indexfile()'
-            '\norder_inst.create_orderfile()'
+            '\norder.calc_tilt(sysinfo_inst)'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
             '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
-            '\nos.remove(sys.argv[0])'.format(inputfilename, refatoms),
+            '\norder_inst = Order(inputfilename="{0}")'
+            '\norder_inst.create_orderfile()'\
+            .format(inputfilename, refatoms),
             file=scriptf)
-        write_submitfile('submit.sh', jobfilename, mem='16G', ncores=cores, prio=False)
-        cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        print(out.decode(), err.decode())
+        if not dry:
+            write_submitfile('submit.sh', jobfilename, mem='16G', ncores=cores, prio=prio)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
 
 def calc_scd(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
+    dry=False,
     **kwargs,):
     ''' Only calculate scd distribution and write to scd_distribution.dat '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -94,14 +101,15 @@ def calc_scd(systemname, temperature, jobname, *args,
         print(
             'import os, sys'
             '\nfrom bilana.analysis.order import Order'
-            '\nOrder(inputfilename="{0}").create_scdfile()'
+            '\nOrder(inputfilename="{0}").create_orderfile()'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
-        write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)
-        cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        print(out.decode(), err.decode())
+        if not dry:
+            write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
 
 def check_and_write(systemname, temperature, jobname, lipidpart, *args,
     overwrite=True,
@@ -110,6 +118,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     energyfilename="all_energies.dat",
     scdfilename="scd_distribution.dat",
+    dry=False,
     **kwargs,):
     ''' Check if all energy files exist and write table with all energies '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -134,30 +143,36 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\n    eofs.create_eofscdfile()'
             '\nelse:'
             '\n    print("Submitting missing energy calculations")'
-            '\n    os.chdir("{0}")'
-            '\n    cmd = ["python", "-m", "bilana", "energy", "-f", "{0}", "-i", "{2}", "-N", "{3}"'
-            '\n        "{6}", "--divisor", "{7}", -J, "en" ]'
+            '\n    s = os.path.basename(os.getcwd()).split("_")'
+            '\n    bname = "_".join(s[:-1])'
+            '\n    temp = s[-1]'
+            '\n    os.chdir("../")'
+            '\n    cmd = ["python", "-m", "bilana", "energy", "-f", bname, "-T", temp, "-i", "{2}", "-N", "{3}",'
+            '\n        "--divisor", "{6}", "-J", "en", "-p", "{0}" ]'
             '\n    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)'
             '\n    out, err = proc.communicate()'
             '\n    proc.wait()'
             '\n    proc.stdout.close()'
             '\n    proc.stderr.close()'
             '\n    print(out.decode(), err.decode())'
-            '\n    os.chdir("{0}")'
+            '\n    os.chdir(bname + "_" + temp)'
             '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite,
-                inputfilename, neighborfilename, energyfilename, scdfilename, oflag, startdivisor),
+                inputfilename, neighborfilename, energyfilename, scdfilename, startdivisor),
             file=scriptf)
-        write_submitfile('submit.sh', jobfilename, mem='16G')
-        cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        print(out.decode(), err.decode())
+        if not dry:
+            write_submitfile('submit.sh', jobfilename, mem='16G')
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+
 
 def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     neighborfilename="neighbor_info",
     energyfilename="all_energies.dat",
     scdfilename="scd_distribution.dat",
+    dry=False,
     **kwargs,):
     ''' Write eofscd file from table containing all interaction energies '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -169,23 +184,26 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
             'import os, sys'
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
+            '\nenergy_instance = Energy("{0}", inputfilename="{1}", neighborfilename="{2}")'
             '\nif energy_instance.check_exist_xvgs():'
-            '\n    eofs = EofScd("{1}", inputfilename="{2}", energyfilename="{5}", scdfilename="{4}")'
-            '\n    eofs.create_eofscdfile(neighbor_filename="{3}")'
+            '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
+            '\n    eofs.create_eofscdfile()'
             '\nelse:'
             '\n    raise ValueError("There are .edr files missing.")'
             '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename,  scdfilename, energyfilename),
             file=scriptf)
-        write_submitfile('submit.sh', jobfilename, mem='16G', prio=True)
-        cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        print(out.decode(), err.decode())
+        if not dry:
+            write_submitfile('submit.sh', jobfilename, mem='16G', prio=True)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
 
 def write_nofscd(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
     neighborfilename="neighbor_info",
     scdfilename="scd_distribution.dat",
+    dry=False,
     **kwargs,):
     ''' Write nofscd file from files containing the order parameter distribution and the neighbor mapping of the system '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -200,8 +218,9 @@ def write_nofscd(systemname, temperature, jobname, *args,
             '\nnofs.create_NofScd_input(scdfilename="{}", neighborfilename="{}")'
             '\nos.remove(sys.argv[0])'.format(inputfilename, scdfilename, neighborfilename),
             file=scriptf)
-        write_submitfile('submit.sh', jobfilename, mem='8G', prio=True)
-        cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        print(out.decode(), err.decode())
+        if not dry:
+            write_submitfile('submit.sh', jobfilename, mem='8G', prio=True)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())

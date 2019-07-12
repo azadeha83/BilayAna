@@ -1,7 +1,7 @@
 '''
     Module that control the creation of files containing N(S) data
 '''
-from .io import *
+from .io import read_energyinput, read_neighborinput, read_scdinput
 from .. import log
 from ..analysis.neighbors import Neighbors
 from ..definitions import lipidmolecules
