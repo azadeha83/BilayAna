@@ -41,6 +41,7 @@ class Neighbors(SysInfo):
         datafileoutputs = []
         # Get command lists
         LOGGER.info("preparing files ...")
+        LOGGER.debug("for mols: %s", self.MOLRANGE)
         for residue in  self.MOLRANGE:
             if residue not in self.resid_to_lipid.keys():
                 continue
@@ -52,6 +53,7 @@ class Neighbors(SysInfo):
             datafileoutputs.append(datafileoutput)
             if os.path.isfile(datafileoutput) and not overwrite:
                 print("Neighbor file of residue {} already exists. Skipping.".format(residue))
+                LOGGER.debug("Skipping %s", residue)
             else:
                 cmdlist=[
                     GMXNAME, 'select', '-s', self.tprpath, '-f', self.trjpath,
@@ -61,6 +63,7 @@ class Neighbors(SysInfo):
                     ]
                 cmdlists.append(cmdlist)
         LOGGER.info("Running gromacs processes ...")
+        LOGGER.debug("CMDS %s", cmdlists)
         if cmdlists:
             outputlogs = loop_to_pool(exec_gromacs, cmdlists)
             with open("gmx_select_determineneighbors.log","w") as logfile:

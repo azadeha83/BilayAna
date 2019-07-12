@@ -186,3 +186,23 @@ def tilt_of_molecules(mda_universe, list_of_resids, time):
     tiltangle = np.mean(tilts)
     LOGGER.debug("Average tilt of group %s", tiltangle)
     return tiltangle
+
+def tilt_sterol(mda_uni, resid):
+    ''' Calculate the tilt angle of sterol molecule   '''
+    resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
+    #print(resinfo)
+    resname = list(set(resinfo.resnames))[0]
+    #print(resname)
+    tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+    atm1, atm2 = tailatms[0][0], tailatms[0][1]
+    coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
+    #print(coords12)
+    diffvector = np.subtract(*coords12)
+    normdiffvector = np.linalg.norm(diffvector)
+    cos_tiltangle = np.dot(diffvector, [0,0,1])/normdiffvector
+    tiltangle = np.arccos(cos_tiltangle)*(180/np.pi)
+    if abs(tiltangle) > 90:
+        tiltangle = 180 - tiltangle
+    print(tiltangle)
+
+    return tiltangle

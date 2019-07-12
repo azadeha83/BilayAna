@@ -5,7 +5,7 @@ import os
 import subprocess
 from multiprocessing import Pool
 
-GMXNAME = "gmx"
+GMXNAME = "/usr/bin/gmx"
 
 def loop_to_pool(func, datarray, mode="map"):
     ''' '''
@@ -42,11 +42,14 @@ def exec_gromacs(cmd, inp_str=None):
     proc.wait()
     proc.stdout.close()
     proc.stderr.close()
-    if proc.returncode != 0:
+    #if proc.returncode != 0:
+    if proc.returncode == "noval":
+        print("CODE", proc.returncode)
         if proc.returncode == 132:
             raise ChildProcessError("Core was dumped. This is probably due to an incompatible gromacs version")
         try:
             err = err.decode()
+            print(out)
             print(err)
         except UnboundLocalError:
             pass
