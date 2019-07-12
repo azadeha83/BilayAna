@@ -139,8 +139,8 @@ def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv"):
             t1_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[0][0])).positions
             t2_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[1][0])).positions
 
-            tail1_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[0][-1])).positions - t1_xyz)
-            tail2_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[1][-1])).positions - t2_xyz)
+            tail1_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[0][-1])).positions - t1_xyz
+            tail2_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[1][-1])).positions - t2_xyz
             tail1_xyz = tail1_xyz/np.linalg.norm(tail1_xyz)
             tail2_xyz = tail2_xyz/np.linalg.norm(tail2_xyz)
 
@@ -177,23 +177,5 @@ def angle_to_axis(vec: np.array, axis=np.array([0,0,1])) -> float:
     ''' Calculates angle of vector to axis (default: z axis)
         Returns angle in degree
     '''
-def tilt_sterol(mda_uni, resid):
-    ''' Calculate the tilt angle of sterol molecule   '''
-    resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
-    #print(resinfo)
-    resname = list(set(resinfo.resnames))[0]
-    #print(resname)
-    tailatms = lipidmolecules.scd_tail_atoms_of(resname)
-    atm1, atm2 = tailatms[0][0], tailatms[0][1]
-    coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
-    #print(coords12)
-    diffvector = np.subtract(*coords12)
-    normdiffvector = np.linalg.norm(diffvector)
-    cos_tiltangle = np.dot(diffvector, [0,0,1])/normdiffvector
-    tiltangle = np.arccos(cos_tiltangle)*(180/np.pi)
-    if abs(tiltangle) > 90:
-        tiltangle = 180 - tiltangle
-    print(tiltangle)
-
-    return tiltangle
     return np.arccos(np.dot(vec, axis)/np.linalg.norm(vec)) * (180/np.pi)
+
