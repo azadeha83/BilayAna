@@ -134,7 +134,7 @@ def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv"):
             mda_res = u.residues[ res - 1 ]
             resn = sysinfo.resid_to_lipid[res]
             leaf = sysinfo.res_to_leaflet[res]
-            if resn != "DPPC":
+            if resn in lipidmolecules.STEROLS:
                 continue
             t1_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[0][0])).positions
             t2_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[1][0])).positions
@@ -155,6 +155,8 @@ def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv"):
 
         avg_vec_leaf1 = np.array(leaflist[0]).mean(axis=0)
         avg_vec_leaf2 = np.array(leaflist[1]).mean(axis=0)
+        avg_vec_leaf1 = (avg_vec_leaf1/np.linalg.norm(avg_vec_leaf1))[0]
+        avg_vec_leaf2 = (avg_vec_leaf2/np.linalg.norm(avg_vec_leaf2))[0]
         ang_l1 = angle_to_axis(avg_vec_leaf1)
         ang_l2 = angle_to_axis(avg_vec_leaf2)
 
