@@ -420,6 +420,9 @@ def get_neighbor_dict(neighbor_filename='neighbor_info', verbose='off'):
     ''' Returns a list of all neighbors being in the
         cutoff distance at least once in the trajectory.
         Neighborfile is required and is output of determine_neighbors()
+
+        Dict layout is:
+        neibdict[resid][time] --> [neibs]
     '''
     neighborfile = neighbor_filename
     neibdict = {}

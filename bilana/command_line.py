@@ -52,7 +52,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
 
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
-    refatoms="P",
+    refatoms="name P O3",
     cores=2,
     prio=False,
     dry=False,
