@@ -72,11 +72,11 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
             '\nsysinfo_inst = bilana.SysInfo(inputfilename="{0}")'
+            '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
+            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
             '\nneib_inst.create_indexfile()'
             '\norder.calc_tilt(sysinfo_inst)'
-            '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
-            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
             '\norder_inst = Order(inputfilename="{0}")'
             '\norder_inst.create_orderfile()'\
             .format(inputfilename, refatoms),
