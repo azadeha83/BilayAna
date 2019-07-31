@@ -2,9 +2,10 @@
     This module stores all functions that are needed to calculate the interaction energy of lipids or its parts
 '''
 import os
+import subprocess
 from . import neighbors
 from .. import log
-from ..common import exec_gromacs, GMXNAME
+from ..common import exec_gromacs, GMXNAME, write_submitfile
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
 
@@ -428,23 +429,80 @@ class Energy(SysInfo):
                     LOGGER.warning("Missing neighbour-ids: %s", all_neibs_of_res)
                     raise ValueError('Not all neighbours found in xvgfile')
 
-    def check_exist_xvgs(self):
-        ''' Checks if all .xvg-files containing lipid interaction exist '''
-        all_okay = True
-        with open("missing_xvgfiles.info", "w") as inffile:
-            print("#Files missing", file=inffile)
-            for resid in self.MOLRANGE:
-                all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
-                n_neibs = len(all_neibs_of_res)
-                if n_neibs % self.denominator == 0:
-                    number_of_groupfragments = (n_neibs//self.denominator)
+    def check_exist_xvgs(self, check_len=False):
+        ''' Checks if all .xvg-files containing lipid interaction exist
+
+            check_len can be set to simulation length and all .xvg files that differ from that length are included to missing_xvgfile.info
+        '''
+        def read_lastline_only(fname):
+            ''' Reads last line of file without loop. Attention: Crashes if file is empty'''
+            LOGGER.debug("Reading %s", fname)
+            with open(fname, "rb") as f:
+                LOGGER.debug("Opened %s", f)
+                f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
+                while f.read(1) != b"\n":   # Until EOL is found...
+                    f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
+                last = f.readline()         # Read last line.
+            return last
+
+        #with open("missing_xvgfiles.info", "w") as inffile:
+            #print("#Files missing", file=inffile)
+        missing_files = []
+
+        for resid in self.MOLRANGE:
+            all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
+            n_neibs = len(all_neibs_of_res)
+
+            if n_neibs % self.denominator == 0:
+                number_of_groupfragments = (n_neibs//self.denominator)
+            else:
+                number_of_groupfragments = (n_neibs//self.denominator)+1
+
+            for part in range(number_of_groupfragments):
+                xvgfilename = self.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
+
+                if not os.path.isfile(xvgfilename):
+                    # Check wether file exists
+                    #print(xvgfilename, file=inffile)
+                    missing_files.append(xvgfilename)
+
+                elif os.stat(xvgfilename).st_size == 0:
+                    # Check wether file is empty
+                    missing_files.append(xvgfilename)
+
+                elif check_len:
+                    # Check wether whole trajectory was used
+                    line = read_lastline_only(xvgfilename)
+                    time = float(line.decode().split()[0])
+                    if time != check_len:
+                        missing_files.append(xvgfilename)
+
+        if missing_files:
+            resubmitted_residues = [] # Need this list, because can only resubmit all files(/fragment) for residue
+            for fname in missing_files:
+                res = int(fname.split("/")[-1].replace("energies_residue", "").split("_")[0])
+                if res not in resubmitted_residues:
+
+                    jobfilename = "en{}.py".format(res)
+                    jobname = "{}_{}_res{}".format(self.system, self.temperature, res)
+                    with open(jobfilename, "w") as sf:
+                        print('import os, sys'
+                            '\nfrom bilana.analysis.energy import Energy'
+                            '\nenergy_instance = Energy("complete", overwrite="True", inputfilename="inputfile", neighborfilename="neighbor_info")'
+                            '\nenergy_instance.info()'
+                            '\nenergy_instance.run_calculation(resids=[{}])'
+                            '\nos.remove(sys.argv[0])'.format(res), file=sf)
+
+                    write_submitfile('submit.sh', jobname, mem='8G')
+                    cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
+                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    out, err = proc.communicate()
+                    print(out.decode(), err.decode())
+
+                    resubmitted_residues.append(res)
+
                 else:
-                    number_of_groupfragments = (n_neibs//self.denominator)+1
-                for part in range(number_of_groupfragments):
-                    xvgfilename = self.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
-                    if not os.path.isfile(xvgfilename):
-                        print(xvgfilename, file=inffile)
-                        all_okay = False
-        if not all_okay:
-            LOGGER.warning('THERE ARE FILES MISSING')
-        return all_okay
+                    continue
+
+            return False
+        return True

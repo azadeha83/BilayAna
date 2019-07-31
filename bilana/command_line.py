@@ -130,34 +130,18 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
     else:
         oflag = ""
     with open(scriptfilename, 'w') as scriptf:
-        print(\
+        print(
             'import os, sys'
             '\nimport subprocess'
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
             '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
-            '\nif energy_instance.check_exist_xvgs():'
+            '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    energy_instance.write_energyfile()'
             '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
-            '\n    eofs.create_eofscdfile()'
-            '\nelse:'
-            '\n    print("Submitting missing energy calculations")'
-            '\n    s = os.path.basename(os.getcwd()).split("_")'
-            '\n    bname = "_".join(s[:-1])'
-            '\n    temp = s[-1]'
-            '\n    os.chdir("../")'
-            '\n    cmd = ["python", "-m", "bilana", "energy", "-f", bname, "-T", temp, "-i", "{2}", "-N", "{3}",'
-            '\n        "--divisor", "{6}", "-J", "en", "-p", "{0}" ]'
-            '\n    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)'
-            '\n    out, err = proc.communicate()'
-            '\n    proc.wait()'
-            '\n    proc.stdout.close()'
-            '\n    proc.stderr.close()'
-            '\n    print(out.decode(), err.decode())'
-            '\n    os.chdir(bname + "_" + temp)'
-            '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite,
-                inputfilename, neighborfilename, energyfilename, scdfilename, startdivisor),
+            '\n    eofs.create_eofscdfile()'.format(lipidpart, overwrite,
+                inputfilename, neighborfilename, energyfilename, scdfilename),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem='16G')
@@ -185,7 +169,7 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
             '\nenergy_instance = Energy("{0}", inputfilename="{1}", neighborfilename="{2}")'
-            '\nif energy_instance.check_exist_xvgs():'
+            '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
             '\n    eofs.create_eofscdfile()'
             '\nelse:'
