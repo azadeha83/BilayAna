@@ -79,7 +79,7 @@ def get_minmaxdiv(startdiv, numerator, direction=-1):
     else:
         return startdiv
 
-def write_submitfile(submitout, jobname, ncores=2, mem='2G', prio=False):
+def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
     username = os.environ['LOGNAME']
     if not prio:
         queue = 'short'
@@ -92,7 +92,7 @@ def write_submitfile(submitout, jobname, ncores=2, mem='2G', prio=False):
               '\n#SBATCH --output={jobname}.out'
               '\n#SBATCH --mail-type=fail'
               '\n#SBATCH --mail-user={username}@wwu.de'
-              '\n#SBATCH --time=18:00:00'
+              '\n#SBATCH --time=48:00:00'
               '\n#SBATCH --ntasks=1'
               '\n#SBATCH --nodes=1'
               '\n#SBATCH --cpus-per-task={ncores}'
