@@ -4,7 +4,6 @@
         - The tilt of lipids is calculated in calc_avg_tilt
 
 '''
-import re
 import numpy as np
 import pandas as pd
 import MDAnalysis as mda
