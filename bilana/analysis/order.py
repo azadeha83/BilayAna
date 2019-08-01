@@ -27,7 +27,6 @@ class Order(Neighbors):
     def __init__(self, inputfilename="inputfile"):
         super().__init__(inputfilename)
         self.atomlist = lipidmolecules.scd_tail_atoms_of
-        self.neiblist = neighbors.get_neighbor_dict()
         self.components = self.molecules
 
     def create_orderfile(self, mode="CC", outputfile='scd_distribution.dat', with_tilt_correction="tilt.csv"):
@@ -90,8 +89,6 @@ class Order(Neighbors):
     @staticmethod
     def scc_of_res(mda_uni, resid, tilt_correction=None):
         ''' Calculate the order parameter  '''
-        scds_of_atoms = []
-        scds_of_tails = []
         resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
         resname = list(set(resinfo.resnames))
 
@@ -104,8 +101,8 @@ class Order(Neighbors):
             resname = resname[0]
 
         tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+        scds_of_tails = []
         for tail in tailatms:
-
             for atomindex in range(len(tail)-1):
                 atm1, atm2 = tail[atomindex], tail[atomindex+1]
                 coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions

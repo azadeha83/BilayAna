@@ -421,7 +421,7 @@ class Neighbors(SysInfo):
         return methylatomstrings
 
 
-def get_neighbor_dict(neighbor_filename='neighbor_info', verbose='off'):
+def get_neighbor_dict(neighborfilename='neighbor_info',):
     ''' Returns a list of all neighbors being in the
         cutoff distance at least once in the trajectory.
         Neighborfile is required and is output of determine_neighbors()
@@ -429,9 +429,9 @@ def get_neighbor_dict(neighbor_filename='neighbor_info', verbose='off'):
         Dict layout is:
         neibdict[resid][time] --> [neibs]
     '''
-    neighborfile = neighbor_filename
     neibdict = {}
-    with open(neighborfile,"r") as neibmap:
+    reswithnoneib = []
+    with open(neighborfilename,"r") as neibmap:
         neibmap.readline()
         for line in neibmap:
             cols = line.split()
@@ -444,10 +444,9 @@ def get_neighbor_dict(neighbor_filename='neighbor_info', verbose='off'):
                 neiblist = list(set(neiblist))
                 neibdict[resid].update({time:neiblist})
             except IndexError:
+                reswithnoneib.append((resid, time))
                 neibdict[resid].update({time:[]})
-                if verbose == 'on':
-                    print("No neighbors of residue {} at time {}."\
-                            .format(cols[0], cols[1]))
+    LOGGER.info("No neighbors for following residues at time %s", reswithnoneib)
     return neibdict
 
 def _process_neighborfileoutput(datafileoutput):
@@ -460,8 +459,5 @@ def _process_neighborfileoutput(datafileoutput):
             time = cols.pop(0)
             nneibs = cols.pop(0)
             neibindeces = cols[:]
-            #neibindeces = [int(x) for x in cols]
-            #neibresid = [in2res[x] for x in neibindeces]
-            #neibindexlist = ','.join([str(x) for x in neibresid])
             data.append((residue, time, nneibs, neibindeces))
     return data

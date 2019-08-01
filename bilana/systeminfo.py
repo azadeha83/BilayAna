@@ -12,6 +12,7 @@
 
 import os
 import re
+import numpy as np
 import MDAnalysis as mda
 from . import log
 from .definitions import lipidmolecules
@@ -196,7 +197,7 @@ class SysInfo():
             if not number_of_lipids:
                 raise ValueError("No lipid found! Name of mols wrong?")
             if len(lipids_found) != len(self.molecules):
-                LOGGER.warning("Not all lipids, given in the input file, found in structure file!")
+                LOGGER.warning("Not all lipids, given in the input file, found in structure file! %s", grofile)
         LOGGER.debug("Output: %s %s %s", system_size, number_of_lipids, resids)
         return system_size, number_of_lipids, resids
 
