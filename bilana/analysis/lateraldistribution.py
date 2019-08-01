@@ -1,8 +1,6 @@
 
-import numpy as np
 import MDAnalysis as mda
 from . import neighbors
-from ..definitions import lipidmolecules
 from .. import log
 
 LOGGER = log.LOGGER
@@ -40,8 +38,8 @@ def calc_averagedistance(self, distancefile):
                 continue
             distance=float(col[3])
             try:
-                neighbors=neiblist[host][time]
-                nchol=[self.resid_to_lipid[int(i)] for i in neighbors].count('CHL1')
+                neibs=neiblist[host][time]
+                nchol=[self.resid_to_lipid[int(i)] for i in neibs].count('CHL1')
             except KeyError:
                 print('Attention: Neighbor file seems not to be complete time "{}" is missing'.format(time))
             try:
