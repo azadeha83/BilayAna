@@ -9,8 +9,6 @@ from .common import write_submitfile
 from .common import get_minmaxdiv
 from .systeminfo import SysInfo
 
-
-
 def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     neighborfile="neighbor_info",
@@ -48,7 +46,6 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
-
 
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
@@ -149,7 +146,6 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
-
 
 def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",

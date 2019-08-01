@@ -23,7 +23,7 @@ def get_neighbor_of(hostres, time):
                     return []
     print(time, "I should never get here...")
 
-def calc_averagedistance(self,distancefile):
+def calc_averagedistance(self, distancefile):
     distdata={}
     neiblist=self.find_all_neighbors()
     with open(distancefile,"r") as df:

@@ -228,4 +228,4 @@ class SysInfo():
             raise FileNotFoundError("File does not exist {}".format(fpath))
 
     def check_structurefile_format(self):
-        ''' '''
+        ''' Check wether coordinate file from simulation has correct format and atomnaming '''

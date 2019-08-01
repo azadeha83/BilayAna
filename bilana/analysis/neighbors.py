@@ -23,10 +23,12 @@ class Neighbors(SysInfo):
         Stores instance of class SysInfo() to get paths of all necessary MD-files
         Main task is to create file called "neighbor_info" with columns
             [<time> <resid> <N lipid neighbors> <oneighbor resids>]
-        - Create neighbor_info file:
-            1. Create a selectionfile using gmx select
-            2. Use selectionfiles to create neighbor_info file (controlled in determine_neighbors())
-        - Create index file for energy runs in create_indexfile()
+        1. Use determine_neighbors() in two ways:
+            A.) Create neighbor_info file using gromacs:
+                1. Create a selectionfile using gmx select
+                2. Use selectionfiles to create neighbor_info file (controlled in determine_neighbors())
+            B.) Using 2D scheme and MDAnalysis to create neighbor_info
+        2 Create index file for energy runs in create_indexfile()
     '''
     LOGGER = LOGGER
 
@@ -56,10 +58,12 @@ class Neighbors(SysInfo):
                 refatomgrp = self.universe.select_atoms(refatoms)
                 leaflets = self.get_ref_postions(mode, refatomgrp)
                 for leaf in leaflets:
+
                     if _2D:
                         for i in range(len(leaf)): # Make it "2D"
                             leaf[i][1][2] = 0
                     leafoutput = {}
+
                     for res, coord in leaf:
                         res += 1
                         neiblist  = []
@@ -71,6 +75,7 @@ class Neighbors(SysInfo):
                         neiblist += [str(n) for n in neiblist_tmp if n != res]
                         neiblist = list(set(neiblist))
                         leafoutput[res] = neiblist
+
                     for res, neiblist in leafoutput.items():
                         n_neibs = len(neiblist)
                         print("{: <20}{: <20}{: <20}{: <20}".format(res, time, n_neibs, ','.join(neiblist)), file=outf)
