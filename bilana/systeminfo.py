@@ -108,6 +108,8 @@ class SysInfo():
             self.times[1] = int(self.times[1])
         if self.times[1] < self.t_end_real:
             self.t_end = self.times[1]
+        else:
+            self.t_end = int(self.t_end_real)
         if self.times[2] is None or self.times[2] < int(self.universe.trajectory.dt):
             LOGGER.warning("Time step in input file smaller than actual time step read from MDAnalysis. Using MDA.dt")
             self.dt         = int(self.universe.trajectory.dt)

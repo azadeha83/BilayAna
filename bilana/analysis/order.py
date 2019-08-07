@@ -12,6 +12,7 @@ import MDAnalysis as mda
 from . import neighbors
 from .neighbors import Neighbors
 from .. import log
+from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
 from ..definitions.structure_formats import REGEXP_GRO
 
@@ -27,6 +28,7 @@ class Order(Neighbors):
     def __init__(self, inputfilename="inputfile"):
         super().__init__(inputfilename)
         self.atomlist = lipidmolecules.scd_tail_atoms_of
+        self.neiblist = neighbors.get_neighbor_dict()
         self.components = self.molecules
 
     def create_orderfile(self, mode="CC", outputfile='scd_distribution.dat', with_tilt_correction="tilt.csv"):

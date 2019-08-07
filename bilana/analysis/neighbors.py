@@ -55,18 +55,21 @@ class Neighbors(SysInfo):
                 LOGGER.info("Time %s", time)
                 refatomgrp = self.universe.select_atoms(refatoms)
                 leaflets = self.get_ref_postions(mode, refatomgrp)
+                print(leaflets)
                 for leaf in leaflets:
                     if _2D:
                         for i in range(len(leaf)): # Make it "2D"
+                            #print(leaf[i][1][2])
                             leaf[i][1][2] = 0
                     leafoutput = {}
                     for res, coord in leaf:
+                        # leaf = (res, pos)
                         res += 1
                         neiblist  = []
                         if res in leafoutput.keys():
                             neiblist = leafoutput[res]
 
-                        pos_array = mda.lib.distances.distance_array(coord, np.array([j for i, j in leaf]), box=self.universe.dimensions)
+                        pos_array = mda.lib.distances.distance_array(coord, np.array([pos for res, pos in leaf]), box=self.universe.dimensions)
                         neiblist_tmp = [leaf[i][0]+1 for i,j in enumerate(pos_array[0]) if j <= self.cutoff*10]
                         neiblist += [str(n) for n in neiblist_tmp if n != res]
                         neiblist = list(set(neiblist))

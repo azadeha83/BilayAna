@@ -95,10 +95,11 @@ def write_submitfile(submitout, jobname, ncores=2, mem='2G', prio=False):
               '\n#SBATCH --output={jobname}.out'
               '\n#SBATCH --mail-type=fail'
               '\n#SBATCH --mail-user={username}@wwu.de'
-              '\n#SBATCH --time=18:00:00'
+              '\n#SBATCH --time=2-00:00:00'
               '\n#SBATCH --ntasks=1'
               '\n#SBATCH --nodes=1'
               '\n#SBATCH --cpus-per-task={ncores}'
               '\n#SBATCH --mem={mem}'
+              '\n#SBATCH --exclude=kaa-33,kaa-111'
               '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
               '\nsrun $@'.format(**locals()), file=sfile)

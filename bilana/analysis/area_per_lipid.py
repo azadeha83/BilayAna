@@ -55,7 +55,7 @@ class Areaperlipid_compressibility(SysInfo):
                         area_per_lipid = (float(lf[1])*float(lf[2]))/number_of_lipids
                         fout.write('{}\t{}\t{}\t{}\n'.format(lf[0],lf[1],lf[2],area_per_lipid))
 
-    def area_per_lipid_mainlipid(self):
+    def area_per_lipid_mainlipid(self,end_time):
 
         ''' This module calculates the area per lipid considering only the main lipid molecule'''
 
@@ -69,7 +69,7 @@ class Areaperlipid_compressibility(SysInfo):
         cwd = os.getcwd()
         edrout = ''.join(cwd + '/' + 'box_xy')
 
-        box_size_arglist = [GMXNAME, 'energy', '-f', self.edrpath, '-o', edrout]
+        box_size_arglist = [GMXNAME, 'energy', '-f', self.edrpath, '-o', edrout, '-e', str(end_time)]
         
         inp_str = b'Box-X\nBox-Y\n0\n'
         out, err = exec_gromacs(box_size_arglist, inp_str)
