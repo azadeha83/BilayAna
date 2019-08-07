@@ -8,5 +8,5 @@ from . import rdf
 from . import area_per_lipid
 from . import electron_density
 from . import curvature
-from . import tilt_sterol
+#from . import tilt_sterol
 from . import protein
