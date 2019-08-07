@@ -7,6 +7,9 @@ from .. import log
 from ..common import exec_gromacs, GMXNAME
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
+from ..common import write_submitfile
+import subprocess
+
 
 LOGGER = log.LOGGER
 LOGGER = log.create_filehandler("bilana_energy.log", LOGGER)
@@ -84,6 +87,7 @@ class Energy(SysInfo):
         for res in resids:
             LOGGER.info('Working on lipid %s ...', res)
             all_neibs_of_res = list(set([neibs for t in self.neiblist[res].keys() for neibs in self.neiblist[res][t]]))
+            print(all_neibs_of_res)
             nneibs = len(all_neibs_of_res)
             if nneibs % self.denominator == 0:
                 number_of_groupfragments = (nneibs//self.denominator)
@@ -180,6 +184,7 @@ class Energy(SysInfo):
     def gather_energygroups(self, res, all_neibs_of_res):
         ''' Set which part of molecule should be considered '''
         energygroup_indeces = [res] + all_neibs_of_res[ self.groupblocks[0]:self.groupblocks[1] ]
+        print(energygroup_indeces)
         energygroup_list = []
         for index in energygroup_indeces:
             if self.resid_to_lipid[index] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS:
@@ -188,6 +193,7 @@ class Energy(SysInfo):
                 for part in self.molparts:
                     energygroup_list.append(''.join([part,str(index)]))
         energygroup_string = ' '.join(energygroup_list)
+        print(energygroup_string)
         return energygroup_string
 
     def get_relev_energies(self, res, all_neibs_of_res):
@@ -217,6 +223,7 @@ class Energy(SysInfo):
                             continue
                         energyselection.append(''.join([interaction, parthost, str(res), "-", partneib,str(neib)]))
         all_relev_energies = '\n'.join(energyselection+['\n'])
+        print(all_relev_energies)
         return all_relev_energies
 
     def get_relev_self_interaction(self, res):
@@ -425,8 +432,28 @@ class Energy(SysInfo):
                     LOGGER.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
                     all_neibs_of_res.remove(int(pneib))
                 if all_neibs_of_res:
-                    LOGGER.warning("Missing neighbour-ids: %s", all_neibs_of_res)
-                    raise ValueError('Not all neighbours found in xvgfile')
+                    LOGGER.warning("Res %s has missing neighbour-ids: %s", resid, all_neibs_of_res)
+                    # jobscript_name = 'exec_energy_lip'
+                    # dry=False
+                    # with open(jobscript_name, "w") as jobf:
+                    #     print(
+                    #         '\nenergy_instance = Energy("complete", overwrite=True, inputfilename="inputfile", neighborfilename="neighbor_info")'
+                    #         '\nenergy_instance.info()'
+                    #         '\nenergy_instance.run_calculation(resids=[resid])',file=jobf)
+                            
+                    # if not dry:
+                    #     write_submitfile('submit.sh', 'extra_energy', ncores=2)
+                    #     cmd = ['sbatch', '-J', 'energy', 'submit.sh','python3', jobscript_name]
+                    #     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    #     out, err = proc.communicate()
+                    #     print(out.decode(), err.decode())
+
+                    # #raise ValueError('Not all neighbours found in xvgfile')
+
+                    # #'\nenergy_instance = Energy("complete", overwrite=True, inputfilename="inputfile", neighborfilename="neighbor_info")'
+                    # #energy_instance.info()
+                    # #energy_instance.run_calculation(resids=[resid])
+
 
     def check_exist_xvgs(self):
         ''' Checks if all .xvg-files containing lipid interaction exist '''
