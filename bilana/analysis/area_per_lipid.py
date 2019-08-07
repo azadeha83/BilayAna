@@ -2,12 +2,10 @@
     This module focuses on the analysis of structural features of lipids in a bilayer
 
 '''
-import re
 import os
 from .. import log
 from ..common import exec_gromacs, GMXNAME
 from ..systeminfo import SysInfo
-from ..definitions import lipidmolecules
 import MDAnalysis as mda
 import pandas as pd
 import numpy as np
@@ -19,7 +17,7 @@ class Areaperlipid_compressibility(SysInfo):
 
     def __init__(self,inputfilename="inputfile"):
             super().__init__(inputfilename)
-    
+
             self.lipid_type_items = ' '.join(self.molecules)
             self.lipid_types_first = ''.join(self.molecules[0])
 
@@ -30,7 +28,7 @@ class Areaperlipid_compressibility(SysInfo):
         edrout = ''.join(cwd + '/' + 'box_xy')
 
         box_size_arglist = [GMXNAME, 'energy', '-f', self.edrpath, '-o', edrout, '-e', str(end_time)]
-        
+
         inp_str = b'Box-X\nBox-Y\n0\n'
         out, err = exec_gromacs(box_size_arglist, inp_str)
 
@@ -45,7 +43,7 @@ class Areaperlipid_compressibility(SysInfo):
             ls = f.readlines()
 
         with open("area_per_lipid.dat" , 'w') as fout:
-            
+
             fout.write('Time\tbox_x\tbox_y\tarea_per_lipid\n')
             for l in ls:
                 lc = l.strip()
@@ -60,7 +58,7 @@ class Areaperlipid_compressibility(SysInfo):
         ''' This module calculates the area per lipid considering only the main lipid molecule'''
 
         u = mda.Universe(self.tprpath,self.trjpath)
-            
+
         main_lipid_selection = u.select_atoms('resname {} and name P'.format(self.lipid_types_first))
         number_of_main_lipid_selection = len(main_lipid_selection)
         print(number_of_main_lipid_selection)
@@ -69,8 +67,8 @@ class Areaperlipid_compressibility(SysInfo):
         cwd = os.getcwd()
         edrout = ''.join(cwd + '/' + 'box_xy')
 
-        box_size_arglist = [GMXNAME, 'energy', '-f', self.edrpath, '-o', edrout, '-e', str(end_time)]
-        
+        box_size_arglist = [GMXNAME, 'energy', '-f', self.edrpath, '-o', edrout]
+
         inp_str = b'Box-X\nBox-Y\n0\n'
         out, err = exec_gromacs(box_size_arglist, inp_str)
 
@@ -85,7 +83,7 @@ class Areaperlipid_compressibility(SysInfo):
             ls = f.readlines()
 
         with open("area_per_lipid_mainlipid.dat" , 'w') as fout:
-            
+
             fout.write('Time\tbox_x\tbox_y\tarea_per_lipid\n')
             for l in ls:
                 lc = l.strip()
@@ -98,14 +96,14 @@ class Areaperlipid_compressibility(SysInfo):
     def compressibility(self,start_time,number_of_blocks):
 
         ''' This module calculates the using the are_per_lipid data calculated in the first function of this class'''
-        
+
         df = pd.read_table('area_per_lipid.dat', header=0, delim_whitespace=True)
         df1 = df.loc[df['Time'] > start_time]
 
         n_blocks = number_of_blocks
         area_data = list(df1.loc[:,'area_per_lipid'])
         l = int(len(area_data)/n_blocks)
-        
+
         block_lists = []
 
         j = 0
@@ -121,17 +119,17 @@ class Areaperlipid_compressibility(SysInfo):
         T = float(self.temperature)
         Boltzman = (1.380649 / 100)*1e-3 # in order to change the units of KT to pN.nm
         comp = Boltzman*T*(area_mean/area_variance)
-        
+
         with open('area_compressibility.csv','w') as f:
                     writer = csv.writer(f,delimiter='\t')
                     writer.writerow(["mean_area", "std_area", "compressibility", "std_compressibility","se_compressibility"])
                     writer.writerow([np.mean(area_mean),np.std(area_mean),np.mean(comp),np.std(comp),np.std(comp)/np.sqrt(n_blocks)])
-        
+
         # self.area_mean = np.mean(list(df1.iloc[:,1]))
         # self.area_variance = np.var(list(df1.iloc[:,1]))
         # T = float(self.temperature)
         # Boltzman = (1.380649 / 100)*1e-3 # in order to change the units of KT to pN.nm
-        
+
         # for i,row in df.iterrows():
         #     area = df.at[i,'area_per_lipid']
         #     print(area)

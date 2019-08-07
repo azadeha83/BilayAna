@@ -117,11 +117,7 @@ TAIL_ATOMS_OF = {\
     'DU':[TAILCARBS['DU'][0], TAILHYDR['DU'][0], TAILCARBS['DU'][1], TAILHYDR['DU'][1],],
     'PO':[TAILCARBS['PO'][0], TAILHYDR['PO'][0], TAILCARBS['PO'][1], TAILHYDR['PO'][1],],
     'PL':[TAILCARBS['PL'][0], TAILHYDR['PL'][0], TAILCARBS['PL'][1], TAILHYDR['PL'][1],],
-    #'DPPC':[tailcarbons_of['DPPC'][0], tailhydr_of['DPPC'][0], tailcarbons_of['DPPC'][1], tailhydr_of['DPPC'][1]],
-    #'DUPC':[tailcarbons_of['DUPC'][0], tailhydr_of['DUPC'][0], tailcarbons_of['DUPC'][1], tailhydr_of['DUPC'][1]],
     'CHL1':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25']],
-    #'ch1m':['all'],
-    #'CHIM':['all'],
     'ERG':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25']],
                 }
 
@@ -140,11 +136,10 @@ CENTRAL_ATOM_OF = {
 
 INCLUDED_TAILS = ['DP', 'DM', 'DS', 'DO', 'DY', 'DU', 'PO', 'PL']
 INCLUDED_HEADS = ['PC', 'PE', 'PS', 'PI', 'PA']
-#described_molecules = ['DPPC', 'DUPC', 'CHL1', 'CHIM', 'ERG', 'ch1m']
-STEROLS = ['CHL1', 'CHIM', 'ERG', 'ch1m']
-PROTEINS = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS',]
-SOLVENTS = ["TIP3", "SOL", "CL", "POT", "NA"]
-SHORTESTCHAIN = len(TAILCARBS['DM'])
+STEROLS        = ['CHL1', 'CHIM', 'ERG', 'ch1m']
+PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS',]
+SOLVENTS       = ["TIP3", "SOL", "CL", "POT", "NA"]
+SHORTESTCHAIN  = len(TAILCARBS['DM'])
 
 
 

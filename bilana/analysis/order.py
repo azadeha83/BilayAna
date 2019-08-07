@@ -4,7 +4,6 @@
         - The tilt of lipids is calculated in calc_avg_tilt
 
 '''
-import re
 import numpy as np
 import pandas as pd
 import MDAnalysis as mda
@@ -92,25 +91,29 @@ class Order(Neighbors):
     def scc_of_res(mda_uni, resid, tilt_correction=None):
         ''' Calculate the order parameter  '''
         resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
-        resname = list(set(resinfo.resnames))[0]
-        # tailatms is like [Sn1atomlist, Sn2atomlist]
+        resname = list(set(resinfo.resnames))
+
+        if tilt_correction is None:
+            tilt_correction = [0, 0, 1] # Use z-axis
+
+        if len(resname) > 1:
+            raise ValueError("Atomselection resulted in selection of multiple residues")
+        else:
+            resname = resname[0]
+
         tailatms = lipidmolecules.scd_tail_atoms_of(resname)
         scds_of_tails = []
         for tail in tailatms:
-            scds_of_atoms = []
             for atomindex in range(len(tail)-1):
                 atm1, atm2 = tail[atomindex], tail[atomindex+1]
                 coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
                 diffvector = np.subtract(*coords12)
                 diffvector /= np.linalg.norm(diffvector)
-                #if tilt_correction is not None:
-                #    diffvector = diffvector - tilt_correction
-                #    diffvector /= np.linalg.norm(diffvector)
-                #cos_angle = np.dot(diffvector, [0,0,1])
-                cos_angle = np.dot(diffvector, tilt_correction)
 
+                cos_angle = np.dot(diffvector, tilt_correction)
                 scds_of_atoms += [0.5 * (3 * cos_angle**2 - 1)]
             scds_of_tails += [np.array(scds_of_atoms).mean()]
+
         LOGGER.debug("Res:  %s -- Scc of atoms: %s and of tails %s", resid, scds_of_atoms, scds_of_tails)
         return np.array(scds_of_tails).mean()
 
@@ -118,26 +121,32 @@ def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv"):
     ''' End to end vector of each tail, average vector is substracted depending on include_neighbors variable
         include_neighbors can be "global", "local"(not implemented)
     '''
-    #LOGGER.info("Calculating tilt with neibdict=%s to file %s", neibdict, filename)
     u = sysinfo.universe
-    #zaxis = np.array([0.0, 0.0, 1.0])
     len_traj = len(u.trajectory)
+
+    # Lists as input to create pandas.DataFrame
     leaflet = []
     times = []
     angles = []
     vectors = []
+
     for t in range(len_traj):
+
         time = u.trajectory[t].time
         if time % sysinfo.dt != 0 or time > sysinfo.t_end or time < sysinfo.t_start:
             continue
         LOGGER.info("At time %s", time)
+
         leaflist = [[], []]
         for res in sysinfo.MOLRANGE:
+
             mda_res = u.residues[ res - 1 ]
             resn = sysinfo.resid_to_lipid[res]
             leaf = sysinfo.res_to_leaflet[res]
+
             if resn in lipidmolecules.STEROLS:
                 continue
+
             t1_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[0][0])).positions
             t2_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[1][0])).positions
 
@@ -145,13 +154,6 @@ def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv"):
             tail2_xyz = mda_res.atoms.select_atoms("name {}".format(lipidmolecules.tailcarbons_of(resn)[1][-1])).positions - t2_xyz
             tail1_xyz = tail1_xyz/np.linalg.norm(tail1_xyz)
             tail2_xyz = tail2_xyz/np.linalg.norm(tail2_xyz)
-
-            #tail1_atmstr = ' '.join([i for i in lipidmolecules.tailcarbons_of(resn)[0][-2:]])
-            #tail2_atmstr = ' '.join([i for i in lipidmolecules.tailcarbons_of(resn)[1][-2:]])
-            #tail1_xyz = (mda_res.atoms.select_atoms("name {}".format(tail1_atmstr)).positions - t1_xyz).mean(axis=0)
-            #tail1_xyz = tail1_xyz/np.linalg.norm(tail1_xyz)
-            #tail2_xyz = (mda_res.atoms.select_atoms("name {}".format(tail2_atmstr)).positions - t2_xyz).mean(axis=0)
-            #tail2_xyz = tail2_xyz/np.linalg.norm(tail2_xyz)
 
             leaflist[leaf] += [tail1_xyz, tail2_xyz]
 
@@ -182,4 +184,3 @@ def angle_to_axis(vec: np.array, axis=np.array([0,0,1])) -> float:
         Returns angle in degree
     '''
     return np.arccos(np.dot(vec, axis)/np.linalg.norm(vec)) * (180/np.pi)
-

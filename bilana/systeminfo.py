@@ -37,7 +37,7 @@ class SysInfo():
     '''
     LOGGER = LOGGER
 
-    def __init__(self, inputfilename="inputfile"):
+    def __init__(self, inputfilename="inputfile", load_univ=True):
         LOGGER.debug("Initialize")
         self.startres = 1 # Initialize value
         self.system_info = self.read_infofile(inputfilename)
@@ -72,7 +72,7 @@ class SysInfo():
         self.edrpath    = '{}/enr/{}_{}.edr'.format(self.mdfilepath, self.system, self.temperature)
 
         self.trjpath_whole = '{}/md_trj/{}_{}_whole.xtc'.format(self.mdfilepath, self.system, self.temperature)
-        
+
         # Check if all paths exist
         for fpath in [self.gropath, self.toppath, self.tprpath]: self.check_file_exists(fpath)
         try:
@@ -93,35 +93,33 @@ class SysInfo():
             self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
 
-        if os.path.isfile(self.trjpath_whole):
-            LOGGER.info("Loading pbc whole trajectory into universe")
-            self.universe   = mda.Universe(self.gropath, self.trjpath_whole)
-        else:
-            LOGGER.info("Reading raw traj")
-            self.universe   = mda.Universe(self.gropath, self.trjpath)
+        if load_univ:
+            if os.path.isfile(self.trjpath_whole):
+                LOGGER.info("Loading pbc whole trajectory into universe")
+                self.universe   = mda.Universe(self.gropath, self.trjpath_whole)
+            else:
+                LOGGER.info("Reading raw traj")
+                self.universe   = mda.Universe(self.gropath, self.trjpath)
 
-        #''' Time information '''
-        self.t_end_real = int(self.universe.trajectory[-1].time)
-        if self.times[1] == "inf":
-            self.times[1] = np.inf
-        else:
-            self.times[1] = int(self.times[1])
-        if self.times[1] < self.t_end_real:
-            self.t_end = self.times[1]
-        else:
-            self.t_end = int(self.t_end_real)
-        if self.times[2] is None or self.times[2] < int(self.universe.trajectory.dt):
-            LOGGER.warning("Time step in input file smaller than actual time step read from MDAnalysis. Using MDA.dt")
-            self.dt         = int(self.universe.trajectory.dt)
-        else:
-            self.dt         = self.times[2]
-        self.t_start = int(self.times[0])
+            #''' Time information '''
+            self.t_end_real = int(self.universe.trajectory[-1].time)
+            if self.times[2] is None or self.times[2] < int(self.universe.trajectory.dt):
+                LOGGER.warning("Time step in input file smaller than actual time step read from MDAnalysis. Using MDA.dt")
+                self.dt         = int(self.universe.trajectory.dt)
+            else:
+                self.dt         = self.times[2]
+            if int(self.times[1]) < self.t_end_real:
+                self.t_end = int(self.times[1])
+            else:
+                self.t_end = int(self.t_end_real)
+            self.t_start = int(self.times[0])
+
+            self.RESNAMES          = list(set(self.universe.residues.resnames))
+            [self.RESNAMES.remove(solvent) for  solvent in lipidmolecules.SOLVENTS if solvent in self.RESNAMES]
 
         # Set constants
         self.NUMBEROFMOLECULES = self.number_of_lipids
         self.MOLRANGE          = self.RESIDS
-        self.RESNAMES          = list(set(self.universe.residues.resnames))
-        [self.RESNAMES.remove(solvent) for  solvent in lipidmolecules.SOLVENTS if solvent in self.RESNAMES]
 
     def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
@@ -232,4 +230,4 @@ class SysInfo():
             raise FileNotFoundError("File does not exist {}".format(fpath))
 
     def check_structurefile_format(self):
-        ''' '''
+        ''' Check wether coordinate file from simulation has correct format and atomnaming '''
