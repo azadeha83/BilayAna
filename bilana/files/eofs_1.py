@@ -23,12 +23,14 @@ class EofScd(Neighbors):
             head-tailhalfs: Interaction energy where a distinction of the upper and lower part of the lipid chains is made
             carbons:        Interaction energy between the different carbon atoms of lipids. (A lot of data is produced here)
     '''
-    def __init__(self, part, inputfilename="inputfile", energyfilename="all_energies.dat", scdfilename="scd_distribution.dat"):
+    def __init__(self, part, outputfile_tag='', inputfilename="inputfile", energyfilename="all_energies.dat", scdfilename="scd_distribution.dat", orientationfilename="orientation.dat"):
         super().__init__(inputfilename)
         self.energyfilename = energyfilename
         self.scdfilename = scdfilename
+        self.orientationfilename = orientationfilename
         self.neiblist = neighbors.get_neighbor_dict()
         self.components = self.molecules
+        self.outputfile_tag = outputfile_tag
         self.part = part
 
         # Define names for different interaction groups
@@ -56,15 +58,18 @@ class EofScd(Neighbors):
             lipid1index = self.molecules.index(lipid1) # Like 'DPPC_DPPC'
             for lipid2 in self.molecules:
                 lipid2index = self.molecules.index(lipid2)
+                print(lipid2index)
                 if lipid2index > lipid1index:  # Ignore double entries: Lipid1_Lipid2 = Lipid2_Lipid1
                     break
                 self.lipidpairs.append(''.join([lipid2, '_', lipid1]))
+        print(self.lipidpairs)
 
     def create_eofscdfile(self):
         ''' Creates files of data of E(S) for each lipid part'''
         timetoscd, endtime = read_scdinput(self.scdfilename)
+        timetoorientation = read_orientationinput(self.orientationfilename)
         for pair in self.lipidpairs:
-            self.assemble_eofs(self.energyfilename, timetoscd, pair, endtime)
+            self.assemble_eofs(self.energyfilename, timetoscd, timetoorientation, pair, endtime)
 
     def create_selfinteractionfile(self):
         ''' Creates files of data of E(S) for each lipid '''
@@ -72,71 +77,101 @@ class EofScd(Neighbors):
         for lipid in self.molecules:
             self.assemble_eofs_selfinteraction(self.energyfilename, lipid, timetoscd, endtime)
 
-    def assemble_eofs(self, energyfile, timetoscd, lipidpair, endtime):
+    def assemble_eofs(self, energyfile, timetoscd, timetoorientation, lipidpair, endtime):
         ''' Read energyfile (all_energies.dat) in line and assemble from this data E(S) for a specific lipid pair '''
-        components = self.components.copy()
+        components = self.components.copy() # dont change self.components
+        print(components)
         if 'CHL1' in self.molecules:
-            components += ["CHL1_host"]
-            components += ["CHL1_neib"]
-            components += ['CHL1_both']
+            components += ["CHL1_host"] # Chols that are neighbor to host
+            components += ["CHL1_neib"] # Chols ... to neib
+            components += ['CHL1_both'] # Chols ... to both
+        print(components)
+
+        # Create Eofs output name
         if energyfile == 'all_energies.dat':
-            outname = ''.join(['Eofscd', lipidpair, self.part, '.dat'])
+            outname = ''.join(['Eofscd', lipidpair, self.part, self.outputfile_tag, '.dat'])
         else:
-            outname = ''.join(['Eofscd', lipidpair, self.part, '.dat'])
+            outname = ''.join(['Eofscd', lipidpair, self.part, self.outputfile_tag, '.dat'])
+
         LOGGER.debug("Will write to: %s", outname)
         LOGGER.debug("Opening energyfile: %s", energyfile )
         with open(energyfile, "r") as efile, open(outname, "w") as outf:
+            # Print header
             print(\
                   '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
                   '{: ^15}{: ^18}{: ^15}'\
                   '{: ^15}{: ^15}'\
                   '{: ^15}{: ^10}'\
+                  '{: ^15}{: ^10}'\
                   .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",
                             "Interaction", "DeltaScd", "AvgScd",
                             "Etot", "Evdw",
-                            "Ecoul", "Ntot")\
+                            "Ecoul", "Ntot", "orientation_host", "orientation_neib")\
                             + (len(components)*'{: <10}').format(*components),
                   file=outf)
+
+            # Read all_energies file
             efile.readline()
             for line in efile:
                 cols = line.split()
+
                 if int(cols[1]) > int(cols[2]):
                     continue
+
                 time = float(cols[0])
                 if time > self.t_end:
-                    LOGGER.warning("Maybe did not use whole trajectory (%s vs %s)",
+                    LOGGER.warning("Maybe did not use whole trajectory ( %s (real) vs %s (used) )",
                         endtime, self.t_end
                         )
-                    break
+                    continue
                 if time < float(self.t_start) or time % self.dt != 0:
                     continue
                 elif time > float(endtime):
                     continue
+                
+                # Get neighbor dictionary
                 host, neib = int(cols[1]), int(cols[2])
                 try:
                     neighbors = self.neiblist[host][float(time)]
                     neighbors_neib = self.neiblist[neib][float(time)]
+                    # print('neighbors=',neighbors)
+                    # print('neighbors_neib=',neighbors_neib)
+
                 except KeyError:
                     raise KeyError("Failed at host/neib: {}/{}\ttime: {}".format(host, neib, time))
-                if neib not in neighbors:
-                    continue
+               
+                if neib not in neighbors: # in all_energies all neighbors that occur during simulation are stored
+                    continue # skip if neib id not neighbor at this time
+                
                 type_host = self.resid_to_lipid[host]
                 type_neib = self.resid_to_lipid[neib]
                 type_pair = ('{0}_{1}'.format(type_host, type_neib), '{1}_{0}'.format(type_host, type_neib))
-                if neib < host or (type_pair[0] != lipidpair and type_pair[1] != lipidpair):
+                #print(type_pair)
+                if neib < host or (type_pair[0] != lipidpair and type_pair[1] != lipidpair):  # Ignore second pair
+                    # energies same for res1-res2 and res2-res1 so take just 1st version
                     continue
-                #print(time, respair, end='\r')
+
+                # Get energy values
                 Etot = float(cols[6])
                 COUL = float(cols[5])
                 VDW  = float(cols[4])
                 interactiontype = cols[3]
+
+                # Get orientation data
+                if type_pair[0] or type_pair[1] == '':
+                    orientation_host = timetoorientation[(time, host, neib)]
+                    print(orientation_host)
+
+                # Get number of neighbors of type
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
+                print('pair_neibs=',pair_neibs)
                 ntot = len(pair_neibs)
                 neib_comp_list = []
                 for lip in self.components:
                     ncomp = [self.resid_to_lipid[N] for N in pair_neibs].count(lip)
                     neib_comp_list.append(ncomp)
 
+                # Get number of cholesterol neighbors, that are neighbor to both PLs
                 if 'CHL1' in self.molecules:
                     host_chol = [self.resid_to_lipid[N] for N in neighbors if N != neib].count('CHL1')
                     neib_comp_list.append(host_chol)
@@ -148,10 +183,14 @@ class EofScd(Neighbors):
                     shared_chol = [self.resid_to_lipid[N]\
                         for N in shared_neighbors].count('CHL1')
                     neib_comp_list.append(shared_chol)
+
+                # Get order values
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
                 delta_scd = abs(scd_host-scd_neib)
                 avg_scd = (scd_host+scd_neib)/2
+
+                # Write output line
                 print(
                       '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'
                       '{: <15}{: <15.5f}{: <15.5f}'

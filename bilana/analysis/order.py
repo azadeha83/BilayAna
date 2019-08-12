@@ -86,7 +86,36 @@ class Order(Neighbors):
                         + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
                         file=scdfile)
 
+    def create_orientationfile(self, include_neighbors="global", outputfile="orientation.dat"):
+        ''' Assigning orientation of the sterol molecule with respect to the neighboring molecules '''
 
+        u = self.universe
+        len_traj = len(u.trajectory)
+
+        with open(outputfile, "w") as orifile:
+            print("{: <12}{: <10}{: <10}{: <15}{: <15}{: <15}".format("Time", "Resid", "Resname", "Neighbor_resid", "Neighbor_resname", "Orientation")\
+                ,file=orifile)
+            
+            for t in range(len_traj):
+                time = u.trajectory[t].time 
+                if time % self.dt != 0 or time > self.t_end or time < self.t_start:
+                    continue
+                LOGGER.info("At time %s", time)
+
+                for res in self.MOLRANGE:
+                    resn = self.resid_to_lipid[res]
+                    if resn not in lipidmolecules.STEROLS:
+                        continue
+
+                    neibs = self.neiblist[res][float(time)]
+                    if len(neibs) != 0:
+                        for neib in neibs:
+                            orientation = self.calc_orientation(self.universe, res, neib)
+                            resname_neib = self.resid_to_lipid[neib]
+                            print("{: <12.2f}{: <10}{: <10}{: <15}{: <15}{: <15}".format(
+                                time, res, resn, neib, resname_neib, orientation),
+                                file=orifile)
+    
     @staticmethod
     def scc_of_res(mda_uni, resid, tilt_correction=None):
         ''' Calculate the order parameter  '''
@@ -116,6 +145,42 @@ class Order(Neighbors):
 
         LOGGER.debug("Res:  %s -- Scc of atoms: %s and of tails %s", resid, scds_of_atoms, scds_of_tails)
         return np.array(scds_of_tails).mean()
+
+    #@staticmethod
+    def calc_orientation(self, mda_uni, resid, neib_resid):
+        ''' Calculate the orientation angle of sterol molecule with its neighbors '''
+        
+        resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
+        
+        resn = self.resid_to_lipid[resid]
+
+        C8_sterol = resinfo.atoms.select_atoms("name {}".format(lipidmolecules.head_atoms_of(resn)[7])).positions
+        C10_sterol = resinfo.atoms.select_atoms("name {}".format(lipidmolecules.head_atoms_of(resn)[6])).positions
+        C13_sterol = resinfo.atoms.select_atoms("name {}".format(lipidmolecules.head_atoms_of(resn)[8])).positions
+        
+        v1 = np.subtract(C10_sterol,C8_sterol)
+        v2 = np.subtract(C10_sterol,C13_sterol)
+        v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
+        
+        neib_resn = self.resid_to_lipid[neib_resid]
+        
+        if neib_resn in lipidmolecules.STEROLS:
+
+            C10_neib_sterol = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[6])).positions
+            a = np.subtract(C10_sterol,C10_neib_sterol)
+            
+        else:
+            P_lip = mda_uni.select_atoms("resid {} and name P".format(neib_resid)).positions
+            a = np.subtract(C10_sterol,P_lip)
+
+        orient_angle = np.arccos(np.dot(a[0], v3[0])/(np.linalg.norm(a)*np.linalg.norm(v3))) * (180/np.pi)
+        orient_flag = 0
+        
+        if orient_angle < 90:
+            orient_flag += 1
+        
+        LOGGER.debug("Res:  %s -- neib_resid: %s with orientation of %s", resid, neib_resid, orient_angle)
+        return orient_flag
 
 def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv"):
     ''' End to end vector of each tail, average vector is substracted depending on include_neighbors variable
@@ -184,3 +249,4 @@ def angle_to_axis(vec: np.array, axis=np.array([0,0,1])) -> float:
         Returns angle in degree
     '''
     return np.arccos(np.dot(vec, axis)/np.linalg.norm(vec)) * (180/np.pi)
+

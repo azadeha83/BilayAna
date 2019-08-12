@@ -50,3 +50,18 @@ def read_neighborinput(neighborfile):
             neighbors = cols[3]
             neighbors_of_host.update({(time, host):neighbors})
     return neighbors_of_host, hosts_without_neib
+
+def read_orientationinput(orientationfile):
+    orientation_data = {}
+    with open(orientationfile, "r") as ofile:
+        ofile.readline()
+        for line in ofile:
+            cols = line.split()
+            time = float(cols[0])
+            host = int(cols[1])
+            neib = int(cols[3])
+            orientation = int(cols[5])
+            orientation_data.update({(time, host, neib):orientation})
+            #print(orientation_data)
+    return orientation_data
+
