@@ -88,7 +88,6 @@ class Energy(SysInfo):
         for res in resids:
             LOGGER.info('Working on lipid %s ...', res)
             all_neibs_of_res = list(set([neibs for t in self.neiblist[res].keys() for neibs in self.neiblist[res][t]]))
-            print(all_neibs_of_res)
             nneibs = len(all_neibs_of_res)
             if nneibs % self.denominator == 0:
                 number_of_groupfragments = (nneibs//self.denominator)
@@ -152,7 +151,6 @@ class Energy(SysInfo):
                 xvg_out = ''.join([self.energypath, 'xvgtables/energies_residue', str(resid), '_selfinteraction', self.part, '.xvg'])
                 with open(xvg_out,"r") as xvgfile:
                     res_to_row = {}
-
                     for energyline in xvgfile: #folderlayout is: time Coul_resHost_resNeib LJ_resHost_resNeib ...
                         energyline_cols = energyline.split()
 
