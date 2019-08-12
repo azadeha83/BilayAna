@@ -106,7 +106,7 @@ class EofScd(Neighbors):
                   .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",
                             "Interaction", "DeltaScd", "AvgScd",
                             "Etot", "Evdw",
-                            "Ecoul", "Ntot", "orientation_host", "orientation_neib")\
+                            "Ecoul", "Ntot", "orient_host", "orient_neib")\
                             + (len(components)*'{: <10}').format(*components),
                   file=outf)
 
@@ -158,9 +158,9 @@ class EofScd(Neighbors):
                 interactiontype = cols[3]
 
                 # Get orientation data
-                if type_pair[0] or type_pair[1] == '':
-                    orientation_host = timetoorientation[(time, host, neib)]
-                    print(orientation_host)
+                #if type_pair[0] or type_pair[1] == '':
+                orientation_host = timetoorientation[(time, host, neib)]
+                print(orientation_host)
 
                 # Get number of neighbors of type
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
