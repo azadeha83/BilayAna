@@ -249,4 +249,3 @@ def angle_to_axis(vec: np.array, axis=np.array([0,0,1])) -> float:
         Returns angle in degree
     '''
     return np.arccos(np.dot(vec, axis)/np.linalg.norm(vec)) * (180/np.pi)
-
