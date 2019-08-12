@@ -23,12 +23,13 @@ class EofScd(Neighbors):
             head-tailhalfs: Interaction energy where a distinction of the upper and lower part of the lipid chains is made
             carbons:        Interaction energy between the different carbon atoms of lipids. (A lot of data is produced here)
     '''
-    def __init__(self, part, inputfilename="inputfile", energyfilename="all_energies.dat", scdfilename="scd_distribution.dat"):
+    def __init__(self, part, outputfile_tag='', inputfilename="inputfile", energyfilename="all_energies.dat", scdfilename="scd_distribution.dat"):
         super().__init__(inputfilename)
         self.energyfilename = energyfilename
         self.scdfilename = scdfilename
         self.neiblist = neighbors.get_neighbor_dict()
         self.components = self.molecules
+        self.outputfile_tag = outputfile_tag
         self.part = part
 
         # Define names for different interaction groups
@@ -80,9 +81,9 @@ class EofScd(Neighbors):
             components += ["CHL1_neib"]
             components += ['CHL1_both']
         if energyfile == 'all_energies.dat':
-            outname = ''.join(['Eofscd', lipidpair, self.part, '.dat'])
+            outname = ''.join(['Eofscd', lipidpair, self.part, self.outputfile_tag, '.dat'])
         else:
-            outname = ''.join(['Eofscd', lipidpair, self.part, '.dat'])
+            outname = ''.join(['Eofscd', lipidpair, self.part, self.outputfile_tag, '.dat'])
         LOGGER.debug("Will write to: %s", outname)
         LOGGER.debug("Opening energyfile: %s", energyfile )
         with open(energyfile, "r") as efile, open(outname, "w") as outf:
@@ -104,10 +105,10 @@ class EofScd(Neighbors):
                     continue
                 time = float(cols[0])
                 if time > self.t_end:
-                    LOGGER.warning("Maybe did not use whole trajectory (%s vs %s)",
+                    LOGGER.warning("Maybe did not use whole trajectory ( %s (real) vs %s (used) )",
                         endtime, self.t_end
                         )
-                    break
+                    continue
                 if time < float(self.t_start) or time % self.dt != 0:
                     continue
                 elif time > float(endtime):
