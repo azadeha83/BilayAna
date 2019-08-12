@@ -1,3 +1,8 @@
+'''
+ This file is executed when bilana is started from command line
+    Use as
+        python -m bilana <mode> -f ... -T ... -J ... -...
+'''
 import sys
 import argparse
 from . import log
@@ -35,7 +40,7 @@ PARSER.add_argument('--debug', action="store_true", help="Sets logger to debug m
 PARSER.add_argument('--dryrun', action="store_true", help="If set, jobscripts are not submitted.")
 
 # Arbitrary flags
-PARSER.add_argument('--arbitrary', nargs='*', help="Store kwargs that is not yet listed in other arguments. Input like key:val")
+PARSER.add_argument('--arbitrary', nargs='*', help="Store kwargs that is not yet listed in other arguments. Input like key:val. Beware: The args might not be used.")
 
 ARGS = PARSER.parse_args()
 
