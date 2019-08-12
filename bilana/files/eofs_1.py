@@ -159,11 +159,16 @@ class EofScd(Neighbors):
 
                 # Get orientation data
                 #if type_pair[0] or type_pair[1] == '':
+                for n in neighbors:
+                    
+
                 orientation_host = timetoorientation[(time, host, neib)]
                 print(orientation_host)
 
                 # Get number of neighbors of type
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
+                host_neib = 
+                res_neib = 
                 print('pair_neibs=',pair_neibs)
                 ntot = len(pair_neibs)
                 neib_comp_list = []

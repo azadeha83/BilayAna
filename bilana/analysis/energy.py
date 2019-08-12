@@ -2,9 +2,10 @@
     This module stores all functions that are needed to calculate the interaction energy of lipids or its parts
 '''
 import os
+import subprocess
 from . import neighbors
 from .. import log
-from ..common import exec_gromacs, GMXNAME
+from ..common import exec_gromacs, GMXNAME, write_submitfile
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
 
@@ -142,24 +143,27 @@ class Energy(SysInfo):
                   .format("Time", "Lipid",
                           "Etot", "VdWSR", "CoulSR", "VdW14", "Coul14", "VdWtot", "Coultot", ),
                   file=energyoutput)
+
             for resid in self.MOLRANGE:
                 xvg_out = ''.join([self.energypath, 'xvgtables/energies_residue', str(resid), '_selfinteraction', self.part, '.xvg'])
                 with open(xvg_out,"r") as xvgfile:
                     res_to_row = {}
+
                     for energyline in xvgfile: #folderlayout is: time Coul_resHost_resNeib LJ_resHost_resNeib ...
                         energyline_cols = energyline.split()
+
                         if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
-                            print(energyline_cols)
                             row = int(energyline_cols[1][1:])+1                 #time is at row 0 !
                             host = energyline_cols[3].split("resid_")[1][:-1]
                             energytype = energyline_cols[3].split(":")[0][1:]
                             #print("Host: {} Type: {} Row: {}".format(host, energytype, row))
                             res_to_row.update({(energytype, host):row})
+
                         elif '@' not in energyline and '#' not in energyline:     #pick correct energies from energyfile and print
                             time = float(energyline_cols[0])
-                            #print("TIME", time)
                             if time % self.dt != 0:
                                 continue
+
                             try:
                                 vdw_sr = energyline_cols[res_to_row[('LJ-SR', str(host))]]
                                 vdw_14 = energyline_cols[res_to_row[('LJ-14', str(host))]]
@@ -169,6 +173,7 @@ class Energy(SysInfo):
                                 coul_tot = float(coul_14) + float(coul_sr)
                             except KeyError:
                                 continue
+
                             Etot = float(vdw_sr)+float(coul_sr)+float(vdw_14)+float(coul_14)
                             print(
                                   '{: <10}{: <10}{: <20.5f}'
@@ -201,21 +206,28 @@ class Energy(SysInfo):
         energyselection=[]
         for interaction in Etypes:
             counterhost = 0 #for cholesterol as it has just 1 molpart
+
             for parthost in self.molparts:
+
+                # If lipid is a sterol take just one part, --> counterhost=0 -> write | counter>0 -> skip
                 if self.resid_to_lipid[res] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterhost == 0:
                     parthost="resid_"
                     counterhost += 1
-                elif self.resid_to_lipid[res] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterhost != 0:
+                elif self.resid_to_lipid[res] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterhost > 0:
                     continue
+
                 for neib in all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]:
                     counterneib = 0
+
                     for partneib in self.molparts:
                         if self.resid_to_lipid[neib] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterneib == 0:
                             partneib='resid_'
                             counterneib+=1
-                        elif self.resid_to_lipid[neib] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterneib != 0:
+                        elif self.resid_to_lipid[neib] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterneib > 0:
                             continue
+
                         energyselection.append(''.join([interaction, parthost, str(res), "-", partneib,str(neib)]))
+
         all_relev_energies = '\n'.join(energyselection+['\n'])
         return all_relev_energies
 
@@ -271,9 +283,6 @@ class Energy(SysInfo):
             refcoord_scaling        = com
             '''.split('\n')]
             raw_mdp.append('ref_t = '+str(self.temperature))
-            #mdp_raw_content = mdpfile_raw.readlines()
-            #if not mdp_raw_content:
-            #    raise EOFError(".mdp-file is empty")
             energygrpline = ''.join(['energygrps\t\t\t=', energygroups, '\n'])
             raw_mdp.append(energygrpline)
             mdpfile_rerun.write('\n'.join(raw_mdp)+'\n')
@@ -297,7 +306,7 @@ class Energy(SysInfo):
         os.makedirs(self.energypath+'logfiles', exist_ok=True)
         logoutput_file = self.energypath+'logfiles/'+'mdrerun_resid'+str(res)+self.part+'frag'+groupfragment+'.log'
         trajout = 'EMPTY.trr' # As specified in mdpfile, !NO! .trr-file should be written
-        mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in,'-rerun', self.trjpath,
+        mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath,
                         '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
                         ]
         out, err = exec_gromacs(mdrun_arglist)
@@ -308,8 +317,8 @@ class Energy(SysInfo):
     def write_XVG(self, energyf_in, tprrerun_in, all_relev_energies, xvg_out):
         ''' Create XVG-TABLE with all relevant energies '''
         os.makedirs(self.energypath+'xvgtables', exist_ok=True)
-        g_energy_arglist=[GMXNAME,'energy','-f',energyf_in,\
-                          '-s', tprrerun_in,'-o', xvg_out,\
+        g_energy_arglist=[GMXNAME, 'energy', '-f', energyf_in,
+                          '-s', tprrerun_in,'-o', xvg_out,
                           ]
         inp_str=all_relev_energies.encode()
         out, err = exec_gromacs(g_energy_arglist, inp_str)
@@ -329,65 +338,83 @@ class Energy(SysInfo):
                   .format("Time", "Host", "Neighbor", "Molparts",\
                                            "VdW", "Coul", "Etot"),\
                   file=energyoutput)
+
             for resid in self.MOLRANGE:
                 LOGGER.info("Working on residue %s", resid)
-                residtype = self.resid_to_lipid[resid]
+
+                # Get neighborhood of resid
+                residtype        = self.resid_to_lipid[resid]
                 all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
-                n_neibs = len(all_neibs_of_res)
+                n_neibs          = len(all_neibs_of_res)
                 LOGGER.debug("All neibs of res %s are %s", resid, all_neibs_of_res)
+
+                # Get number of fragments (how many runs per residue)
                 if n_neibs % self.denominator == 0:
                     number_of_groupfragments = (n_neibs//self.denominator)
                 else:
                     number_of_groupfragments = (n_neibs//self.denominator)+1
                 LOGGER.info("Nneibs: %s Nfrags: %s", n_neibs, number_of_groupfragments)
+
                 processed_neibs = []
                 for part in range(number_of_groupfragments):
                     LOGGER.debug("At part %s", part)
                     xvgfilename = self.energypath+'xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
+
                     with open(xvgfilename,"r") as xvgfile:
                         res_to_row = {}
-                        for energyline in xvgfile: #folderlayout is: time Coul_resHost_resNeib LJ_resHost_resNeib ...
-                            energyline_cols = energyline.split()
-                            if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
 
-                                row = int(energyline_cols[1][1:])+1                 #time is at row 0 !
-                                #neib = REGEX_RESID.match(energyline_cols[3].split("resid_")[2][:-1]).groups()[0]
-                                #host = REGEX_RESID.match(energyline_cols[3].split("resid_")[1][:-1]).groups()[0]
+                        for energyline in xvgfile: #folderlayout is: <time> <Coul_resHost_resNeib> <LJ_resHost_resNeib> ...
+                            energyline_cols = energyline.split()
+
+                            if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
+                                row  = int(energyline_cols[1][1:])+1                 #time is at row 0 !
                                 neib = energyline_cols[3].split("resid_")[2][:-1]
                                 host = energyline_cols[3].split("resid_")[1][:-1]
                                 energytype = energyline_cols[3].split("-")[0][1:]
                                 LOGGER.debug("Hostid: %s, Neibid: %s", host, neib)
+
                                 if energytype == 'LJ':
                                     processed_neibs.append(neib)
-                                    #processed_neibs.append(int(neib))
                                     LOGGER.debug("Adding neib %s to processed", neib)
+
                                 res_to_row.update({(energytype, host, neib):row})
                                 LOGGER.debug("Adding to dict: Etype %s, host %s, neib %s", energytype, host, neib)
-                            elif '@' not in energyline and '#' not in energyline:     #pick correct energies from energyfile and print
+
+                            elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
                                 time = float(energyline_cols[0])
                                 if time % self.dt != 0:
                                     continue
+
                                 for neib in all_neibs_of_res:
-                                    # This if statement is due to a broken simulation... In future it should be removed
+                                    # This if clause is due to a broken simulation... In future it should be removed
                                     if self.system == 'dppc_dupc_chol25' and ((int(host) == 372 and neib == 242) or (int(host) == 242 and neib == 372)):
                                         continue
+
                                     neibtype = self.resid_to_lipid[neib]
                                     counterhost = 0
                                     for parthost in self.molparts:
                                         parthost = parthost[6:]
+
+                                        # This if clause is added because we did not separate sterols into different parts
+                                        # if counterhost=0 -> do, else: skip
                                         if residtype == 'CHL1' and counterhost == 0:
                                             parthost = ''
                                             counterhost += 1
                                         elif residtype == 'CHL1' and counterhost != 0:
                                             continue
+
                                         counterneib = 0
                                         for partneib in self.molparts:
                                             partneib = partneib[6:]
+
+                                            # Same as for host
                                             if neibtype == 'CHL1' and counterneib == 0:
                                                 partneib = ''
                                                 counterneib += 1
                                             elif neibtype == 'CHL1' and counterneib != 0:
                                                 continue
+
+                                            # if partstring is empty take whole lipid
                                             if parthost[:-1] == '':
                                                 interhost = 'w'
                                             else:
@@ -397,30 +424,34 @@ class Energy(SysInfo):
                                             else:
                                                 interneib = partneib[:-1]
                                             inter = ''.join([interhost, '_', interneib])
-                                            #print(('LJ', parthost+str(resid), partneib+str(neib)))
+
+                                            # Get energies from dict energyline_cols
                                             try:
                                                 vdw = energyline_cols[res_to_row[('LJ', parthost+str(resid), partneib+str(neib))]]
                                                 coul = energyline_cols[res_to_row[('Coul', parthost+str(resid), partneib+str(neib))]]
                                             except KeyError:
-                                                #logger.debug("Couldnt find: %s, %s, ", parthost+str(resid), partneib+str(neib))
                                                 continue
+
                                             Etot = float(vdw)+float(coul)
-                                            #logger.debug("The output: host %s, neib %s, inter %s,", host, neib, inter)
                                             print(\
                                                   '{: <10}{: <10}{: <10}{: <20}'
                                                   '{: <20}{: <20}{: <20.5f}'
                                                   .format(time, resid, neib, inter,\
                                                                             vdw, coul, Etot),\
                                                   file=energyoutput)
+
                 if LOGGER.level == 'DEBUG':
                     import collections
                     duplicates = [(item, count) for item, count in collections.Counter(processed_neibs).items() if count > 1]
                     LOGGER.debug(duplicates)
+
                 if len(self.molparts) >1:
                     all_neibs_of_res = [part.replace("resid_", "")+str(entry) for entry in all_neibs_of_res for part in self.molparts] # Duplicating entries for each molpart
                     all_neibs_of_res = [entry for entry in all_neibs_of_res for _ in range(len(self.molparts))] # Duplicating entries for each molpart
                 LOGGER.debug("All_neibs corrected %s", all_neibs_of_res)
                 LOGGER.debug("Processed neibs: %s", processed_neibs)
+
+                # Check wether all pairs have been found
                 for pneib in processed_neibs:
                     LOGGER.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
                     all_neibs_of_res.remove(int(pneib))
@@ -428,23 +459,77 @@ class Energy(SysInfo):
                     LOGGER.warning("Missing neighbour-ids: %s", all_neibs_of_res)
                     raise ValueError('Not all neighbours found in xvgfile')
 
-    def check_exist_xvgs(self):
-        ''' Checks if all .xvg-files containing lipid interaction exist '''
-        all_okay = True
-        with open("missing_xvgfiles.info", "w") as inffile:
-            print("#Files missing", file=inffile)
-            for resid in self.MOLRANGE:
-                all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
-                n_neibs = len(all_neibs_of_res)
-                if n_neibs % self.denominator == 0:
-                    number_of_groupfragments = (n_neibs//self.denominator)
+    def check_exist_xvgs(self, check_len=False):
+        ''' Checks if all .xvg-files containing lipid interaction exist
+
+            check_len can be set to simulation length and all .xvg files that differ from that length are included to missing_xvgfile.info
+        '''
+        def read_lastline_only(fname):
+            ''' Reads last line of file without loop. Attention: Crashes if file is empty'''
+            LOGGER.debug("Reading %s", fname)
+            with open(fname, "rb") as f:
+                LOGGER.debug("Opened %s", f)
+                f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
+                while f.read(1) != b"\n":   # Until EOL is found...
+                    f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
+                last = f.readline()         # Read last line.
+            return last
+
+        missing_files = []
+
+        for resid in self.MOLRANGE:
+            all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
+            n_neibs = len(all_neibs_of_res)
+
+            if n_neibs % self.denominator == 0:
+                number_of_groupfragments = (n_neibs//self.denominator)
+            else:
+                number_of_groupfragments = (n_neibs//self.denominator)+1
+
+            for part in range(number_of_groupfragments):
+                xvgfilename = self.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
+
+                if not os.path.isfile(xvgfilename):
+                    # Check wether file exists
+                    missing_files.append(xvgfilename)
+
+                elif os.stat(xvgfilename).st_size == 0:
+                    # Check wether file is empty
+                    missing_files.append(xvgfilename)
+
+                elif check_len:
+                    # Check wether whole trajectory was used
+                    line = read_lastline_only(xvgfilename)
+                    time = float(line.decode().split()[0])
+                    if time != check_len:
+                        missing_files.append(xvgfilename)
+
+        if missing_files:
+            resubmitted_residues = [] # Need this list, because can only resubmit all files(/fragment) for residue
+            for fname in missing_files:
+                res = int(fname.split("/")[-1].replace("energies_residue", "").split("_")[0])
+                if res not in resubmitted_residues:
+
+                    jobfilename = "en{}.py".format(res)
+                    jobname = "{}_{}_res{}".format(self.system, self.temperature, res)
+                    with open(jobfilename, "w") as sf:
+                        print('import os, sys'
+                            '\nfrom bilana.analysis.energy import Energy'
+                            '\nenergy_instance = Energy("complete", overwrite="True", inputfilename="inputfile", neighborfilename="neighbor_info")'
+                            '\nenergy_instance.info()'
+                            '\nenergy_instance.run_calculation(resids=[{}])'
+                            '\nos.remove(sys.argv[0])'.format(res), file=sf)
+
+                    write_submitfile('submit.sh', jobname, mem='8G')
+                    cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
+                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    out, err = proc.communicate()
+                    print(out.decode(), err.decode())
+
+                    resubmitted_residues.append(res)
+
                 else:
-                    number_of_groupfragments = (n_neibs//self.denominator)+1
-                for part in range(number_of_groupfragments):
-                    xvgfilename = self.energypath+'/xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
-                    if not os.path.isfile(xvgfilename):
-                        print(xvgfilename, file=inffile)
-                        all_okay = False
-        if not all_okay:
-            LOGGER.warning('THERE ARE FILES MISSING')
-        return all_okay
+                    continue
+
+            return False
+        return True
