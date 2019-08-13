@@ -102,3 +102,23 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
               '\n#SBATCH --mem={mem}'
               '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
               '\nsrun $@'.format(**locals()), file=sfile)
+
+
+def make_movie_from_images(moviename, picture_name, framerate=40):
+    ''' Create an .mpg movie from picture files
+        <picture_name> must be a string describing the name of the pictures
+        example:  %02d_voro.png  for pictures like 01_voro.png 02_voro.png ...
+
+    '''
+    cmd = ["ffmpeg", "-framerate", framerate,
+    "-i", picture_name,
+    "-c:v", "mpeg2video",
+    "-pix_fmt", "yuv420p",
+    moviename]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    proc.wait()
+    proc.stdout.close()
+    proc.stderr.close()
+    print(out.decode())
+    print(err.decode())
