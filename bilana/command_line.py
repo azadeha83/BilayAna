@@ -118,6 +118,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     energyfilename="all_energies.dat",
     scdfilename="scd_distribution.dat",
+    orientationfilename="orientationfilename.dat",
     dry=False,
     **kwargs,):
     ''' Check if all energy files exist and write table with all energies '''
@@ -139,9 +140,9 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nenergy_instance.info()'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    energy_instance.write_energyfile()'
-            '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
+            '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}", orientationfilename="{6}")'
             '\n    eofs.create_eofscdfile()'.format(lipidpart, overwrite,
-                inputfilename, neighborfilename, energyfilename, scdfilename),
+                inputfilename, neighborfilename, energyfilename, scdfilename, orientationfilename),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem='16G')
