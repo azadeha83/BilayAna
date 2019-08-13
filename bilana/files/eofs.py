@@ -158,12 +158,11 @@ class EofScd(Neighbors):
                 VDW  = float(cols[4])
                 interactiontype = cols[3]
 
-                # Get orientation data
-                #if type_pair[0] or type_pair[1] == '':
+                # Get orientation data                
+                # This part looks for all the sterol molecules in the neighbors of the host and neib (pair) and check if they are facing to them
                 n_sterol_facing_host = 0
                 n_sterol_notfacing_host = 0
                 
-                # This part looks for all the sterol molecules in the neighbors of the host and neib (pair) and check if they are facing to them
                 for n in list(set(neighbors)-set([neib])):
                     if self.resid_to_lipid[n] in lipidmolecules.STEROLS:                        
                         orientation_neibtohost = timetoorientation[(time, n, host)]
