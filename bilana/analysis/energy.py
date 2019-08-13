@@ -515,10 +515,10 @@ class Energy(SysInfo):
                     with open(jobfilename, "w") as sf:
                         print('import os, sys'
                             '\nfrom bilana.analysis.energy import Energy'
-                            '\nenergy_instance = Energy("complete", overwrite="True", inputfilename="inputfile", neighborfilename="neighbor_info")'
+                            '\nenergy_instance = Energy({}, overwrite="True", inputfilename="inputfile", neighborfilename="neighbor_info")'
                             '\nenergy_instance.info()'
                             '\nenergy_instance.run_calculation(resids=[{}])'
-                            '\nos.remove(sys.argv[0])'.format(res), file=sf)
+                            '\nos.remove(sys.argv[0])'.format(self.part, res), file=sf)
 
                     write_submitfile('submit.sh', jobname, mem='8G')
                     cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
