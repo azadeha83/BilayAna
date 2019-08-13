@@ -7,13 +7,13 @@ from multiprocessing import Pool
 
 GMXNAME = "/usr/bin/gmx"
 
-def loop_to_pool(func, datarray, mode="map"):
-    ''' '''
+def loop_to_pool(func, inp):
+    ''' Map inparray to func, if inp is iterable use pool.starmap '''
     with Pool(len(os.sched_getaffinity(0))) as pool:
-        if mode == "map":
-            data_outputs = pool.map(func, datarray)
-        elif mode == "starmap":
-            data_outputs = pool.starmap(func, datarray)
+        if isinstance(inp, tuple) or isinstance(inp, list):
+            data_outputs = pool.starmap(func, inp)
+        else:
+            data_outputs = pool.map(func, inp)
     pool.join()
     return data_outputs
 

@@ -47,38 +47,53 @@ class Neighbors(SysInfo):
 
     def _determine_neighbors_2d(self, refatoms="name P O3", mode="atom", outputfilename="neighbor_info", _2D=True, **kwargs):
         ''' Creates neighbor_info file based on 2d distances (xy plane) '''
+
+
         traj_len = len(self.universe.trajectory)
+        inpargs = []
+        LOGGER.info("Collect inpargs")
+        for t in range(traj_len):
+            time = self.universe.trajectory[t].time
+            if self.t_end < time or self.t_start > time:
+                continue
+
+            refatomgrp = self.universe.select_atoms(refatoms)
+            leaflets = self.get_ref_postions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
+
+            for all_coords_per_leaflet in leaflets:
+
+                if _2D:
+                    for i in range(len(all_coords_per_leaflet)): # Make it "2D"
+                        all_coords_per_leaflet[i][1][2] = 0      # By setting z values to 0
+
+                for hostid, host_pos in all_coords_per_leaflet:
+                    inpargs.append((hostid, host_pos, time, all_coords_per_leaflet, self.universe.dimensions, self.cutoff))
+
+        LOGGER.info("Sending jobs to pool")
+        outp = loop_to_pool(self._get_outp_line, inpargs)
+        outp.sort()
+        LOGGER.info("Write output file")
         with open(outputfilename, "w") as outf:
             print("{: <20}{: <20}{: <20}{: <20}".format("Resid", "Time", "Number_of_neighbors", "List_of_Neighbors"), file=outf)
-            for t in range(traj_len):
-                time = self.universe.trajectory[t].time
-                if self.t_end < time or self.t_start > time:
-                    continue
-                LOGGER.info("Time %s", time)
-                refatomgrp = self.universe.select_atoms(refatoms)
-                leaflets = self.get_ref_postions(mode, refatomgrp)
-                for leaf in leaflets:
+            for line in outp:
+                print("{: <20}{: <20}{: <20}{: <20}".format(*line), file=outf)
 
-                    if _2D:
-                        for i in range(len(leaf)): # Make it "2D"
-                            leaf[i][1][2] = 0
-                    leafoutput = {}
+    @staticmethod
+    def _get_outp_line(hostid, host_pos, time, all_coords_per_leaflet, boxdim, cutoff):
+        ''' Looks for all neighbors of hostid with host_pos within cutoff '''
+        position_array =  np.array([pos_neib for resid_neib, pos_neib in all_coords_per_leaflet]) # Get all positions in leaflet selection
+        dist_array = mda.lib.distances.distance_array(host_pos, position_array, box=boxdim)[0] # output is [ [[dist1], [dist2], ...] ]
 
-                    for res, coord in leaf:
-                        res += 1
-                        neiblist  = []
-                        if res in leafoutput.keys():
-                            neiblist = leafoutput[res]
+        neiblist = []
+        for resndx, distance in enumerate(dist_array):
+            if distance <= cutoff*10:
+                neiblist.append(all_coords_per_leaflet[resndx][0])
 
-                        pos_array = mda.lib.distances.distance_array(coord, np.array([j for i, j in leaf]), box=self.universe.dimensions)
-                        neiblist_tmp = [leaf[i][0]+1 for i,j in enumerate(pos_array[0]) if j <= self.cutoff*10]
-                        neiblist += [str(n) for n in neiblist_tmp if n != res]
-                        neiblist = list(set(neiblist))
-                        leafoutput[res] = neiblist
-
-                    for res, neiblist in leafoutput.items():
-                        n_neibs = len(neiblist)
-                        print("{: <20}{: <20}{: <20}{: <20}".format(res, time, n_neibs, ','.join(neiblist)), file=outf)
+        neiblist.sort()
+        neiblist = [ str(n) for n in neiblist if n != hostid ] # delete host entry
+        neiblist = list(set(neiblist)) # delete duplicates
+        n_neibs = len(neiblist)
+        return (hostid, time, n_neibs, ','.join(str(i) for i in neiblist))
 
     def get_ref_postions(self, mode, refatomgrp):
         ''' Possible modes atom, center, tails'''
@@ -87,26 +102,17 @@ class Neighbors(SysInfo):
             if len(refatomgrp.resids) != len(set(refatomgrp.resids)):
                 raise ValueError("Refatoms string leads to more than one entry per molecule")
             center = refatomgrp.center_of_mass()
-            leaf1 = [(resid, pos) for resid, pos  in enumerate(refatomgrp.positions) if pos[2] >= center[2]]
-            leaf2 = [(resid, pos) for resid, pos  in enumerate(refatomgrp.positions) if pos[2] <  center[2]]
-        elif mode == "center":
-            center = refatomgrp.center_of_mass()
-            positions = []
-            for res in refatomgrp.residues:
-                pos = res.atoms.center_of_mass()
-                positions.append(pos)
-            leaf1 = [(resid, pos) for resid, pos  in enumerate(positions) if pos[2] >= center[2]]
-            leaf2 = [(resid, pos) for resid, pos  in enumerate(positions) if pos[2] <  center[2]]
-        elif mode == "tails":
+            leaf1 = [(resid, pos) for resid, pos  in zip(refatomgrp.resids, refatomgrp.positions) if pos[2] >= center[2]]
+            leaf2 = [(resid, pos) for resid, pos  in zip(refatomgrp.resids, refatomgrp.positions) if pos[2] <  center[2]]
+        elif mode == "tails_C8":
             center = refatomgrp.center_of_mass()
             positions = []
             reslist = []
-            for atm in refatomgrp.atoms:
-                resid = atm.resid - 1
-                positions.append((resid, atm.position))
-                reslist.append(resid)
-            leaf1 = [(resid, pos) for resid, pos  in positions if pos[2] >= center[2]]
-            leaf2 = [(resid, pos) for resid, pos  in positions if pos[2] <  center[2]]
+            center = refatomgrp.center_of_mass()
+            leaf1 = {}
+            #leaf1 = [(resid, pos) for resid, pos  in zip(refatomgrp.positions) if pos[2] >= center[2]]
+            #leaf2 = [(resid, pos) for resid, pos  in zip(refatomgrp.positions) if pos[2] <  center[2]]
+
         else:
             raise ValueError("Invalid mode, choose one of {}".format(modes))
         return (leaf1, leaf2)
