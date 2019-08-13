@@ -97,7 +97,9 @@ def calc_scd(systemname, temperature, jobname, *args,
     with open(scriptfilename, 'w') as scriptf:
         print(
             'import os, sys'
-            '\nfrom bilana.analysis.order import Order'
+            '\nfrom bilana.systeminfo import SysInfo'
+            '\nfrom bilana.analysis.order import Order, calc_tilt'
+            '\ncalc_tilt(SysInfo())'
             '\nOrder(inputfilename="{0}").create_orderfile()'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
