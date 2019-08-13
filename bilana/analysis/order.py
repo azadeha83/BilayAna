@@ -27,6 +27,7 @@ class Order(Neighbors):
         super().__init__(inputfilename)
         self.atomlist = lipidmolecules.scd_tail_atoms_of
         self.components = self.molecules
+        self.neiblist = neighbors.get_neighbor_dict()
 
     def create_orderfile(self, mode="CC", outputfile='scd_distribution.dat', with_tilt_correction="tilt.csv"):
         '''
@@ -36,54 +37,63 @@ class Order(Neighbors):
 
             if with tilt_correction avg tilt angle per time is read from name given in variable
         '''
+
         if with_tilt_correction:
             try:
                 dat = pd.read_csv(with_tilt_correction)
             except FileNotFoundError:
+                LOGGER.info("Could not find tilt file. Creating new one.")
                 calc_tilt(self)
                 dat = pd.read_csv(with_tilt_correction)
+
         if mode == "CC":
             calc_s = self.scc_of_res
         else:
             raise ValueError("Mode not yet implement use mode=CC (default)")
+
         with open(outputfile, "w") as scdfile:
             components = self.molecules
-            print("{: <12}{: <10}{: <7}{: <15}".format("Time", "Residue", "Type", "Scd")\
+            print("{: <12}{: <10}{: <10}{: <7}{: <15}".format("Time", "Residue", "leaflet", "Type", "Scd")\
                 + (len(components)*'{: ^7}').format(*components),
                 file=scdfile)
+
             len_traj = len(self.universe.trajectory)
             for t in range(len_traj):
                 time = self.universe.trajectory[t].time
                 if time % self.dt != 0 or self.t_start > time or self.t_end < time:
                     continue
                 LOGGER.info("At time %s", time)
+
                 for res in self.MOLRANGE:
                     LOGGER.debug("At time %s and residue %s", time, res)
                     resname = self.resid_to_lipid[res]
+                    leaflet = self.res_to_leaflet[res]
                     LOGGER.debug("resname %s", resname)
+
                     if resname[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
                         and resname not in lipidmolecules.STEROLS\
                         and resname not in lipidmolecules.PROTEINS:
                         LOGGER.debug("Skipping")
                         continue
-                    leaflet = self.res_to_leaflet[res]
+
                     if with_tilt_correction:
-                        ang_corr = np.array(dat.loc[(dat.time == time) & (dat.leaflet == leaflet)][["x", "y", "z"]])[0]
-                        LOGGER.debug("Corrected angle %s", ang_corr)
+                        new_axis = np.array(dat.loc[(dat.time == time) & (dat.leaflet == leaflet)][["x", "y", "z"]])[0]
+                        LOGGER.debug("Corrected angle %s", new_axis)
                     else:
-                        ang_corr = None
-                    scd_value = calc_s(self.universe, res, tilt_correction=ang_corr)
+                        new_axis = None
+
                     neibs = self.neiblist[res][float(time)]
                     neib_comp_list = []
-                    LOGGER.debug("Calculated order: %s", scd_value)
                     for lip in self.components:
                         ncomp = [self.resid_to_lipid[N] for N in neibs].count(lip)
                         neib_comp_list.append(ncomp)
-                    print("{: <12.2f}{: <10}{: <7}{: <15.8}".format(
-                        time, res, resname, scd_value)\
+
+                    scd_value = calc_s(self.universe, res, tilt_correction=new_axis)
+                    LOGGER.debug("Calculated order: %s", scd_value)
+                    print("{: <12.2f}{: <10}{: <10}{: <7}{: <15.8}".format(
+                        time, res, leaflet, resname, scd_value)\
                         + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
                         file=scdfile)
-
 
     @staticmethod
     def scc_of_res(mda_uni, resid, tilt_correction=None):
@@ -91,25 +101,27 @@ class Order(Neighbors):
         resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
         resname = list(set(resinfo.resnames))
 
-        if tilt_correction is None:
-            tilt_correction = [0, 0, 1] # Use z-axis
-
-        if len(resname) > 1:
+        if len(resname) > 1: ## This can happen if resids occur multiple times in .gro file
             raise ValueError("Atomselection resulted in selection of multiple residues")
         else:
             resname = resname[0]
-
         tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+
+        if tilt_correction is None:
+            tilt_correction = [0, 0, 1] # Use z-axis
+
         scds_of_tails = []
         for tail in tailatms:
+
+            scds_of_atoms = []
             for atomindex in range(len(tail)-1):
                 atm1, atm2 = tail[atomindex], tail[atomindex+1]
                 coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
                 diffvector = np.subtract(*coords12)
                 diffvector /= np.linalg.norm(diffvector)
-
                 cos_angle = np.dot(diffvector, tilt_correction)
                 scds_of_atoms += [0.5 * (3 * cos_angle**2 - 1)]
+
             scds_of_tails += [np.array(scds_of_atoms).mean()]
 
         LOGGER.debug("Res:  %s -- Scc of atoms: %s and of tails %s", resid, scds_of_atoms, scds_of_tails)
