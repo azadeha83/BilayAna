@@ -139,13 +139,17 @@ class SysInfo():
 
     def info(self):
         ''' Print out information on system '''
+        outstr = []
         for key, val in self.system_info.items():
-            print("{: <25}{: <20}".format(key+':', val))
-        print('')
-        print('{: <25}{: <20}'.format('Total number of atoms:', self.system_size))
-        print('{: <25}{: <20}'.format('Number of lipids:', self.number_of_lipids))
-        print('{: <25}{: <20}'.format('Residue types found:', ' '.join(self.RESNAMES)))
-        print('\n')
+            outstr.append("{: <25}{: <20}\n".format(key+':', val))
+        outstr.append('\n')
+        outstr.append('{: <25}{: <20}\n'.format('Total number of atoms:', self.system_size))
+        outstr.append('{: <25}{: <20}\n'.format('Number of lipids:', self.number_of_lipids))
+        outstr.append('{: <25}{: <20}\n'.format('Residue types found:', ' '.join(self.RESNAMES)))
+        outstr.append('\n')
+        outstr = ''.join(outstr)
+        print(outstr)
+        return outstr
 
     def index_conversion_dict(self):
         ''' returns a dictionary for conversion
