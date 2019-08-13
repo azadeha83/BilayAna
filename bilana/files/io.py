@@ -25,12 +25,12 @@ def read_energyinput(energyfile):
 def read_scdinput(scdfile):
     timetoscd = {}
     with open(scdfile, "r") as sfile:
-        sfile.readline()
+        header = sfile.readline().split()
         for line in sfile:
             cols = line.split()
-            time = float(cols[0])
-            res = int(cols[1])
-            scd = float(cols[3])
+            time = float(cols[header.index("Time")])
+            res = int(cols[header.index("Residue")])
+            scd = float(cols[header.index("Scd")])
             timetoscd.update({(time, res):scd})
     return timetoscd, time
 
