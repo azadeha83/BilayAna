@@ -118,7 +118,6 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     energyfilename="all_energies.dat",
     scdfilename="scd_distribution.dat",
-    orientationfilename="orientationfilename.dat",
     dry=False,
     **kwargs,):
     ''' Check if all energy files exist and write table with all energies '''
@@ -136,13 +135,16 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nimport subprocess'
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
+            '\nfrom bilana.analysis.order import Order'
+            '\norder_inst = Order(inputfilename="{2}")'
+            '\norder_inst.create_orientationfile()'
             '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    energy_instance.write_energyfile()'
-            '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}", orientationfilename="{6}")'
+            '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
             '\n    eofs.create_eofscdfile()'.format(lipidpart, overwrite,
-                inputfilename, neighborfilename, energyfilename, scdfilename, orientationfilename),
+                inputfilename, neighborfilename, energyfilename, scdfilename),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem='16G')
@@ -156,6 +158,7 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
     neighborfilename="neighbor_info",
     energyfilename="all_energies.dat",
     scdfilename="scd_distribution.dat",
+    orientationfilename="orientation.dat",
     dry=False,
     **kwargs,):
     ''' Write eofscd file from table containing all interaction energies '''
@@ -168,13 +171,16 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
             'import os, sys'
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
+            '\nfrom bilana.analysis.order import Order'
+            '\norder_inst = Order(inputfilename="{1}")'
+            '\norder_inst.create_orientationfile()'
             '\nenergy_instance = Energy("{0}", inputfilename="{1}", neighborfilename="{2}")'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
-            '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
+            '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}", orientationfilename="{5}")'
             '\n    eofs.create_eofscdfile()'
             '\nelse:'
             '\n    raise ValueError("There are .edr files missing.")'
-            '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename,  scdfilename, energyfilename),
+            '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename,  scdfilename, energyfilename, orientationfilename),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem='16G', prio=True)

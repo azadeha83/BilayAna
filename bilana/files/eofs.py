@@ -87,10 +87,13 @@ class EofScd(Neighbors):
             components += ["CHL1_host"] # Chols that are neighbor to host
             components += ["CHL1_neib"] # Chols ... to neib
             components += ['CHL1_both'] # Chols ... to both
-
-        if (lipidpair.split('_')[0] in lipidmolecules.STEROLS) or (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
-            components += ['orient_flag']
-        print(components)
+        
+        #sterol_component = []
+        
+        #if (lipidpair.split('_')[0] in lipidmolecules.STEROLS) or (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
+        sterol_component = ['orient_flag']
+        print(sterol_component)
+        
         # Create Eofs output name
         if energyfile == 'all_energies.dat':
             outname = ''.join(['Eofscd', lipidpair, self.part, self.outputfile_tag, '.dat'])
@@ -105,13 +108,12 @@ class EofScd(Neighbors):
                   '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
                   '{: ^15}{: ^18}{: ^15}'\
                   '{: ^15}{: ^15}'\
-                  '{: ^15}{: ^10}'\
+                  '{: ^15}{: ^15}'\
                   .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",
                             "Interaction", "DeltaScd", "AvgScd",
                             "Etot", "Evdw",
                             "Ecoul", "Ntot")\
-                            + (len(components)*'{: <15}').format(*components) + '{: <15}{: <15}'.format("facing", "notfacing"),
-                  file=outf)
+                            + (len(components)*'{: <15}').format(*components) + '{: <15}{: <15}{: <15}'.format("Facing", "Notfacing", "Orient_flag"), file=outf)
 
             # Read all_energies file
             efile.readline()
@@ -162,7 +164,7 @@ class EofScd(Neighbors):
                 # This part looks for all the sterol molecules in the neighbors of the host and neib (pair) and check if they are facing to them
                 n_sterol_facing_host = 0
                 n_sterol_notfacing_host = 0
-                
+
                 for n in list(set(neighbors)-set([neib])):
                     if self.resid_to_lipid[n] in lipidmolecules.STEROLS:                        
                         orientation_neibtohost = timetoorientation[(time, n, host)]
@@ -209,6 +211,9 @@ class EofScd(Neighbors):
                     else:
                         orient_flag = 1
                 
+                sterol_comp_list = []
+                sterol_comp_list.append(orient_flag)
+
                 # Get number of neighbors of type
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
         
@@ -230,7 +235,7 @@ class EofScd(Neighbors):
                     shared_chol = [self.resid_to_lipid[N]\
                         for N in shared_neighbors].count('CHL1')
                     neib_comp_list.append(shared_chol)
-
+                
                 # Get order values
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
@@ -247,8 +252,8 @@ class EofScd(Neighbors):
                               interactiontype, delta_scd, avg_scd,
                               float(Etot), float(VDW),
                               float(COUL), ntot)\
-                      + (len(neib_comp_list)*'{: <15}').format(*neib_comp_list)+'{: <15}'.format(orient_flag)+'{: <15}{: <15}'.format(n_sterol_facing_host+n_sterol_facing_neib,
-                      n_sterol_notfacing_host+n_sterol_notfacing_neib),file=outf)
+                      + (len(neib_comp_list)*'{: <15}').format(*neib_comp_list)+'{: <15}{: <15}{: <15}'.format(n_sterol_facing_host+n_sterol_facing_neib,
+                      n_sterol_notfacing_host+n_sterol_notfacing_neib,orient_flag),file=outf)
 
     def assemble_eofs_selfinteraction(self, energyfile, lipid, timetoscd, endtime):
         ''' Same as assemble eofs  '''

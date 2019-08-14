@@ -86,7 +86,7 @@ class Order(Neighbors):
                         + (len(neib_comp_list)*'{: ^7}').format(*neib_comp_list),
                         file=scdfile)
 
-    def create_orientationfile(self, include_neighbors="global", outputfile="orientation.dat"):
+    def create_orientationfile(self, outputfile="orientation.dat"):
         ''' Assigning orientation of the sterol molecule with respect to the neighboring molecules '''
 
         u = self.universe
@@ -146,7 +146,6 @@ class Order(Neighbors):
         LOGGER.debug("Res:  %s -- Scc of atoms: %s and of tails %s", resid, scds_of_atoms, scds_of_tails)
         return np.array(scds_of_tails).mean()
 
-    #@staticmethod
     def calc_orientation(self, mda_uni, resid, neib_resid):
         ''' Calculate the orientation angle of sterol molecule with its neighbors '''
         

@@ -66,7 +66,7 @@ class MSDanalysis(SysInfo):
        
         msd_raw = ''.join(cwd + '/' + 'msd_mainlipid_raw')
 
-        get_selection = [GMXNAME, 'select', '-f', self.trjpath, '-s', self.tprpath, '-on', index_msd, \
+        get_selection = [GMXNAME, 'select', '-f', self.gropath, '-s', self.tprpath, '-on', index_msd, \
             '-select', '(resname {} and name P)'.format(self.lipid_types_mainlipid)]
 
         #print(get_selection)
@@ -108,7 +108,7 @@ class MSDanalysis(SysInfo):
         head_atoms = lipidmolecules.head_atoms_of(self.lipid_types_sterol)
         head_atom = head_atoms[0]
 
-        get_selection = [GMXNAME, 'select', '-f', self.trjpath, '-s', self.tprpath, '-on', index_msd, \
+        get_selection = [GMXNAME, 'select', '-f', self.gropath, '-s', self.tprpath, '-on', index_msd, \
             '-select', '(resname {} and name {})'.format(self.lipid_types_sterol,head_atom)]
 
         #print(get_selection)
