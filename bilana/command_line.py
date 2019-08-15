@@ -13,7 +13,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     neighborfile="neighbor_info",
     startdivisor=80,
-    overwrite=True,
+    overwrite=False,
     cores=2,
     dry=False,
     **kwargs,):
@@ -27,6 +27,9 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
         raise ValueError("divisor must be int")
     resids_to_calculate = mysystem.MOLRANGE
     lipids_per_part = systemsize//divisor
+    print("System and temperature:", systemname, temperature)
+    print("Will overwrite:", overwrite)
+    print("Lipids per job:", lipids_per_part)
     for jobpart in range(divisor):
         list_of_res = resids_to_calculate[jobpart*lipids_per_part:(jobpart+1)*lipids_per_part]
         jobfile_name = str(jobpart)+'_'+jobname
@@ -35,7 +38,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             print(
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
-                '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
+                '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
                 '\nenergy_instance.info()'
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
@@ -63,17 +66,17 @@ def initialize_system(systemname, temperature, jobname, *args,
         print(\
             'import os, sys'
             '\nimport bilana'
+            '\nfrom bilana import SysInfo'
             '\nfrom bilana import analysis'
             '\nfrom bilana.analysis.neighbors import Neighbors'
             '\nfrom bilana.analysis.order import Order'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
-            '\nsysinfo_inst = bilana.SysInfo(inputfilename="{0}")'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
             '\nneib_inst.create_indexfile()'
-            '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
-            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
-            '\nanalysis.order.calc_tilt(sysinfo_inst)'
+            '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo())'
+            '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo())'
+            '\nanalysis.order.calc_tilt(SysInfo())'
             '\norder_inst = Order(inputfilename="{0}")'
             '\norder_inst.create_orderfile()'\
             .format(inputfilename, refatoms),
