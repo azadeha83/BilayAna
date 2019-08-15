@@ -47,7 +47,7 @@ class Neighbors(SysInfo):
 
     def _determine_neighbors_2d(self, refatoms="name P O3", mode="atom", outputfilename="neighbor_info", _2D=True, **kwargs):
         ''' Creates neighbor_info file based on 2d distances (xy plane) '''
-
+        DEBUG = False
 
         traj_len = len(self.universe.trajectory)
         inpargs = []
@@ -67,10 +67,18 @@ class Neighbors(SysInfo):
                         all_coords_per_leaflet[i][1][2] = 0      # By setting z values to 0
 
                 for hostid, host_pos in all_coords_per_leaflet:
-                    inpargs.append((hostid, host_pos, time, all_coords_per_leaflet, self.universe.dimensions, self.cutoff))
+                    # universe.dimensions has to be copied!! otherwise reference will be changed and always last boxdimensions are used
+                    inpargs.append((hostid, host_pos, time, all_coords_per_leaflet, self.universe.dimensions.copy(), self.cutoff))
 
-        LOGGER.info("Sending jobs to pool")
-        outp = loop_to_pool(self._get_outp_line, inpargs)
+        if DEBUG:
+            LOGGER.setLevel("DEBUG")
+            outp = []
+            for inp in inpargs:
+                outp.append(self._get_outp_line(*inp))
+        else:
+            LOGGER.info("Sending jobs to pool")
+            outp = loop_to_pool(self._get_outp_line, inpargs)
+
         outp.sort()
         LOGGER.info("Write output file")
         with open(outputfilename, "w") as outf:
@@ -81,17 +89,26 @@ class Neighbors(SysInfo):
     @staticmethod
     def _get_outp_line(hostid, host_pos, time, all_coords_per_leaflet, boxdim, cutoff):
         ''' Looks for all neighbors of hostid with host_pos within cutoff '''
-        position_array =  np.array([pos_neib for resid_neib, pos_neib in all_coords_per_leaflet]) # Get all positions in leaflet selection
+        position_array =  np.array([pos for resid, pos in all_coords_per_leaflet]) # Get all positions in leaflet selection
         dist_array = mda.lib.distances.distance_array(host_pos, position_array, box=boxdim)[0] # output is [ [[dist1], [dist2], ...] ]
 
         neiblist = []
         for resndx, distance in enumerate(dist_array):
-            if distance <= cutoff*10:
+
+
+            if distance <= cutoff*10.0:
+                LOGGER.debug("host %s, resndx %s, neib %s", hostid, resndx, all_coords_per_leaflet[resndx][0])
+                LOGGER.debug("hostpos vs neibpos: %s vs %s", host_pos, all_coords_per_leaflet[resndx][1] )
+                LOGGER.debug("box %s", boxdim)
+                LOGGER.debug("dist %s and dist_self %s", distance, dist_helper(host_pos,  all_coords_per_leaflet[resndx][1], boxdim))
                 neiblist.append(all_coords_per_leaflet[resndx][0])
 
+            else:
+                LOGGER.debug("REJECTED: host%s  neib%s", hostid, all_coords_per_leaflet[resndx][0])
+
+        neiblist = list(set(neiblist)) # delete duplicates
         neiblist.sort()
         neiblist = [ str(n) for n in neiblist if n != hostid ] # delete host entry
-        neiblist = list(set(neiblist)) # delete duplicates
         n_neibs = len(neiblist)
         return (hostid, time, n_neibs, ','.join(str(i) for i in neiblist))
 
@@ -102,8 +119,8 @@ class Neighbors(SysInfo):
             if len(refatomgrp.resids) != len(set(refatomgrp.resids)):
                 raise ValueError("Refatoms string leads to more than one entry per molecule")
             center = refatomgrp.center_of_mass()
-            leaf1 = [(resid, pos) for resid, pos  in zip(refatomgrp.resids, refatomgrp.positions) if pos[2] >= center[2]]
-            leaf2 = [(resid, pos) for resid, pos  in zip(refatomgrp.resids, refatomgrp.positions) if pos[2] <  center[2]]
+            leaf1 = [(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] >= center[2]]
+            leaf2 = [(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] <  center[2]]
         elif mode == "tails_C8":
             center = refatomgrp.center_of_mass()
             positions = []
@@ -470,3 +487,23 @@ def _process_neighborfileoutput(datafileoutput):
             neibindeces = cols[:]
             data.append((residue, time, nneibs, neibindeces))
     return data
+
+
+def dist_helper(v1, v2, box):
+    img_vectors = [
+        (0,  1),
+        (1,  0),
+        (1,  1),
+        (0, -1),
+        (-1, 0),
+        (-1, -1),
+        (1, -1),
+        (-1, 1),
+        (0, 0),
+        ]
+    ns = []
+    for img in img_vectors:
+        img = (*img, 0)
+        newv = v2 + (box[:3]*img)
+        ns.append(np.linalg.norm(v1-newv))
+    return np.array(ns).min()
