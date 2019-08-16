@@ -41,13 +41,15 @@ class Neighbors(SysInfo):
             else:
                 self._determine_neighbors_serial(**kwargs)
         elif option == "2D":
-            self._determine_neighbors_2d(**kwargs)
+            self._determine_neighbors_2d(parllel=parallel, **kwargs)
         else:
             raise ValueError("Invalid value for options.")
 
-    def _determine_neighbors_2d(self, refatoms="name P O3", mode="atom", outputfilename="neighbor_info", _2D=True, **kwargs):
+    def _determine_neighbors_2d(self, refatoms="name P O3", mode="atom", outputfilename="neighbor_info", _2D=True, parallel=True, **kwargs):
         ''' Creates neighbor_info file based on 2d distances (xy plane) '''
         DEBUG = False
+        if DEBUG:
+            LOGGER.setLevel("DEBUG")
 
         traj_len = len(self.universe.trajectory)
         inpargs = []
@@ -60,24 +62,19 @@ class Neighbors(SysInfo):
             refatomgrp = self.universe.select_atoms(refatoms)
             leaflets = self.get_ref_postions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
 
-            for all_coords_per_leaflet in leaflets:
+            # universe.dimensions has to be copied!! otherwise reference will be changed and always last boxdimensions are used
+            inpargs.append((time, leaflets, self.universe.dimensions.copy(), self.cutoff, _2D))
 
-                if _2D:
-                    for i in range(len(all_coords_per_leaflet)): # Make it "2D"
-                        all_coords_per_leaflet[i][1][2] = 0      # By setting z values to 0
-
-                for hostid, host_pos in all_coords_per_leaflet:
-                    # universe.dimensions has to be copied!! otherwise reference will be changed and always last boxdimensions are used
-                    inpargs.append((hostid, host_pos, time, all_coords_per_leaflet, self.universe.dimensions.copy(), self.cutoff))
-
-        if DEBUG:
-            LOGGER.setLevel("DEBUG")
+        if not parallel or DEBUG:
             outp = []
             for inp in inpargs:
+                LOGGER.info("At time %s", inp[2])
                 outp.append(self._get_outp_line(*inp))
+            outp = [i for l in outp for i in l]
         else:
             LOGGER.info("Sending jobs to pool")
             outp = loop_to_pool(self._get_outp_line, inpargs)
+            outp = [i for l in outp for i in l]
 
         outp.sort()
         LOGGER.info("Write output file")
@@ -87,30 +84,39 @@ class Neighbors(SysInfo):
                 print("{: <20}{: <20}{: <20}{: <20}".format(*line), file=outf)
 
     @staticmethod
-    def _get_outp_line(hostid, host_pos, time, all_coords_per_leaflet, boxdim, cutoff):
+    def _get_outp_line(time, leaflets, boxdim, cutoff, twodimensional):
         ''' Looks for all neighbors of hostid with host_pos within cutoff '''
-        position_array =  np.array([pos for resid, pos in all_coords_per_leaflet]) # Get all positions in leaflet selection
-        dist_array = mda.lib.distances.distance_array(host_pos, position_array, box=boxdim)[0] # output is [ [[dist1], [dist2], ...] ]
+        outp = []
+        for all_coords_per_leaflet in leaflets:
 
-        neiblist = []
-        for resndx, distance in enumerate(dist_array):
+            if twodimensional:
+                for i in range(len(all_coords_per_leaflet)): # Make it "2D"
+                    all_coords_per_leaflet[i][1][2] = 0      # By setting z values to 0
+
+            for hostid, host_pos in all_coords_per_leaflet:
+                position_array =  np.array([pos for resid, pos in all_coords_per_leaflet]) # Get all positions in leaflet selection
+                dist_array = mda.lib.distances.distance_array(host_pos, position_array, box=boxdim)[0] # output is [ [[dist1], [dist2], ...] ]
+
+                neiblist = []
+                for resndx, distance in enumerate(dist_array):
 
 
-            if distance <= cutoff*10.0:
-                LOGGER.debug("host %s, resndx %s, neib %s", hostid, resndx, all_coords_per_leaflet[resndx][0])
-                LOGGER.debug("hostpos vs neibpos: %s vs %s", host_pos, all_coords_per_leaflet[resndx][1] )
-                LOGGER.debug("box %s", boxdim)
-                LOGGER.debug("dist %s and dist_self %s", distance, dist_helper(host_pos,  all_coords_per_leaflet[resndx][1], boxdim))
-                neiblist.append(all_coords_per_leaflet[resndx][0])
+                    if distance <= cutoff*10.0:
+                        LOGGER.debug("host %s, resndx %s, neib %s", hostid, resndx, all_coords_per_leaflet[resndx][0])
+                        LOGGER.debug("hostpos vs neibpos: %s vs %s", host_pos, all_coords_per_leaflet[resndx][1] )
+                        LOGGER.debug("box %s", boxdim)
+                        LOGGER.debug("dist %s and dist_self %s", distance, dist_helper(host_pos,  all_coords_per_leaflet[resndx][1], boxdim))
+                        neiblist.append(all_coords_per_leaflet[resndx][0])
 
-            else:
-                LOGGER.debug("REJECTED: host%s  neib%s", hostid, all_coords_per_leaflet[resndx][0])
+                    else:
+                        LOGGER.debug("REJECTED: host%s  neib%s", hostid, all_coords_per_leaflet[resndx][0])
 
-        neiblist = list(set(neiblist)) # delete duplicates
-        neiblist.sort()
-        neiblist = [ str(n) for n in neiblist if n != hostid ] # delete host entry
-        n_neibs = len(neiblist)
-        return (hostid, time, n_neibs, ','.join(str(i) for i in neiblist))
+                neiblist = list(set(neiblist)) # delete duplicates
+                neiblist.sort()
+                neiblist = [ str(n) for n in neiblist if n != hostid ] # delete host entry
+                n_neibs = len(neiblist)
+                outp.append( (hostid, time, n_neibs, ','.join(str(i) for i in neiblist)) )
+        return outp
 
     def get_ref_postions(self, mode, refatomgrp):
         ''' Possible modes atom, center, tails'''

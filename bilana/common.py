@@ -7,9 +7,9 @@ from multiprocessing import Pool
 
 GMXNAME = "/usr/bin/gmx"
 
-def loop_to_pool(func, inp):
+def loop_to_pool(func, inp, maxtasknum=1000):
     ''' Map inparray to func, if inp is iterable use pool.starmap '''
-    with Pool(len(os.sched_getaffinity(0))) as pool:
+    with Pool(len(os.sched_getaffinity(0)), maxtasksperchild=maxtasknum) as pool:
         if isinstance(inp, tuple) or isinstance(inp, list):
             data_outputs = pool.starmap(func, inp)
         else:
