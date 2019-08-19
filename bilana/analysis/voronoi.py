@@ -236,7 +236,7 @@ def make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head"
             continue
         elif systeminfo.t_end < time:
             break
-        if os.isfile(picture_filename) and not overwrite:
+        if os.path.isfile(picture_filename) and not overwrite:
             continue
         plot_voro_on_structure(systeminfo.universe.atoms,
             selstr,
