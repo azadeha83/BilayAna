@@ -28,12 +28,12 @@ class SysInfo():
         -Paths to MD files
         -Output paths (where to put generated files to)
         -Important dictionaries:
-            index to resid --> maps index of an atom to corresponding resid
-            resid to lipid --> maps resid to lipid type
-            res to leaflet --> maps resid to leaflet index
+            resid_to_lipid[resid] --> str(resname)
+            index_to_resid[ndx] --> int(resid)
+            res_to_leaflet[resid] --> int(0 | 1)
         -number of lipids in system
         -number of atoms of lipids in system
-        -
+
     '''
     LOGGER = LOGGER
 
