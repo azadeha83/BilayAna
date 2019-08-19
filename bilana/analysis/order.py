@@ -108,7 +108,7 @@ class Order(Neighbors):
             neibs   = neiblist[res]
             resname = resid_to_lipid[res]
             if new_axis is not None:
-                new_axis = new_axis[leaflet]
+                new_axis_at_t = new_axis[leaflet]
 
             LOGGER.debug("At time %s and residue %s", time, res)
             LOGGER.debug("resname %s", resname)
@@ -126,7 +126,7 @@ class Order(Neighbors):
                 ncomp = [resid_to_lipid[N] for N in neibs].count(lip)
                 neib_comp_list.append(ncomp)
 
-            scd_value = s_fun(res, tailatms, all_atms, positions, tilt_correction=new_axis)
+            scd_value = s_fun(res, tailatms, all_atms, positions, tilt_correction=new_axis_at_t)
             LOGGER.debug("Calculated order: %s", scd_value)
             outp.append( (time, res, leaflet, resname, scd_value, *neib_comp_list) )
 

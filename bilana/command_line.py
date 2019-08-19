@@ -110,7 +110,7 @@ def calc_scd(systemname, temperature, jobname, *args,
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
         if not dry:
-            write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)
+            write_submitfile('submit.sh', jobfilename, mem='32G', ncores=16, prio=False)
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
