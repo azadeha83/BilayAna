@@ -29,6 +29,7 @@ class Order(Neighbors):
         self.atomlist = lipidmolecules.scd_tail_atoms_of
         self.components = self.molecules
         self.neiblist = neighbors.get_neighbor_dict()
+        # Change dict entries from neiblist[host][time] to neiblist[time][host]
 
     def create_orderfile(self, mode="CC", outputfile='scd_distribution.dat', with_tilt_correction="tilt.csv", parallel=True):
         '''
@@ -39,6 +40,7 @@ class Order(Neighbors):
             if with tilt_correction avg tilt angle per time is read from name given in variable
         '''
         inpargs = []
+        neiblist_t = pd.DataFrame(self.neiblist).transpose().to_dict()
 
         # If tilt correction is activated read file with tilt information or create it
         if with_tilt_correction:
@@ -73,12 +75,12 @@ class Order(Neighbors):
 
             # Collect input arguments in tuple
             inpargs.append((calc_s, new_axis, self.MOLRANGE, self.universe.atoms.copy(), self.universe.atoms.positions,
-                time, self.components, self.neiblist, self.res_to_leaflet, self.resid_to_lipid,))
+                time, self.components, neiblist_t[time], self.res_to_leaflet, self.resid_to_lipid,))
 
         ## Calculation is done here
         if parallel:
             LOGGER.info("Start calculating ...")
-            outtups = loop_to_pool(self._calc_scd_output, inpargs, maxtasknum=32)
+            outtups = loop_to_pool(self._calc_scd_output, inpargs, maxtasknum=16)
             outtups = [i for l in outtups for i in l]
         else:
             outtups = []
@@ -103,7 +105,7 @@ class Order(Neighbors):
         outp = []
         for res in molrange:
             leaflet = res_to_leaflet[res]
-            neibs   = neiblist[res][float(time)]
+            neibs   = neiblist[res]
             resname = resid_to_lipid[res]
             if new_axis is not None:
                 new_axis = new_axis[leaflet]
