@@ -206,14 +206,15 @@ def make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head"
         selstr.append('{} and resid {}'.format(atomselect_str, ' '.join([str(i) for i in resids])))
 
     ## 1 Create Folder
-    try:
-        os.makedirs(IMG_TMPDIR, exist_ok=overwrite)
-    except FileExistsError:
-        cnt = 0
-        while os.path.exists(IMG_TMPDIR+str(cnt)):
-            cnt += 1
-        IMG_TMPDIR = IMG_TMPDIR+str(cnt)
-        os.makedirs(IMG_TMPDIR, exist_ok=False)
+    os.makedirs(IMG_TMPDIR, exist_ok=True)
+    #try:
+    #    os.makedirs(IMG_TMPDIR, exist_ok=overwrite)
+    #except FileExistsError:
+    #    cnt = 0
+    #    while os.path.exists(IMG_TMPDIR+str(cnt)):
+    #        cnt += 1
+    #    IMG_TMPDIR = IMG_TMPDIR+str(cnt)
+    #    os.makedirs(IMG_TMPDIR, exist_ok=False)
 
     ## Print logfile: which information are stored in video??
     with open(IMG_TMPDIR+"/info.log", "w") as f:
@@ -235,6 +236,8 @@ def make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head"
             continue
         elif systeminfo.t_end < time:
             break
+        if os.isfile(picture_filename) and not overwrite:
+            continue
         plot_voro_on_structure(systeminfo.universe.atoms,
             selstr,
             plot_points=plot_points,
