@@ -53,9 +53,10 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
     refatoms="name P O3",
-    cores=8,
+    cores=16,
     prio=False,
     dry=False,
+    mem='32G',
     **kwargs):
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -64,7 +65,7 @@ def initialize_system(systemname, temperature, jobname, *args,
     jobfilename = complete_systemname[2:]+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(\
-            'import os, sys'
+            'import os, sys, gc'
             '\nimport bilana'
             '\nfrom bilana import SysInfo'
             '\nfrom bilana import analysis'
@@ -73,16 +74,18 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
+            '\ngc.collect()'
             '\nneib_inst.create_indexfile()'
-            '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo())'
-            '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo())'
-            '\nanalysis.order.calc_tilt(SysInfo())'
+            '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
+            '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo(inputfilename="{0}"))'
+            '\nanalysis.order.calc_tilt(SysInfo(inputfilename="{0}"))'
+            '\ngc.collect()'
             '\norder_inst = Order(inputfilename="{0}")'
             '\norder_inst.create_orderfile()'\
             .format(inputfilename, refatoms),
             file=scriptf)
         if not dry:
-            write_submitfile('submit.sh', jobfilename, mem='16G', ncores=cores, prio=prio)
+            write_submitfile('submit.sh', jobfilename, mem=mem, ncores=cores, prio=prio)
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()

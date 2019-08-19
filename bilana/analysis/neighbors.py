@@ -41,7 +41,7 @@ class Neighbors(SysInfo):
             else:
                 self._determine_neighbors_serial(**kwargs)
         elif option == "2D":
-            self._determine_neighbors_2d(parllel=parallel, **kwargs)
+            self._determine_neighbors_2d(parallel=parallel, **kwargs)
         else:
             raise ValueError("Invalid value for options.")
 
@@ -65,15 +65,15 @@ class Neighbors(SysInfo):
             # universe.dimensions has to be copied!! otherwise reference will be changed and always last boxdimensions are used
             inpargs.append((time, leaflets, self.universe.dimensions.copy(), self.cutoff, _2D))
 
-        if not parallel or DEBUG:
-            outp = []
-            for inp in inpargs:
-                LOGGER.info("At time %s", inp[2])
-                outp.append(self._get_outp_line(*inp))
+        if parallel and not DEBUG:
+            LOGGER.info("Sending jobs to pool")
+            outp = loop_to_pool(self._get_outp_line, inpargs, maxtasknum=32)
             outp = [i for l in outp for i in l]
         else:
-            LOGGER.info("Sending jobs to pool")
-            outp = loop_to_pool(self._get_outp_line, inpargs)
+            outp = []
+            for inp in inpargs:
+                LOGGER.info("At time %s", inp[0])
+                outp.append(self._get_outp_line(*inp))
             outp = [i for l in outp for i in l]
 
         outp.sort()
