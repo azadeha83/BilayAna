@@ -69,10 +69,8 @@ class Hbonds(SysInfo):
 
         get_hbond = [GMXNAME, 'hbond', '-f', self.trjpath, '-s', self.tprpath, '-ac', hbond_raw, \
             '-g', hbond_log, '-num', hbond_raw]
-        
-        inp_str = b'{}\n{}\n'.format(self.lipid_types_mainlipid, self.lipid_types_sterol)
-           
-        out, err = exec_gromacs(get_hbond, inp_str)
+                   
+        out, err = exec_gromacs(get_hbond)
 
         with open("hbond_sterol_sterol_raw.xvg", 'r') as f:
             ls = f.readlines()

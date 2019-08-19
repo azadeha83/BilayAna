@@ -21,7 +21,7 @@ class Energy(SysInfo):
         For more information see its docstring
     '''
 
-    DENOMINATOR = 40
+    DENOMINATOR = 60
     LOGGER = LOGGER
 
     def __init__(self,
@@ -470,6 +470,7 @@ class Energy(SysInfo):
             with open(fname, "rb") as f:
                 LOGGER.debug("Opened %s", f)
                 f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
+
                 while f.read(1) != b"\n":   # Until EOL is found...
                     f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
                 last = f.readline()         # Read last line.

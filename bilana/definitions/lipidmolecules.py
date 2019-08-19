@@ -102,10 +102,10 @@ HEAD_ATOMS_OF = {\
     'PS':HEADATM['PS']+GLYCATM,
     'PI':HEADATM['PI']+GLYCATM,
     'PA':HEADATM['PA']+GLYCATM,
-    'CHL1':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10', 'C8', 'C13'],
+    'CHL1':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10', 'C8', 'C13', 'C19'],
     #'ch1m':['all'],
     #'CHIM':['all'],
-    'ERG':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10', 'C8', 'C13'],
+    'ERG':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10', 'C8', 'C13', 'C19'],
                 }
 
 TAIL_ATOMS_OF = {\

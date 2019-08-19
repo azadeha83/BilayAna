@@ -35,7 +35,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             print(
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
-                '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
+                '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
                 '\nenergy_instance.info()'
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
@@ -76,9 +76,9 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nneib_inst.create_indexfile()'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
             '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
-            '\nanalysis.order.calc_tilt(sysinfo_inst)'
             '\norder_inst = Order(inputfilename="{0}")'
-            '\norder_inst.create_orderfile()'\
+            '\norder_inst.create_orderfile()'
+            '\nanalysis.order.calc_tilt(sysinfo_inst)'\
             .format(inputfilename, refatoms),
             file=scriptf)
         if not dry:
