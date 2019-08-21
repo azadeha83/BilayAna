@@ -1,3 +1,7 @@
+'''
+    This module eases the use of scipy's Voronoi
+
+'''
 import os
 import numpy as np
 import subprocess
@@ -9,6 +13,23 @@ from ..definitions import lipidmolecules
 from .. import log
 
 LOGGER = log.LOGGER
+
+def _calc_edges(polygon):
+    dists = []
+    for i, p1 in enumerate(polygon):
+        for j, p2 in enumerate(polygon):
+            if ( j - i ) != 1 and not ( np.abs( j - polygon.shape[0] - i ) == 1 ): # Take only consecutive entries
+                continue
+            dist = np.linalg.norm(p1-p2)
+            dists.append(dist)
+    dists = np.array(dists)
+
+    nedges = 0
+    for dist in dists:
+        if dist > (0.25 * dists.mean()):
+            nedges += 1
+    return nedges
+
 
 def _create_images(points: np.array, box: np.array) -> np.array:
     ''' A set of points is copied eightfold using dimensions in box '''
@@ -36,6 +57,7 @@ def _colorize(regions, ax, fillparameter="shape"):
     ''' Fill Voronoi regions(polygons) depending on fillparameter '''
     if fillparameter == "shape":
         colordict = {
+            2:"xkcd:grey",
             3:"xkcd:brown",
             4:"xkcd:crimson",
             5:"xkcd:coral",
@@ -51,8 +73,11 @@ def _colorize(regions, ax, fillparameter="shape"):
             15:"xkcd:black"
         }
         for reg in regions:
-            n_edges = reg.shape[0]
-            ax.fill(*zip(*reg), color=colordict[n_edges], alpha=0.8)
+            #n_edges = reg.shape[0]
+            n_edges = _calc_edges(reg)
+            ax.fill(*zip(*reg), color=colordict[n_edges])#, alpha=0.5)
+            #ax.scatter(reg[:,0], reg[:,1], c="black", s=5)
+
     else:
         raise NotImplementedError("Available fillparameters are: shape")
     return ax
@@ -136,21 +161,25 @@ def plot_periodic_voro(points, box, colorfill="shape", plot_points=False, **kw):
     return fig, axs
 
 
-def plot_voro_on_structure(mda_atoms, selstr, plot_points=False, output_filename="voronoi.png"):
+def plot_voro_on_structure(mda_atoms, selstr, plot_points=False, output_filename="voronoi.png", **kwargs):
     ''' '''
-    colordict = {
+    colordict = {# Color dictionary for point colors
         "DPPC":"Red",
         "DUPC":"Black",
         "CHL1":"Yellow",
         "ERG":"Green",
     }
     points = []
+
     if not isinstance(selstr, list):
         selstr = [selstr]
+
     for sel in selstr:
         points.append(mda_atoms.select_atoms(sel).positions[:, 0:2])
+
     box = mda_atoms.dimensions[:2]
     fig, axs = plot_periodic_voro(tuple(points), box, plot_points=False, colorfill="shape")
+
     if plot_points:
         resnames = set(mda_atoms.resnames) - set(lipidmolecules.SOLVENTS)
         for i, sel in enumerate(selstr):
@@ -165,11 +194,12 @@ def plot_voro_on_structure(mda_atoms, selstr, plot_points=False, output_filename
                         points_in_box.append(point)
                 points_in_box = np.array(points_in_box)
                 axs[i].plot(points_in_box[:,0], points_in_box[:,1], '.', color=colordict[resn], markeredgecolor="black")
+
     fig.savefig(output_filename)
     plt.close()
 
 def make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head", leaflet=0, delete_imgs=True, plot_points=True,
-    imgdir="movie", overwrite=False,
+    imgdir="movie", overwrite=False, framerate=4, **vorokwargs,
     ):
     ''' '''
     lvls = {
@@ -207,14 +237,6 @@ def make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head"
 
     ## 1 Create Folder
     os.makedirs(IMG_TMPDIR, exist_ok=True)
-    #try:
-    #    os.makedirs(IMG_TMPDIR, exist_ok=overwrite)
-    #except FileExistsError:
-    #    cnt = 0
-    #    while os.path.exists(IMG_TMPDIR+str(cnt)):
-    #        cnt += 1
-    #    IMG_TMPDIR = IMG_TMPDIR+str(cnt)
-    #    os.makedirs(IMG_TMPDIR, exist_ok=False)
 
     ## Print logfile: which information are stored in video??
     with open(IMG_TMPDIR+"/info.log", "w") as f:
@@ -225,31 +247,37 @@ def make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head"
         print("leaf:", leaflet, file=f)
 
     ## 3 Loop over trajectory with dt and create voro in tmp folder
+    vid_counter = 0
     len_traj = len(systeminfo.universe.trajectory)
     Nzeros = str(int(np.ceil(np.log10(len_traj))))
     picture_filename_template =  "./{}/{:0Nd}_voro.png".replace("N", Nzeros)
     for t in range(len_traj):
-        picture_filename = picture_filename_template.format(IMG_TMPDIR, t)
         time = systeminfo.universe.trajectory[t].time
-        LOGGER.info("At time %s", time)
+        picture_filename = picture_filename_template.format(IMG_TMPDIR, vid_counter)
         if time % dt != 0 or systeminfo.t_start > time:
             continue
         elif systeminfo.t_end < time:
             break
         if os.path.isfile(picture_filename) and not overwrite:
             continue
+        LOGGER.info("At time %s", time)
         plot_voro_on_structure(systeminfo.universe.atoms,
             selstr,
             plot_points=plot_points,
             output_filename=picture_filename,
+            **vorokwargs,
             )
+        vid_counter += 1
 
+    #pattern = '{}/*.png'.format(IMG_TMPDIR)
     ## 4 Gather voropicturefiles and create movie
-    cmd = ["ffmpeg", "-framerate", "2",
+    cmd = ["ffmpeg", "-framerate", str(framerate),
+        #"-pattern_type", "glob",
         "-i", "{}/%0{}d_voro.png".format(IMG_TMPDIR, Nzeros),
         "-c:v", "mpeg2video",
-        "-pix_fmt", "yuv420p",
+        "-pix_fmt", "yuv420p", "-y",
         "{}/{}".format(IMG_TMPDIR, video_name)]
+    print(cmd)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     proc.wait()
