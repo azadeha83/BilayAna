@@ -79,9 +79,6 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
             '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo(inputfilename="{0}"))'
             '\nanalysis.order.calc_tilt(SysInfo(inputfilename="{0}"))'
-            '\ngc.collect()'
-            '\norder_inst = Order(inputfilename="{0}")'
-            '\norder_inst.create_orderfile()'\
             .format(inputfilename, refatoms),
             file=scriptf)
         if not dry:
@@ -102,15 +99,16 @@ def calc_scd(systemname, temperature, jobname, *args,
     jobfilename = complete_systemname[2:]+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(
-            'import os, sys'
+            'import os, sys, gc'
             '\nfrom bilana.systeminfo import SysInfo'
             '\nfrom bilana.analysis.order import Order, calc_tilt'
             '\ncalc_tilt(SysInfo())'
+            '\ngc.collect()'
             '\nOrder(inputfilename="{0}").create_orderfile()'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
         if not dry:
-            write_submitfile('submit.sh', jobfilename, mem='32G', ncores=16, prio=False)
+            write_submitfile('submit.sh', jobfilename, mem='100G', ncores=16, prio=False)
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()

@@ -4,8 +4,10 @@
         - The tilt of lipids is calculated in calc_avg_tilt
 
 '''
+import os
 import numpy as np
 import pandas as pd
+import multiprocessing as mp
 import MDAnalysis as mda
 
 from . import neighbors
@@ -39,8 +41,14 @@ class Order(Neighbors):
 
             if with tilt_correction avg tilt angle per time is read from name given in variable
         '''
-        inpargs = []
+        def catch_callback(result):
+            ''' Catches callback value of pool.apply_async workers and puts into outputlist'''
+            outputlist.append(result)
         neiblist_t = pd.DataFrame(self.neiblist).transpose().to_dict()
+        outputlist = [] # Don't change this name as function catch_callback uses it!
+
+        if parallel:
+            pool = mp.Pool(len(os.sched_getaffinity(0)), maxtasksperchild=1)
 
         # If tilt correction is activated read file with tilt information or create it
         if with_tilt_correction:
@@ -58,7 +66,7 @@ class Order(Neighbors):
             raise ValueError("Mode not yet implement use mode=CC (default)")
 
         ## Gather all input data for _calc_scd_output function
-        LOGGER.info("Gather input data ...")
+        LOGGER.info("Start adding tasks")
         len_traj = len(self.universe.trajectory)
         for t in range(len_traj):
 
@@ -74,29 +82,28 @@ class Order(Neighbors):
                 new_axis = None
 
             # Collect input arguments in tuple
-            inpargs.append((calc_s, new_axis, self.MOLRANGE, self.universe.atoms.copy(), self.universe.atoms.positions,
-                time, self.components, neiblist_t[time], self.res_to_leaflet, self.resid_to_lipid,))
+            inptup = (calc_s, new_axis, self.MOLRANGE, self.universe.atoms, self.universe.atoms.positions,
+                time, self.components, neiblist_t[time], self.res_to_leaflet, self.resid_to_lipid,)
+            if parallel:
+                pool.apply_async(self._calc_scd_output, args=inptup, callback=catch_callback)
+            else:
+                outputlist.append(self._calc_scd_output(*inptup))
 
-        ## Calculation is done here
         if parallel:
-            LOGGER.info("Start calculating ...")
-            outtups = loop_to_pool(self._calc_scd_output, inpargs, maxtasknum=16)
-            outtups = [i for l in outtups for i in l]
-        else:
-            outtups = []
-            for inp in inpargs:
-                LOGGER.info("At time %s", inp[5])
-                outtups.append(self._calc_scd_output(*inp))
-            outtups = [i for l in outtups for i in l]
+            # finalize pool
+            pool.close()
+            pool.join()
+
 
         ## Sort output and write to file
         LOGGER.info("Writing to file ...")
-        outtups = sorted(outtups, key=lambda tup: tup[:2])
+        outputlist = [i for l in outputlist for i in l]
+        outputlist = sorted(outputlist, key=lambda tup: tup[:2])
         with open(outputfile, "w") as scdfile:
             print("{: <12}{: <10}{: <10}{: <7}{: <15}".format("Time", "Residue", "leaflet", "Type", "Scd")\
                 + (len(self.components)*'{: ^7}').format(*self.components),
                 file=scdfile)
-            for line in outtups:
+            for line in outputlist:
                 line = "{: <12.2f}{: <10}{: <10}{: <7}{: <15.8}".format(*line[:5]) + (len(self.components)*"{: ^7}").format(*line[5:])
                 print(line, file=scdfile)
 
@@ -111,7 +118,6 @@ class Order(Neighbors):
                 new_axis_at_t = new_axis[leaflet]
 
             LOGGER.debug("At time %s and residue %s", time, res)
-            LOGGER.debug("resname %s", resname)
 
             # If resname is not known skip, this residue
             if resname[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
@@ -129,6 +135,8 @@ class Order(Neighbors):
             scd_value = s_fun(res, tailatms, all_atms, positions, tilt_correction=new_axis_at_t)
             LOGGER.debug("Calculated order: %s", scd_value)
             outp.append( (time, res, leaflet, resname, scd_value, *neib_comp_list) )
+
+        LOGGER.info("finished with time %s", time)
 
         return outp
 
