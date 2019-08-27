@@ -35,7 +35,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             print(
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
-                '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
+                '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
                 '\nenergy_instance.info()'
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
@@ -64,21 +64,18 @@ def initialize_system(systemname, temperature, jobname, *args,
             'import os, sys'
             '\nimport bilana'
             '\nfrom bilana import analysis'
-            '\nfrom bilana.systeminfo import SysInfo'
             '\nfrom bilana.analysis.neighbors import Neighbors'
             '\nfrom bilana.analysis.order import Order'
-            '\nfrom bilana.analysis.order import calc_tilt'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
             '\nsysinfo_inst = bilana.SysInfo(inputfilename="{0}")'
-            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
             '\nneib_inst.create_indexfile()'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
             '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
+            '\nanalysis.order.calc_tilt(sysinfo_inst)'
             '\norder_inst = Order(inputfilename="{0}")'
-            '\norder_inst.create_orderfile()'
-            '\nanalysis.order.calc_tilt(sysinfo_inst)'\
+            '\norder_inst.create_orderfile()'\
             .format(inputfilename, refatoms),
             file=scriptf)
         if not dry:
@@ -135,10 +132,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nimport subprocess'
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
-            '\nfrom bilana.analysis.order import Order'
-            '\norder_inst = Order(inputfilename="{2}")'
-            '\norder_inst.create_orientationfile()'
-            '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
+            '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    energy_instance.write_energyfile()'
@@ -158,7 +152,6 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
     neighborfilename="neighbor_info",
     energyfilename="all_energies.dat",
     scdfilename="scd_distribution.dat",
-    orientationfilename="orientation.dat",
     dry=False,
     **kwargs,):
     ''' Write eofscd file from table containing all interaction energies '''
@@ -171,16 +164,13 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
             'import os, sys'
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
-            '\nfrom bilana.analysis.order import Order'
-            '\norder_inst = Order(inputfilename="{1}")'
-            '\norder_inst.create_orientationfile()'
             '\nenergy_instance = Energy("{0}", inputfilename="{1}", neighborfilename="{2}")'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
-            '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}", orientationfilename="{5}")'
+            '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
             '\n    eofs.create_eofscdfile()'
             '\nelse:'
             '\n    raise ValueError("There are .edr files missing.")'
-            '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename,  scdfilename, energyfilename, orientationfilename),
+            '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename,  scdfilename, energyfilename),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem='16G', prio=True)
