@@ -13,7 +13,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     neighborfile="neighbor_info",
     startdivisor=80,
-    overwrite=True,
+    overwrite=False,
     cores=2,
     dry=False,
     **kwargs,):
@@ -27,6 +27,9 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
         raise ValueError("divisor must be int")
     resids_to_calculate = mysystem.MOLRANGE
     lipids_per_part = systemsize//divisor
+    print("System and temperature:", systemname, temperature)
+    print("Will overwrite:", overwrite)
+    print("Lipids per job:", lipids_per_part)
     for jobpart in range(divisor):
         list_of_res = resids_to_calculate[jobpart*lipids_per_part:(jobpart+1)*lipids_per_part]
         jobfile_name = str(jobpart)+'_'+jobname
@@ -35,7 +38,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             print(
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
-                '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
+                '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
                 '\nenergy_instance.info()'
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
@@ -50,9 +53,10 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
     refatoms="name P O3",
-    cores=2,
+    cores=16,
     prio=False,
     dry=False,
+    mem='32G',
     **kwargs):
     ''' Creates all core files like neighbor_info, resindex_all, scd_distribution '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
@@ -61,25 +65,27 @@ def initialize_system(systemname, temperature, jobname, *args,
     jobfilename = complete_systemname[2:]+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(\
-            'import os, sys'
+            'import os, sys, gc'
             '\nimport bilana'
+            '\nfrom bilana import SysInfo'
             '\nfrom bilana import analysis'
             '\nfrom bilana.analysis.neighbors import Neighbors'
             '\nfrom bilana.analysis.order import Order'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
-            '\nsysinfo_inst = bilana.SysInfo(inputfilename="{0}")'
             '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
+            '\ngc.collect()'
             '\nneib_inst.create_indexfile()'
-            '\nanalysis.lateraldistribution.write_neighbortype_distr(sysinfo_inst)'
-            '\nanalysis.leaflets.create_leaflet_assignment_file(sysinfo_inst)'
-            '\nanalysis.order.calc_tilt(sysinfo_inst)'
+            '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
+            '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo(inputfilename="{0}"))'
+            '\nanalysis.order.calc_tilt(SysInfo(inputfilename="{0}"))'
+            '\ngc.collect()'
             '\norder_inst = Order(inputfilename="{0}")'
             '\norder_inst.create_orderfile()'\
             .format(inputfilename, refatoms),
             file=scriptf)
         if not dry:
-            write_submitfile('submit.sh', jobfilename, mem='16G', ncores=cores, prio=prio)
+            write_submitfile('submit.sh', jobfilename, mem=mem, ncores=cores, prio=prio)
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
@@ -97,12 +103,14 @@ def calc_scd(systemname, temperature, jobname, *args,
     with open(scriptfilename, 'w') as scriptf:
         print(
             'import os, sys'
-            '\nfrom bilana.analysis.order import Order'
+            '\nfrom bilana.systeminfo import SysInfo'
+            '\nfrom bilana.analysis.order import Order, calc_tilt'
+            '\ncalc_tilt(SysInfo())'
             '\nOrder(inputfilename="{0}").create_orderfile()'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
         if not dry:
-            write_submitfile('submit.sh', jobfilename, mem='16G', prio=False)
+            write_submitfile('submit.sh', jobfilename, mem='32G', ncores=16, prio=False)
             cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
