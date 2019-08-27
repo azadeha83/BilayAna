@@ -21,7 +21,7 @@ class Energy(SysInfo):
         For more information see its docstring
     '''
 
-    DENOMINATOR = 60
+    DENOMINATOR = 40
     LOGGER = LOGGER
 
     def __init__(self,
@@ -454,7 +454,10 @@ class Energy(SysInfo):
                 # Check wether all pairs have been found
                 for pneib in processed_neibs:
                     LOGGER.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
-                    all_neibs_of_res.remove(int(pneib))
+                    try:
+                        all_neibs_of_res.remove(int(pneib))
+                    except:
+                        LOGGER.warning("Missing neighbour-ids: %s", pneib)
                 if all_neibs_of_res:
                     LOGGER.warning("Missing neighbour-ids: %s", all_neibs_of_res)
                     raise ValueError('Not all neighbours found in xvgfile')
@@ -468,7 +471,7 @@ class Energy(SysInfo):
             ''' Reads last line of file without loop. Attention: Crashes if file is empty'''
             LOGGER.debug("Reading %s", fname)
             with open(fname, "rb") as f:
-                LOGGER.debug("Opened %s", f)
+                #LOGGER.debug("Opened %s", f)
                 f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
 
                 while f.read(1) != b"\n":   # Until EOL is found...

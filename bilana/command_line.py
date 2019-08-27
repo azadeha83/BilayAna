@@ -138,7 +138,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.analysis.order import Order'
             '\norder_inst = Order(inputfilename="{2}")'
             '\norder_inst.create_orientationfile()'
-            '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
+            '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    energy_instance.write_energyfile()'
