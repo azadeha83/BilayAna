@@ -96,10 +96,11 @@ class SysInfo():
         if load_univ:
             if os.path.isfile(self.trjpath_whole):
                 LOGGER.info("Loading pbc whole trajectory into universe")
-                self.universe   = mda.Universe(self.gropath, self.trjpath_whole)
+                self.universe = mda.Universe(self.gropath, self.trjpath_whole)
             else:
                 LOGGER.info("Reading raw traj")
-                self.universe   = mda.Universe(self.gropath, self.trjpath)
+                self.trjpath_whole = ''
+                self.universe = mda.Universe(self.gropath, self.trjpath)
 
             #''' Time information '''
             self.t_end_real = int(self.universe.trajectory[-1].time)
@@ -120,6 +121,8 @@ class SysInfo():
         # Set constants
         self.NUMBEROFMOLECULES = self.number_of_lipids
         self.MOLRANGE          = self.RESIDS
+
+        self.tail = self.system_info.get("tail", None)
 
     def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
