@@ -213,7 +213,7 @@ class Energy(SysInfo):
                 if self.resid_to_lipid[res] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterhost == 0:
                     parthost="resid_"
                     counterhost += 1
-                elif self.resid_to_lipid[res] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterhost > 0:
+                elif self.resid_to_lipid[res] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterhost != 0:
                     continue
 
                 for neib in all_neibs_of_res[self.groupblocks[0]:self.groupblocks[1]]:
@@ -223,7 +223,7 @@ class Energy(SysInfo):
                         if self.resid_to_lipid[neib] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterneib == 0:
                             partneib='resid_'
                             counterneib+=1
-                        elif self.resid_to_lipid[neib] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterneib > 0:
+                        elif self.resid_to_lipid[neib] in (lipidmolecules.STEROLS + lipidmolecules.PROTEINS) and counterneib != 0: ## Because self.part is changed to empty, for complete case 0:
                             continue
 
                         energyselection.append(''.join([interaction, parthost, str(res), "-", partneib,str(neib)]))
@@ -330,6 +330,7 @@ class Energy(SysInfo):
         ''' Creates files: "all_energies_<interaction>.dat
             NOTE: This function is too long. It should be separated into smaller parts.
         '''
+        all_okay = True
         LOGGER.info('Create energy file')
         with open(self.all_energies, "w") as energyoutput:
             print(
@@ -454,10 +455,24 @@ class Energy(SysInfo):
                 # Check wether all pairs have been found
                 for pneib in processed_neibs:
                     LOGGER.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
-                    all_neibs_of_res.remove(int(pneib))
+                    try:
+                        all_neibs_of_res.remove(int(pneib))
+                    except ValueError:
+                        LOGGER.warning("!! Neighbor id %s found in xvg table but is not neighbor", pneib)
+                        all_okay = False
                 if all_neibs_of_res:
                     LOGGER.warning("Missing neighbour-ids: %s", all_neibs_of_res)
-                    raise ValueError('Not all neighbours found in xvgfile')
+                    if not self.part:
+                        part = "complete"
+                    else:
+                        part = self.part
+                    submit_missing_energycalculation(resid, part, self.system, self.temperature)
+                    all_okay = False
+                    break
+                    #raise ValueError('Not all neighbours found in xvgfile')
+        if not all_okay:
+            #os.remove(self.all_energies)
+            raise RuntimeError("There were inconsistencies in the data. See log files for further information.")
 
     def check_exist_xvgs(self, check_len=False):
         ''' Checks if all .xvg-files containing lipid interaction exist
@@ -510,21 +525,12 @@ class Energy(SysInfo):
                 res = int(fname.split("/")[-1].replace("energies_residue", "").split("_")[0])
                 if res not in resubmitted_residues:
 
-                    jobfilename = "en{}.py".format(res)
-                    jobname = "{}_{}_res{}".format(self.system, self.temperature, res)
-                    with open(jobfilename, "w") as sf:
-                        print('import os, sys'
-                            '\nfrom bilana.analysis.energy import Energy'
-                            '\nenergy_instance = Energy({}, overwrite="True", inputfilename="inputfile", neighborfilename="neighbor_info")'
-                            '\nenergy_instance.info()'
-                            '\nenergy_instance.run_calculation(resids=[{}])'
-                            '\nos.remove(sys.argv[0])'.format(self.part, res), file=sf)
+                    if not self.part: ## Because self.part is changed to empty, for complete case
+                        part = 'complete'
+                    else:
+                        part = self.part
 
-                    write_submitfile('submit.sh', jobname, mem='8G')
-                    cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
-                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    out, err = proc.communicate()
-                    print(out.decode(), err.decode())
+                    submit_missing_energycalculation(res, part, self.system, self.temperature)
 
                     resubmitted_residues.append(res)
 
@@ -533,3 +539,19 @@ class Energy(SysInfo):
 
             return False
         return True
+
+def submit_missing_energycalculation(res, part, systemname, temperature):
+    jobfilename = "en{}.py".format(res)
+    jobname = "{}_{}_res{}".format(systemname, temperature, res)
+    with open(jobfilename, "w") as sf:
+        print('import os, sys'
+            '\nfrom bilana.analysis.energy import Energy'
+            '\nenergy_instance = Energy("{}", overwrite=True, inputfilename="inputfile", neighborfilename="neighbor_info")'
+            '\nenergy_instance.info()'
+            '\nenergy_instance.run_calculation(resids=[{}])'
+            '\nos.remove(sys.argv[0])'.format(part, res), file=sf)
+    write_submitfile('submit.sh', jobname, mem='8G')
+    cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    print(out.decode(), err.decode())
