@@ -41,6 +41,10 @@ class Order(Neighbors):
 
             if with tilt_correction avg tilt angle per time is read from name given in variable
         '''
+        if not self.trjpath_whole:
+            LOGGER.error("Is input trajectory in mda.universe made whole? If not, this may result in spurious results")
+            raise FileNotFoundError
+
         def catch_callback(result):
             ''' Catches callback value of pool.apply_async workers and puts into outputlist'''
             outputlist.append(result)
@@ -164,11 +168,14 @@ class Order(Neighbors):
 
                 diffvector = atm2 - atm1
                 diffvector /= np.linalg.norm(diffvector)
+                LOGGER.debug("Diffvector %s", diffvector)
 
                 cos_angle = np.dot(diffvector, tilt_correction)
+                LOGGER.debug("Resulting cos %s", cos_angle)
                 scds_of_atoms.append( 0.5 * ( ( 3 * (cos_angle**2)) - 1 )  )
 
             scds_of_tails.append( np.array(scds_of_atoms).mean() )
+        LOGGER.debug("Scds of res %s: %s", res, scds_of_tails)
 
         return np.array(scds_of_tails).mean()
 
