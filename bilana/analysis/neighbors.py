@@ -6,7 +6,7 @@ This module automates certain tasks in gromacs:
     3. Class RDF():      Calculate radial distribution functions of sel atoms around ref atoms
     4. Class MSD():      Calculate the MSD of sel atoms
 '''
-import os
+import os, sys
 import numpy as np
 import MDAnalysis as mda
 from .. import log
@@ -60,6 +60,7 @@ class Neighbors(SysInfo):
                 continue
 
             refatomgrp = self.universe.select_atoms(refatoms)
+            LOGGER.debug("Found %s atoms: %s ", len(refatomgrp.atoms), refatomgrp.atoms)
             leaflets = self.get_ref_postions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
 
             # universe.dimensions has to be copied!! otherwise reference will be changed and always last boxdimensions are used
@@ -108,8 +109,8 @@ class Neighbors(SysInfo):
                         LOGGER.debug("dist %s and dist_self %s", distance, dist_helper(host_pos,  all_coords_per_leaflet[resndx][1], boxdim))
                         neiblist.append(all_coords_per_leaflet[resndx][0])
 
-                    else:
-                        LOGGER.debug("REJECTED: host%s  neib%s", hostid, all_coords_per_leaflet[resndx][0])
+                    #else:
+                        #LOGGER.debug("REJECTED: host%s  neib%s", hostid, all_coords_per_leaflet[resndx][0])
 
                 neiblist = list(set(neiblist)) # delete duplicates
                 neiblist.sort()
@@ -127,14 +128,34 @@ class Neighbors(SysInfo):
             center = refatomgrp.center_of_mass()
             leaf1 = [(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] >= center[2]]
             leaf2 = [(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] <  center[2]]
-        elif mode == "tails_C8":
+        elif mode == "tails":
+            cnt = 0
             center = refatomgrp.center_of_mass()
-            positions = []
-            reslist = []
-            center = refatomgrp.center_of_mass()
-            leaf1 = {}
-            #leaf1 = [(resid, pos) for resid, pos  in zip(refatomgrp.positions) if pos[2] >= center[2]]
-            #leaf2 = [(resid, pos) for resid, pos  in zip(refatomgrp.positions) if pos[2] <  center[2]]
+            leaf1 = np.array([(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] >= center[2]])
+            leaf2 = np.array([(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] <  center[2]])
+            LOGGER.debug("Leaf1 is\n%s", leaf1)
+            for resid  in refatomgrp.resids:
+                resid += cnt
+                mask1 = np.where( leaf1[:,0] == resid )[0] # Index of duplicate per resid
+                mask2 = np.where( leaf2[:,0] == resid )[0] # are stored here
+                if mask1.shape[0] == 2:
+                    LOGGER.debug("Index of second tail: %s", np.where( leaf1[:,0] == resid ))
+                    cnt += 1 # count number of additional resids
+                    leaf1[ leaf1[:,0] > resid ] += 1 # increase resid number above processed resid
+                    leaf2[ leaf2[:,0] > resid ] += 1 # for each duplicate
+                    LOGGER.debug("leaf1 now %s", leaf1)
+                    leaf1[ mask1[1] ][0] += 1  # Increase resid of second item in resid duplicate
+                    LOGGER.debug("leaf1 and then %s", leaf1)
+                elif mask2.shape[0] == 2: # Same here as for mask1
+                    LOGGER.debug("Index of second tail: %s", np.where( leaf2[:,0] == resid ))
+                    cnt += 1
+                    leaf1[ leaf1[:,0] > resid ] += 1
+                    leaf2[ leaf2[:,0] > resid ] += 1
+                    LOGGER.debug("leaf2 now %s", leaf2)
+                    leaf2[ mask2[1] ][0] += 1
+                    LOGGER.debug("leaf2 and then %s", leaf2)
+            leaf1, leaf2 = list(leaf1), list(leaf2)
+
 
         else:
             raise ValueError("Invalid mode, choose one of {}".format(modes))
