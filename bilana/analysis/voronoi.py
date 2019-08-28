@@ -1,5 +1,18 @@
 '''
     This module eases the use of scipy's Voronoi
+    Frontend functions:
+
+    plot_periodic_voro
+        Convert set of points from simulation frame to voronoi plot, uses mda_universe
+
+    plot_voro_on_structure
+        Uses plot_periodic_voro
+        This function acts as a wrapper for plot_periodic_voro
+
+    make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head", leaflet=0, delete_imgs=True, plot_points=True,
+    imgdir="movie", overwrite=False, framerate=4, **vorokwargs)
+        Uses plot_periodic_voro and plot_voro_on_structure
+        Converts all frames to voronoi plot structures for a specific atom selection with both leaflets next to each other
 
 '''
 import os
@@ -94,7 +107,7 @@ def plot_periodic_voro(points, box, colorfill="shape", plot_points=False, **kw):
         -points must be 2D
         -box must be 2D
         The voronoi tiles can be filled using different schemes, by now only coloring
-        regarding number of edges is implemented only
+        regarding number of edges is implemented
     '''
 
     if isinstance(points, tuple):
@@ -133,7 +146,7 @@ def plot_periodic_voro(points, box, colorfill="shape", plot_points=False, **kw):
         for pointidx, simplex in zip(vor.ridge_points, vor.ridge_vertices):
             simplex = np.asarray(simplex)
             pts = vor.points[pointidx]
-            if np.all(simplex >= 0): # Only take into account finite ridges (-1 means second point of ridge outside)
+            if np.all(simplex >= 0): # Only take into account finite ridges (-1 means second point of ridge is outside)
 
                 # Only draw ridges if at least one point of ridge pair lies within box
                 if np.any(np.all(pts >= 0, axis=1)) and np.any(np.all(pts <= box, axis=1)):
@@ -162,7 +175,14 @@ def plot_periodic_voro(points, box, colorfill="shape", plot_points=False, **kw):
 
 
 def plot_voro_on_structure(mda_atoms, selstr, plot_points=False, output_filename="voronoi.png", **kwargs):
-    ''' '''
+    ''' Converts a frame from MDAnalysis universe to voronoi plots using the set of reference positions resulting
+        from atomselection created using selstr
+
+        selstr can be a list of strings and each will be plotted in a new matplotlib.axes instance
+
+        **kwargs will be parsed to plot_peridioc voro function, which actually performs voronoi calculation
+
+    '''
     colordict = {# Color dictionary for point colors
         "DPPC":"Red",
         "DUPC":"Black",
@@ -201,16 +221,22 @@ def plot_voro_on_structure(mda_atoms, selstr, plot_points=False, output_filename
 def make_voro_movie(systeminfo, video_name="voro_movie.mpg", dt=None, lvl="head", leaflet=0, delete_imgs=True, plot_points=True,
     imgdir="movie", overwrite=False, framerate=4, **vorokwargs,
     ):
-    ''' '''
+    ''' Converts all frames of simulation (from systeminfo instance) to voronoi plots and aggregates all files to a .mpg move
+
+    lvl can be one of the items in lvls dictionary,
+        or if something else lvl is the plain selection string to choose reference positions
+        which then is directly used in plot_voro_on_structure
+
+    '''
     lvls = {
         "head":"name P O3",
-         "tail2":"(resname DPPC and name C12 C22) or (resname CHL1 and name O3)",
-         "tail4":"(resname DPPC and name C14 C24) or (resname CHL1 and name O3)",
-         "tail6":"(resname DPPC and name C16 C26) or (resname CHL1 and name O3)",
-         "tail8":"(resname DPPC and name C18 C28) or (resname CHL1 and name O3)",
-        "tail10":"(resname DPPC and name C110 C210) or (resname CHL1 and name O3)",
-        "tail12":"(resname DPPC and name C112 C212) or (resname CHL1 and name O3)",
-        "tail14":"(resname DPPC and name C114 C214) or (resname CHL1 and name O3)",
+         "tail2":"(resname DPPC DUPC and name C12 C22) or (resname CHL1 ERG and name O3)",
+         "tail4":"(resname DPPC DUPC and name C14 C24) or (resname CHL1 ERG and name O3)",
+         "tail6":"(resname DPPC DUPC and name C16 C26) or (resname CHL1 ERG and name O3)",
+         "tail8":"(resname DPPC DUPC and name C18 C28) or (resname CHL1 ERG and name O3)",
+        "tail10":"(resname DPPC DUPC and name C110 C210) or (resname CHL1 ERG and name O3)",
+        "tail12":"(resname DPPC DUPC and name C112 C212) or (resname CHL1 ERG and name O3)",
+        "tail14":"(resname DPPC DUPC and name C114 C214) or (resname CHL1 ERG and name O3)",
     }
     if lvl not in lvls.keys():
         atomselect_str = lvl
