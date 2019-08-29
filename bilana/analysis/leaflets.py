@@ -20,6 +20,12 @@ def is_neighbor_in_leaflet(systeminfo_inst, neiblist):
     LOGGER.info(host_has_interleafletneib)
 
 
+def molecule_leaflet_orientation(atompos1: np.array, atompos2: np.array, axis=np.array([0.0, 0.0, 1.0])) -> int:
+    ''' Takes two positions and returns 0 or 1 depending if molecule is oriented upside down or up '''
+    new_coords = atompos1 - atompos2
+    cos = np.dot(new_coords, axis) / np.linalg.norm(new_coords)
+    return ( 0 if cos <= 0 else 1 )
+
 def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
     ''' Creates a file with that assigns all lipids to upper or lower leaflet
                         !Attention!
@@ -62,14 +68,13 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
                     LOGGER.debug("Resid/resname/atmname %s/%s/%s", resid, resname, atomname)
                     LOGGER.debug("Coords head/base: %s/%s", coord_head, coord_base)
 
-                    new_coords = coord_head - coord_base
-                    cos = np.dot(new_coords, np.array([0.0,0.0,1.0]))/np.linalg.norm(new_coords)
-                    if cos <= 0:
-                        sum_upper += 1
-                        leaflet = 0
-                    else:
+                    leaflet = molecule_leaflet_orientation(coord_head, coord_base)
+
+                    if leaflet:
                         sum_lower += 1
-                        leaflet = 1
+                    else:
+                        sum_upper += 1
+
                     print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
 
                     old_resid = resid
