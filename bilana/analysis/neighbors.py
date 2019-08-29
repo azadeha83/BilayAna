@@ -13,6 +13,7 @@ from .. import log
 from ..common import exec_gromacs, loop_to_pool, GMXNAME
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
+from .leaflets import molecule_leaflet_orientation
 
 LOGGER = log.LOGGER
 LOGGER = log.create_filehandler("bilana_wrapgmx.log", LOGGER)
@@ -54,6 +55,8 @@ class Neighbors(SysInfo):
         traj_len = len(self.universe.trajectory)
         inpargs = []
         LOGGER.info("Collect inpargs")
+        outp = []
+        leaflets = [[[],], [[],]]
         for t in range(traj_len):
             time = self.universe.trajectory[t].time
             if self.t_end < time or self.t_start > time:
@@ -61,20 +64,25 @@ class Neighbors(SysInfo):
 
             refatomgrp = self.universe.select_atoms(refatoms)
             LOGGER.debug("Found %s atoms: %s ", len(refatomgrp.atoms), refatomgrp.atoms)
+            leaflets_tmp = leaflets
             leaflets = self.get_ref_postions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
+            if len(leaflets[0]) != len(leaflets[1]):
+                #raise ValueError("Number of found ref positions differs: {} vs {}".format(len(leaflets[0]), len(leaflets[1])))
+                LOGGER.warning("Number of found ref positions differs: %s vs %s", len(leaflets[0]), len(leaflets[1]))
+                LOGGER.warning("Difference1: %s", set([i[0] for i in leaflets[0]]).symmetric_difference(set([i[0] for i in leaflets_tmp[0]])))
 
             # universe.dimensions has to be copied!! otherwise reference will be changed and always last boxdimensions are used
-            inpargs.append((time, leaflets, self.universe.dimensions.copy(), self.cutoff, _2D))
+            inp = (time, leaflets, self.universe.dimensions.copy(), self.cutoff, _2D)
+            if parallel:
+                inpargs.append(inp)
+            else:
+                outp.append(self._get_outp_line(*inp))
 
-        if parallel and not DEBUG:
+        if parallel:
             LOGGER.info("Sending jobs to pool")
             outp = loop_to_pool(self._get_outp_line, inpargs, maxtasknum=32)
             outp = [i for l in outp for i in l]
         else:
-            outp = []
-            for inp in inpargs:
-                LOGGER.info("At time %s", inp[0])
-                outp.append(self._get_outp_line(*inp))
             outp = [i for l in outp for i in l]
 
         outp.sort()
@@ -117,6 +125,7 @@ class Neighbors(SysInfo):
                 neiblist = [ str(n) for n in neiblist if n != hostid ] # delete host entry
                 n_neibs = len(neiblist)
                 outp.append( (hostid, time, n_neibs, ','.join(str(i) for i in neiblist)) )
+        LOGGER.info("finished at %s", time)
         return outp
 
     def get_ref_postions(self, mode, refatomgrp):
@@ -126,13 +135,19 @@ class Neighbors(SysInfo):
             if len(refatomgrp.resids) != len(set(refatomgrp.resids)):
                 raise ValueError("Refatoms string leads to more than one entry per molecule")
             center = refatomgrp.center_of_mass()
-            leaf1 = [(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] >= center[2]]
-            leaf2 = [(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] <  center[2]]
+            leaf1 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] >= center[2]]
+            leaf2 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] <  center[2]]
         elif mode == "tails":
             cnt = 0
-            center = refatomgrp.center_of_mass()
-            leaf1 = np.array([(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] >= center[2]])
-            leaf2 = np.array([(refatomgrp.resids[resndx], pos) for resndx, pos  in enumerate(refatomgrp.positions) if pos[2] <  center[2]])
+            orientations = {}
+            for residue in refatomgrp.residues:
+                headsel = 'name {}'.format( ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
+                tailsel = 'name {}'.format( ' '.join( np.array( lipidmolecules.tailcarbons_of(residue.resname) )[:,-1] ) )
+                head_pos = residue.atoms.select_atoms( headsel ).center_of_mass()
+                tail_pos = residue.atoms.select_atoms( tailsel ).center_of_mass()
+                orientations[residue.resid] =  molecule_leaflet_orientation( head_pos, tail_pos )
+            leaf1 = np.array( [(atm.resid, atm.position) for atm  in refatomgrp.atoms if orientations[ atm.resid ] ] )
+            leaf2 = np.array( [(atm.resid, atm.position) for atm  in refatomgrp.atoms if not orientations[ atm.resid ] ] )
             LOGGER.debug("Leaf1 is\n%s", leaf1)
             for resid  in refatomgrp.resids:
                 resid += cnt

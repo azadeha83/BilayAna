@@ -64,8 +64,10 @@ def write_neighbortype_distr(systeminfo, fname="neighbortype_distribution.dat"):
             + (len(components)*'{: ^7}').format(*components),
             file=outf)
         for resid in systeminfo.MOLRANGE:
+            LOGGER.debug("At res %s", resid)
             lipidtype = systeminfo.resid_to_lipid[resid]
             for time in range(systeminfo.t_start, systeminfo.t_end + systeminfo.dt, systeminfo.dt):
+                LOGGER.debug("At time %s", time)
                 neibs = neiblist[resid][float(time)]
                 neib_comp_list = []
                 for lip in components:
