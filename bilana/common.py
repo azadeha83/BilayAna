@@ -14,6 +14,7 @@ def loop_to_pool(func, inp, maxtasknum=1000):
             data_outputs = pool.starmap(func, inp)
         else:
             data_outputs = pool.map(func, inp)
+    pool.close()
     pool.join()
     return data_outputs
 
