@@ -123,6 +123,9 @@ class SysInfo():
         self.MOLRANGE          = self.RESIDS
 
         self.tail = self.system_info.get("tail", None)
+        if self.tail is not None:
+            LOGGER.warn("The tail implementation is not well tested and will not work for most of the tools included in this package")
+            self.recalc_resid_dicts()
 
     def read_infofile(self, inputfname):
         ''' Reads the inputfile. Caution!
@@ -238,3 +241,63 @@ class SysInfo():
 
     def check_structurefile_format(self):
         ''' Check wether coordinate file from simulation has correct format and atomnaming '''
+
+    def recalc_resid_dicts(self, refpos_per_resid=2):
+        ''' This function had to be included for the tail implementation
+            as now there are more than one reference position per resid
+
+            Attributes that are changed:
+                MOLRANGE = RESIDS
+                resid_to_lipid
+                res_to_leaflet
+                index_to_resid
+
+        '''
+        added_resids = 0
+
+        old_to_new_resid = {}
+        new_resids = []
+        new_resid_to_lipid = {}
+        new_res_to_leaflet = {}
+        new_index_to_resid = {}
+
+        for res in self.RESIDS:
+            resname = self.resid_to_lipid[res]
+            if self.res_to_leaflet:
+                leaflet = self.res_to_leaflet[res]
+            else:
+                leaflet = ""
+
+            if resname in ["CHL1", "ERG"]: # Because this resname still only have one ref position per resid
+                nres = res + added_resids
+                old_to_new_resid[res] = [nres]
+                new_resids.append(nres)
+                new_res_to_leaflet[nres] = leaflet
+                new_resid_to_lipid[nres] = resname
+
+            else:
+                new_res = [ (res + i + added_resids) for i in range(refpos_per_resid) ]
+
+                old_to_new_resid[res] = new_res
+
+                for nres in new_res:
+                    new_resids.append(nres)
+                    new_resid_to_lipid[nres] = resname
+                    new_res_to_leaflet[nres] = leaflet
+
+                added_resids += refpos_per_resid - 1
+                LOGGER.debug("<new res> %s : <old res> %s", new_res, res)
+                LOGGER.debug("added residues: %s", added_resids)
+
+        # get new index_to_resid
+        for ind, res in self.index_to_resid.items():
+            if res not in self.RESIDS:
+                continue
+            for nres in old_to_new_resid[res]:
+                new_index_to_resid[ind] = nres
+
+        # overwrite old dicts
+        self.MOLRANGE = self.RESIDS = new_resids
+        self.resid_to_lipid = new_resid_to_lipid
+        self.res_to_leaflet = new_res_to_leaflet
+        self.index_to_resid = new_index_to_resid
