@@ -58,11 +58,9 @@ class EofScd(Neighbors):
             lipid1index = self.molecules.index(lipid1) # Like 'DPPC_DPPC'
             for lipid2 in self.molecules:
                 lipid2index = self.molecules.index(lipid2)
-                print(lipid2index)
                 if lipid2index > lipid1index:  # Ignore double entries: Lipid1_Lipid2 = Lipid2_Lipid1
                     break
                 self.lipidpairs.append(''.join([lipid2, '_', lipid1]))
-        print(self.lipidpairs)
 
     def create_eofscdfile(self):
         ''' Creates files of data of E(S) for each lipid part'''
@@ -80,8 +78,6 @@ class EofScd(Neighbors):
     def assemble_eofs(self, energyfile, timetoscd, timetoorientation, lipidpair, endtime):
         ''' Read energyfile (all_energies.dat) in line and assemble from this data E(S) for a specific lipid pair '''
         components = self.components.copy() # dont change self.components
-        print(lipidpair.split('_')[0])
-        print(components)
 
         if 'CHL1' in self.molecules:
             components += ["CHL1_host"] # Chols that are neighbor to host
@@ -92,7 +88,6 @@ class EofScd(Neighbors):
         
         #if (lipidpair.split('_')[0] in lipidmolecules.STEROLS) or (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
         sterol_component = ['orient_flag']
-        print(sterol_component)
         
         # Create Eofs output name
         if energyfile == 'all_energies.dat':
@@ -192,8 +187,13 @@ class EofScd(Neighbors):
                 orient_flag = 0
 
                 if (lipidpair.split('_')[0] not in lipidmolecules.STEROLS) and (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
+                    
+                    if type_host in lipidmolecules.STEROLS:
 
-                    orientation_steroltohost = timetoorientation[(time, neib, host)]
+                        orientation_steroltohost = timetoorientation[(time, host, neib)]
+                    else:
+                        orientation_steroltohost = timetoorientation[(time, neib, host)]
+
                     if orientation_steroltohost == 0:
                         orient_flag = 0
                     else:
