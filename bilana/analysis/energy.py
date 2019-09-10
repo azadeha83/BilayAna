@@ -184,14 +184,14 @@ class Energy(SysInfo):
 
     def gather_energygroups(self, res, all_neibs_of_res):
         ''' Set which part of molecule should be considered '''
-        energygroup_indeces = [res] + all_neibs_of_res[ self.groupblocks[0]:self.groupblocks[1] ]
+        energygroup_resids = [res] + all_neibs_of_res[ self.groupblocks[0]:self.groupblocks[1] ]
         energygroup_list = []
-        for index in energygroup_indeces:
-            if self.resid_to_lipid[index] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS:
-                energygroup_list.append(''.join(["resid_",str(index)]))
+        for resid in energygroup_resids:
+            if self.resid_to_lipid[resid] in lipidmolecules.STEROLS+lipidmolecules.PROTEINS:
+                energygroup_list.append(''.join(["resid_",str(resid)]))
             else:
                 for part in self.molparts:
-                    energygroup_list.append(''.join([part,str(index)]))
+                    energygroup_list.append(''.join([part,str(resid)]))
         energygroup_string = ' '.join(energygroup_list)
         return energygroup_string
 
@@ -446,9 +446,29 @@ class Energy(SysInfo):
                     duplicates = [(item, count) for item, count in collections.Counter(processed_neibs).items() if count > 1]
                     LOGGER.debug(duplicates)
 
-                if len(self.molparts) >1:
-                    all_neibs_of_res = [part.replace("resid_", "")+str(entry) for entry in all_neibs_of_res for part in self.molparts] # Duplicating entries for each molpart
-                    all_neibs_of_res = [entry for entry in all_neibs_of_res for _ in range(len(self.molparts))] # Duplicating entries for each molpart
+                #if len(self.molparts) >1:
+                LOGGER.debug("All_neibs before: %s", all_neibs_of_res)
+
+                tmplist = []
+                for entry in all_neibs_of_res:
+                    if self.resid_to_lipid[entry] in lipidmolecules.STEROLS:
+                        tmplist.append(entry)
+                    else:
+                        for _ in range(len(self.molparts)):
+                            tmplist.append(entry) # multiplying entries for each molpart
+                all_neibs_of_res = tmplist.copy()
+
+                tmplist = []
+                for entry in all_neibs_of_res:
+                    for part in self.molparts:
+                        if self.resid_to_lipid[entry] in lipidmolecules.STEROLS:
+                            tmplist.append(str(entry))  # sterols dont have molparts so just resid as string is added to list
+                        else:
+                            tmplist.append(part.replace("resid_", "") + str(entry)) # Remove resid_ and at specific molparts like h_ or t_
+                all_neibs_of_res = tmplist.copy()
+
+                #all_neibs_of_res = [part.replace("resid_", "")+str(entry) for entry in all_neibs_of_res for part in self.molparts if self.resid_to_lipid[entry] not in lipidmolecules.STEROLS] #
+                #all_neibs_of_res = [entry for entry in all_neibs_of_res for _ in range(len(self.molparts))] # Duplicating entries for each molpart: X-Y Y-X
                 LOGGER.debug("All_neibs corrected %s", all_neibs_of_res)
                 LOGGER.debug("Processed neibs: %s", processed_neibs)
 
@@ -456,19 +476,18 @@ class Energy(SysInfo):
                 for pneib in processed_neibs:
                     LOGGER.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
                     try:
-                        all_neibs_of_res.remove(int(pneib))
+                        all_neibs_of_res.remove(pneib)
                     except ValueError:
                         LOGGER.warning("!! Neighbor id %s found in xvg table but is not neighbor", pneib)
                         all_okay = False
                 if all_neibs_of_res:
-                    LOGGER.warning("Missing neighbour-ids: %s", all_neibs_of_res)
+                    LOGGER.warning("Missing neighbour-ids of resdue %s: %s", resid, all_neibs_of_res)
                     if not self.part:
                         part = "complete"
                     else:
                         part = self.part
                     submit_missing_energycalculation(resid, part, self.system, self.temperature)
                     all_okay = False
-                    break
                     #raise ValueError('Not all neighbours found in xvgfile')
         if not all_okay:
             #os.remove(self.all_energies)
@@ -481,9 +500,7 @@ class Energy(SysInfo):
         '''
         def read_lastline_only(fname):
             ''' Reads last line of file without loop. Attention: Crashes if file is empty'''
-            LOGGER.debug("Reading %s", fname)
             with open(fname, "rb") as f:
-                LOGGER.debug("Opened %s", f)
                 f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
                 while f.read(1) != b"\n":   # Until EOL is found...
                     f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
@@ -536,6 +553,7 @@ class Energy(SysInfo):
 
                 else:
                     continue
+            LOGGER.warning("Submitted following energy calculations for residues: %s", resubmitted_residues)
 
             return False
         return True
