@@ -43,7 +43,7 @@ class Order(Neighbors):
         '''
         if not self.trjpath_whole:
             LOGGER.error("Is input trajectory in mda.universe made whole? If not, this may result in spurious results")
-            raise FileNotFoundError
+            raise FileNotFoundError("No whole trajectory found")
 
         def catch_callback(result):
             ''' Catches callback value of pool.apply_async workers and puts into outputlist'''
@@ -66,6 +66,8 @@ class Order(Neighbors):
         # Define how the order parameter has to be calculated
         if mode == "CC":
             calc_s = self.scc_of_res
+        elif mode == "profile":
+            calc_s = self.get_order_profile
         else:
             raise ValueError("Mode not yet implement use mode=CC (default)")
 
@@ -85,13 +87,23 @@ class Order(Neighbors):
             else:
                 new_axis = None
 
-            # Collect input arguments in tuple
-            inptup = (calc_s, new_axis, self.MOLRANGE, self.universe.atoms, self.universe.atoms.positions,
-                time, self.components, neiblist_t[time], self.res_to_leaflet, self.resid_to_lipid,)
-            if parallel:
-                pool.apply_async(self._calc_scd_output, args=inptup, callback=catch_callback)
-            else:
-                outputlist.append(self._calc_scd_output(*inptup))
+            if mode == 'CC':
+                # Collect input arguments in tuple
+                inptup = (calc_s, new_axis, self.MOLRANGE, self.universe.atoms, self.universe.atoms.positions,
+                    time, self.components, neiblist_t[time], self.res_to_leaflet, self.resid_to_lipid,)
+                if parallel:
+                    pool.apply_async(self._calc_scd_output, args=inptup, callback=catch_callback)
+                else:
+                    outputlist.append(self._calc_scd_output(*inptup))
+
+            elif mode == 'profile':
+                # Collect input arguments in tuple
+                inptup = (calc_s, new_axis, self.MOLRANGE, self.universe.atoms, self.universe.atoms.positions,
+                    time, self.res_to_leaflet, self.resid_to_lipid,)
+                if parallel:
+                    pool.apply_async(self._calc_scd_profile_output, args=inptup, callback=catch_callback)
+                else:
+                    outputlist.append(self._calc_scd_profile_output(*inptup))
 
         if parallel:
             # finalize pool
@@ -103,13 +115,22 @@ class Order(Neighbors):
         LOGGER.info("Writing to file ...")
         outputlist = [i for l in outputlist for i in l]
         outputlist = sorted(outputlist, key=lambda tup: tup[:2])
-        with open(outputfile, "w") as scdfile:
-            print("{: <12}{: <10}{: <10}{: <7}{: <15}".format("Time", "Residue", "leaflet", "Type", "Scd")\
-                + (len(self.components)*'{: ^7}').format(*self.components),
-                file=scdfile)
-            for line in outputlist:
-                line = "{: <12.2f}{: <10}{: <10}{: <7}{: <15.8}".format(*line[:5]) + (len(self.components)*"{: ^7}").format(*line[5:])
-                print(line, file=scdfile)
+        if mode == "CC":
+            with open(outputfile, "w") as scdfile:
+                print("{: <12}{: <10}{: <10}{: <7}{: <15}".format("Time", "Residue", "leaflet", "Type", "Scd")\
+                    + (len(self.components)*'{: ^7}').format(*self.components),
+                    file=scdfile)
+                for line in outputlist:
+                    line = "{: <12.2f}{: <10}{: <10}{: <7}{: <15.8}".format(*line[:5]) + (len(self.components)*"{: ^7}").format(*line[5:])
+                    print(line, file=scdfile)
+        elif mode == "profile":
+            with open(outputfile, "w") as scdfile:
+                print("{: <12}{: <10}{: <10}{: <7}{: <15}{: <15}{: <10}{: <10}".format("Time", "Residue", "leaflet", "Type", "avgS", "S", "carbon", "chain" ), file=scdfile)
+                for line in outputlist:
+                    line = "{: <12.2f}{: <10}{: <10}{: <7}{: <15.8}{: <15.8}{: <10}{: <10}".format(*line)
+                    print(line, file=scdfile)
+
+
 
     @staticmethod
     def _calc_scd_output(s_fun, new_axis, molrange, all_atms, positions, time, components, neiblist, res_to_leaflet, resid_to_lipid):
@@ -145,7 +166,69 @@ class Order(Neighbors):
         return outp
 
     @staticmethod
-    #def scc_of_res(resinfo, tailatms, tilt_correction=None):
+    def _calc_scd_profile_output(s_fun, new_axis, molrange, all_atms, positions, time, res_to_leaflet, resid_to_lipid):
+        outp = []
+        for res in molrange:
+            leaflet = res_to_leaflet[res]
+            resname = resid_to_lipid[res]
+            if new_axis is not None:
+                new_axis_at_t = new_axis[leaflet]
+
+            LOGGER.debug("At time %s and residue %s", time, res)
+
+            # If resname is not known skip, this residue
+            if resname[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
+                and resname not in lipidmolecules.STEROLS\
+                and resname not in lipidmolecules.PROTEINS:
+                LOGGER.debug("Skipping")
+                continue
+
+            tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+
+            scds_per_tail, avg_scd = s_fun(res, tailatms, all_atms, positions, tilt_correction=new_axis_at_t)
+            LOGGER.debug("scds at tail with avg %s: %s", avg_scd, scds_per_tail)
+            for chain, scdvals in enumerate(scds_per_tail, start=1):
+                for ndx, scdval in enumerate(scdvals, start=1):
+                    outputtuple = (time, res, leaflet, resname, avg_scd, scdval, ndx, "sn"+str(chain) )
+                    outp.append(outputtuple)
+
+        LOGGER.info("finished with time %s", time)
+        return outp
+
+    @staticmethod
+    def get_order_profile(res, tailatms, all_atmnames, positions, tilt_correction=None):
+        ''' Calculate order parameter profiles for each chain '''
+
+        if tilt_correction is None:
+            tilt_correction = [0, 0, 1] # Use z-axis
+
+
+        scds_of_tails = []
+        for tailndx, tail in enumerate(tailatms):
+            scds_of_tails.append([])
+
+            for atomindex in range(len(tail)-1):
+
+                atm1, atm2 = tail[atomindex], tail[atomindex+1]
+                #coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
+
+                mask1 =  ( all_atmnames.names == tail[ atomindex ], all_atmnames.resids == res )
+                mask2 =  ( all_atmnames.names == tail[ atomindex + 1 ], all_atmnames.resids == res )
+                atm1, atm2 = positions[ mask1[0] & mask1[1] ][0], positions[ mask2[0] & mask2[1] ][0]
+
+                diffvector = atm2 - atm1
+                diffvector /= np.linalg.norm(diffvector)
+                LOGGER.debug("Diffvector %s", diffvector)
+
+                cos_angle = np.dot(diffvector, tilt_correction)
+                LOGGER.debug("Resulting cos %s", cos_angle)
+                scds_of_tails[tailndx].append( 0.5 * ( ( 3 * (cos_angle**2)) - 1 )  )
+
+        LOGGER.debug("Scds of res %s: %s", res, scds_of_tails)
+
+        return scds_of_tails, np.array(scds_of_tails).mean()
+
+    @staticmethod
     def scc_of_res(res, tailatms, all_atmnames, positions, tilt_correction=None):
         ''' Calculate the order parameter  '''
 
@@ -160,7 +243,6 @@ class Order(Neighbors):
             for atomindex in range(len(tail)-1):
 
                 atm1, atm2 = tail[atomindex], tail[atomindex+1]
-                #coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
 
                 mask1 =  ( all_atmnames.names == tail[ atomindex ], all_atmnames.resids == res )
                 mask2 =  ( all_atmnames.names == tail[ atomindex + 1 ], all_atmnames.resids == res )
