@@ -140,7 +140,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.files.eofs import EofScd'
             '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
-            '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
+            '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.universe.trajectory[-1].time):'
             '\n    energy_instance.write_energyfile()'
             '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
             '\n    eofs.create_eofscdfile()'.format(lipidpart, overwrite,

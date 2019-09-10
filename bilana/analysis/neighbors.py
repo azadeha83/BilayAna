@@ -68,7 +68,7 @@ class Neighbors(SysInfo):
             leaflets = self.get_ref_postions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
             if len(leaflets[0]) != len(leaflets[1]):
                 #raise ValueError("Number of found ref positions differs: {} vs {}".format(len(leaflets[0]), len(leaflets[1])))
-                LOGGER.warning("Number of found ref positions differs: %s vs %s", len(leaflets[0]), len(leaflets[1]))
+                LOGGER.warning("frame %s: Number of found ref positions differs: %s vs %s", t, len(leaflets[0]), len(leaflets[1]))
                 LOGGER.warning("Difference1: %s", set([i[0] for i in leaflets[0]]).symmetric_difference(set([i[0] for i in leaflets_tmp[0]])))
 
             # universe.dimensions has to be copied!! otherwise reference will be changed and always last boxdimensions are used
