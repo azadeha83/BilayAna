@@ -210,3 +210,19 @@ def write_nofscd(systemname, temperature, jobname, *args,
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
+
+def submit_missing_energycalculation(res, part, systemname, temperature):
+    jobfilename = "en{}.py".format(res)
+    jobname = "{}_{}_res{}".format(systemname, temperature, res)
+    with open(jobfilename, "w") as sf:
+        print('import os, sys'
+            '\nfrom bilana.analysis.energy import Energy'
+            '\nenergy_instance = Energy("{}", overwrite=True, inputfilename="inputfile", neighborfilename="neighbor_info")'
+            '\nenergy_instance.info()'
+            '\nenergy_instance.run_calculation(resids=[{}])'
+            '\nos.remove(sys.argv[0])'.format(part, res), file=sf)
+    write_submitfile('submit.sh', jobname, mem='8G')
+    cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    print(out.decode(), err.decode())

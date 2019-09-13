@@ -8,6 +8,7 @@ from .. import log
 from ..common import exec_gromacs, GMXNAME, write_submitfile
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
+from ..command_line import submit_missing_energycalculation
 
 LOGGER = log.LOGGER
 LOGGER = log.create_filehandler("bilana_energy.log", LOGGER)
@@ -326,11 +327,11 @@ class Energy(SysInfo):
             logfile.write(err)
             logfile.write(out)
 
-    def write_energyfile(self):
+    def write_energyfile(self, submit_missing_data=True):
         ''' Creates files: "all_energies_<interaction>.dat
             NOTE: This function is too long. It should be separated into smaller parts.
         '''
-        all_okay = True
+        missing_energydata = []
         LOGGER.info('Create energy file')
         with open(self.all_energies, "w") as energyoutput:
             print(
@@ -341,7 +342,7 @@ class Energy(SysInfo):
                   file=energyoutput)
 
             for resid in self.MOLRANGE:
-                LOGGER.info("Working on residue %s", resid)
+                LOGGER.info("Working on residue %s ...", resid)
 
                 # Get neighborhood of resid
                 residtype        = self.resid_to_lipid[resid]
@@ -354,31 +355,28 @@ class Energy(SysInfo):
                     number_of_groupfragments = (n_neibs//self.denominator)
                 else:
                     number_of_groupfragments = (n_neibs//self.denominator)+1
-                LOGGER.info("Nneibs: %s Nfrags: %s", n_neibs, number_of_groupfragments)
+                LOGGER.debug("Nneibs: %s Nfrags: %s", n_neibs, number_of_groupfragments)
 
-                processed_neibs = []
+                all_neibs_of_res = [ all_neibs_of_res[ ( i*self.denominator ):( (i+1)*self.denominator ) ] for i in range(number_of_groupfragments) ]
+
                 for part in range(number_of_groupfragments):
                     LOGGER.debug("At part %s", part)
                     xvgfilename = self.energypath+'xvgtables/energies_residue'+str(resid)+'_'+str(part)+self.part+'.xvg'
 
                     with open(xvgfilename,"r") as xvgfile:
-                        res_to_row = {}
+                        res_to_rowindex = {}
 
                         for energyline in xvgfile: #folderlayout is: <time> <Coul_resHost_resNeib> <LJ_resHost_resNeib> ...
                             energyline_cols = energyline.split()
 
                             if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
-                                row  = int(energyline_cols[1][1:])+1                 #time is at row 0 !
+                                rowindex  = int(energyline_cols[1][1:])+1 # time is at row 0 !
                                 neib = energyline_cols[3].split("resid_")[2][:-1]
                                 host = energyline_cols[3].split("resid_")[1][:-1]
                                 energytype = energyline_cols[3].split("-")[0][1:]
                                 LOGGER.debug("Hostid: %s, Neibid: %s", host, neib)
 
-                                if energytype == 'LJ':
-                                    processed_neibs.append(neib)
-                                    LOGGER.debug("Adding neib %s to processed", neib)
-
-                                res_to_row.update({(energytype, host, neib):row})
+                                res_to_rowindex[(energytype, host, neib)] = rowindex
                                 LOGGER.debug("Adding to dict: Etype %s, host %s, neib %s", energytype, host, neib)
 
                             elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
@@ -386,112 +384,76 @@ class Energy(SysInfo):
                                 if time % self.dt != 0:
                                     continue
 
-                                for neib in all_neibs_of_res:
+                                for neib in all_neibs_of_res[part]:
+
                                     # This if clause is due to a broken simulation... In future it should be removed
                                     if self.system == 'dppc_dupc_chol25' and ((int(host) == 372 and neib == 242) or (int(host) == 242 and neib == 372)):
                                         continue
 
                                     neibtype = self.resid_to_lipid[neib]
-                                    counterhost = 0
-                                    for parthost in self.molparts:
-                                        parthost = parthost[6:]
 
-                                        # This if clause is added because we did not separate sterols into different parts
-                                        # if counterhost=0 -> do, else: skip
-                                        if residtype == 'CHL1' and counterhost == 0:
+                                    host_sterol_processed = False # We need that as sterols are not separated into different parts
+                                    # so we just process sterols only once
+                                    for parthost in self.molparts:
+                                        parthost = parthost[6:] # remove "resid" from parthost string
+
+                                        if residtype == 'CHL1' and not host_sterol_processed:
                                             parthost = ''
-                                            counterhost += 1
-                                        elif residtype == 'CHL1' and counterhost != 0:
+                                            host_sterol_processed = True
+                                        elif residtype == 'CHL1' and host_sterol_processed:
                                             continue
 
-                                        counterneib = 0
+                                        neib_sterol_processed = False
                                         for partneib in self.molparts:
-                                            partneib = partneib[6:]
+                                            partneib = partneib[6:] # remove "resid" from parthost string
 
-                                            # Same as for host
-                                            if neibtype == 'CHL1' and counterneib == 0:
+                                            if neibtype == 'CHL1' and not neib_sterol_processed:
                                                 partneib = ''
-                                                counterneib += 1
-                                            elif neibtype == 'CHL1' and counterneib != 0:
+                                                neib_sterol_processed = True
+                                            elif neibtype == 'CHL1' and neib_sterol_processed:
                                                 continue
 
                                             # if partstring is empty take whole lipid
-                                            if parthost[:-1] == '':
+                                            if parthost.replace("_", "") == '':
                                                 interhost = 'w'
                                             else:
-                                                interhost = parthost[:-1]
-                                            if partneib[:-1] == '':
+                                                interhost = parthost.replace("_", "")
+
+                                            if partneib.replace("_", "")== '':
                                                 interneib = 'w'
                                             else:
-                                                interneib = partneib[:-1]
+                                                interneib = partneib.replace("_", "")
                                             inter = ''.join([interhost, '_', interneib])
 
                                             # Get energies from dict energyline_cols
                                             try:
-                                                vdw = energyline_cols[res_to_row[('LJ', parthost+str(resid), partneib+str(neib))]]
-                                                coul = energyline_cols[res_to_row[('Coul', parthost+str(resid), partneib+str(neib))]]
+                                                vdw  = energyline_cols[ res_to_rowindex[ ('LJ',   parthost+str(resid), partneib+str(neib)) ] ]
+                                                coul = energyline_cols[ res_to_rowindex[ ('Coul', parthost+str(resid), partneib+str(neib)) ] ]
                                             except KeyError:
-                                                continue
+                                                LOGGER.warning("Data not found for %s - %s", parthost+str(resid), partneib+str(neib) )
+                                                if resid not in missing_energydata:
+                                                    missing_energydata.append(resid)
 
-                                            Etot = float(vdw)+float(coul)
+                                            Etot = float(vdw) + float(coul)
                                             print(\
                                                   '{: <10}{: <10}{: <10}{: <20}'
                                                   '{: <20}{: <20}{: <20.5f}'
-                                                  .format(time, resid, neib, inter,\
-                                                                            vdw, coul, Etot),\
+                                                  .format(time, resid, neib, inter,
+                                                                            vdw, coul, Etot),
                                                   file=energyoutput)
 
-                if LOGGER.level == 'DEBUG':
-                    import collections
-                    duplicates = [(item, count) for item, count in collections.Counter(processed_neibs).items() if count > 1]
-                    LOGGER.debug(duplicates)
-
-                #if len(self.molparts) >1:
-                LOGGER.debug("All_neibs before: %s", all_neibs_of_res)
-
-                tmplist = []
-                for entry in all_neibs_of_res:
-                    if self.resid_to_lipid[entry] in lipidmolecules.STEROLS:
-                        tmplist.append(entry)
-                    else:
-                        for _ in range(len(self.molparts)):
-                            tmplist.append(entry) # multiplying entries for each molpart
-                all_neibs_of_res = tmplist.copy()
-
-                tmplist = []
-                for entry in all_neibs_of_res:
-                    for part in self.molparts:
-                        if self.resid_to_lipid[entry] in lipidmolecules.STEROLS:
-                            tmplist.append(str(entry))  # sterols dont have molparts so just resid as string is added to list
-                        else:
-                            tmplist.append(part.replace("resid_", "") + str(entry)) # Remove resid_ and at specific molparts like h_ or t_
-                all_neibs_of_res = tmplist.copy()
-
-                #all_neibs_of_res = [part.replace("resid_", "")+str(entry) for entry in all_neibs_of_res for part in self.molparts if self.resid_to_lipid[entry] not in lipidmolecules.STEROLS] #
-                #all_neibs_of_res = [entry for entry in all_neibs_of_res for _ in range(len(self.molparts))] # Duplicating entries for each molpart: X-Y Y-X
-                LOGGER.debug("All_neibs corrected %s", all_neibs_of_res)
-                LOGGER.debug("Processed neibs: %s", processed_neibs)
-
-                # Check wether all pairs have been found
-                for pneib in processed_neibs:
-                    LOGGER.debug("Pneib is: %s removing from %s", pneib, all_neibs_of_res)
-                    try:
-                        all_neibs_of_res.remove(pneib)
-                    except ValueError:
-                        LOGGER.warning("!! Neighbor id %s found in xvg table but is not neighbor", pneib)
-                        all_okay = False
-                if all_neibs_of_res:
-                    LOGGER.warning("Missing neighbour-ids of resdue %s: %s", resid, all_neibs_of_res)
-                    if not self.part:
-                        part = "complete"
-                    else:
-                        part = self.part
-                    submit_missing_energycalculation(resid, part, self.system, self.temperature)
-                    all_okay = False
-                    #raise ValueError('Not all neighbours found in xvgfile')
-        if not all_okay:
-            #os.remove(self.all_energies)
+        if missing_energydata:
+            LOGGER.warning("Missing energydata: %s", missing_energydata)
+            if not self.part:
+                self.part = "complete"
+            if submit_missing_data:
+                for missing_resid in missing_energydata:
+                    submit_missing_energycalculation(missing_resid, self.part, self.system, self.temperature)
+            if os.path.isfile(self.all_energies):
+                os.remove(self.all_energies)
             raise RuntimeError("There were inconsistencies in the data. See log files for further information.")
+
+        LOGGER.info("File %s written successfully", self.all_energies)
 
     def check_exist_xvgs(self, check_len=False):
         ''' Checks if all .xvg-files containing lipid interaction exist
@@ -500,10 +462,20 @@ class Energy(SysInfo):
         '''
         def read_lastline_only(fname):
             ''' Reads last line of file without loop. Attention: Crashes if file is empty'''
+            MAXCOUNT = 100000
+            cnt = 0
             with open(fname, "rb") as f:
                 f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
-                while f.read(1) != b"\n":   # Until EOL is found...
+                while f.read(1) != b"\n" and f.tell() != 1:   # Until EOL is found... if f.tell() == 0 means cursor is at the beginning of file
+                    print(f.tell())
                     f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
+                    cnt += 1
+                    if cnt > MAXCOUNT:
+                        raise RuntimeError("Reach max byte count in file {}. Is it corrupted?".format(fname))
+
+                if f.tell() == 1:
+                    raise RuntimeError("File {} has no EOL character. Is it corrupted?".format(fname))
+
                 last = f.readline()         # Read last line.
             return last
 
@@ -557,19 +529,3 @@ class Energy(SysInfo):
 
             return False
         return True
-
-def submit_missing_energycalculation(res, part, systemname, temperature):
-    jobfilename = "en{}.py".format(res)
-    jobname = "{}_{}_res{}".format(systemname, temperature, res)
-    with open(jobfilename, "w") as sf:
-        print('import os, sys'
-            '\nfrom bilana.analysis.energy import Energy'
-            '\nenergy_instance = Energy("{}", overwrite=True, inputfilename="inputfile", neighborfilename="neighbor_info")'
-            '\nenergy_instance.info()'
-            '\nenergy_instance.run_calculation(resids=[{}])'
-            '\nos.remove(sys.argv[0])'.format(part, res), file=sf)
-    write_submitfile('submit.sh', jobname, mem='8G')
-    cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = proc.communicate()
-    print(out.decode(), err.decode())
