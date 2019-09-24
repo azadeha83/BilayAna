@@ -74,36 +74,37 @@ class ElectronDensity(SysInfo):
         dat[:,0] = dat[:,0] - centerofgeometry_z
         np.savetxt('{}_{}.densprof_atoms_centered.ldens'.format(self.system,self.temperature), dat, delimiter=' ', fmt='%.5f')
 
-    def electron_density_gromacs(self,start_time,end_time):
+    def electron_density_gromacs(self, selection, start_time,end_time, n_bins):
 
         '''This function calulate the charge density through Gromacs'''
-
+        
         cwd = os.getcwd()
-        index_electrondensity = ''.join(cwd + '/' + 'index_electrondensity.ndx')
-        electrons = ''.join(cwd + '/' + 'electrons_partial.dat')
-        electron_density_raw = ''.join(cwd + '/' + 'electron_density_raw')
+        #electrondensity_index = ''.join(cwd + '/' + 'electrondensity_index.ndx')
+        #electrons = ''.join(cwd + '/' + 'electrons_partial.dat')
+        #electron_density_raw = ''.join(cwd + '/' + 'electron_density_raw_')
 
-        # get_selection = [GMXNAME, 'select', '-f', self.trjpath, '-s', self.tprpath, '-on', index_electrondensity, \
-        #     '-select', '(resname {} TIP3)'.format(self.lipid_type_items) ]
+        get_selection = [GMXNAME, 'select', '-f', self.gropath, '-s', self.tprpath, '-on', 'electrondensity_index', \
+            '-select', '{}'.format(selection) ]
+        print(get_selection)
 
-        # print(get_selection)
+        out, err = exec_gromacs(get_selection)
 
-        #out, err = exec_gromacs(get_selection)
-
-        get_density = [GMXNAME, 'density', '-f', self.trjpath, '-s', self.tprpath, '-b', str(start_time), '-e', str(end_time), \
-            '-o', electron_density_raw, '-dens', 'electron', '-ei', electrons, '-center', '-relative']
-
-        print(get_density)
+        electron_density_output_raw = 'electron_density_raw_' + '{}'.format('_'.join(map(str, selection.split(' ')))) + '.xvg'
+        electron_density_output = 'electron_density_' + '{}'.format('_'.join(map(str, selection.split(' ')))) + '.xvg'
+        
+        get_density = [GMXNAME, 'density', '-f', self.trjpath, '-s', self.tprpath, '-n', 'electrondensity_index.ndx', '-b', str(start_time), '-e', str(end_time), \
+            '-o', electron_density_output_raw, '-dens', 'electron', '-ei', 'electrons_partial.dat', '-center', '-relative', '-d', 'Z', '-sl', str(n_bins)]
+        
         out, err = exec_gromacs(get_density)
 
         with open("gmx_density.log","a") as logfile:
             logfile.write(err)
             logfile.write(out)
 
-        with open("electron_density_raw.xvg", 'r') as f:
+        with open(electron_density_output_raw, 'r') as f:
             ls = f.readlines()
 
-        with open("electron_density.xvg" , 'w') as fout:
+        with open(electron_density_output , 'w') as fout:
 
             fout.write('Zbins\tdensity\n')
             for l in ls:

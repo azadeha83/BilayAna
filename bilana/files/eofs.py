@@ -84,11 +84,6 @@ class EofScd(Neighbors):
             components += ["CHL1_neib"] # Chols ... to neib
             components += ['CHL1_both'] # Chols ... to both
         
-        #sterol_component = []
-        
-        #if (lipidpair.split('_')[0] in lipidmolecules.STEROLS) or (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
-        sterol_component = ['orient_flag']
-        
         # Create Eofs output name
         if energyfile == 'all_energies.dat':
             outname = ''.join(['Eofscd', lipidpair, self.part, self.outputfile_tag, '.dat'])

@@ -58,8 +58,8 @@ class Hbonds(SysInfo):
 
         cwd = os.getcwd()
         
-        hbond_raw = ''.join(cwd + '/' + 'hbond_sterol_lipid_raw')
-        hbond_log = ''.join(cwd + '/' + 'hbond_sterol_lipid_log')
+        hbond_raw = ''.join(cwd + '/' + 'hbond_sterol_sterol_raw')
+        hbond_log = ''.join(cwd + '/' + 'hbond_sterol_sterol_log')
         index_hbond = ''.join(cwd + '/' + 'index_hbond_sterol.ndx')
         
         get_selection = [GMXNAME, 'select', '-f', self.gropath, '-s', self.tprpath, '-on', index_hbond, \
