@@ -80,7 +80,7 @@ class Neighbors(SysInfo):
 
         if parallel:
             LOGGER.info("Sending jobs to pool")
-            outp = loop_to_pool(self._get_outp_line, inpargs, maxtasknum=32)
+            outp = loop_to_pool(self._get_outp_line, inpargs, maxtasknum=8)
             outp = [i for l in outp for i in l]
         else:
             outp = [i for l in outp for i in l]
@@ -134,9 +134,18 @@ class Neighbors(SysInfo):
         if mode == "atom":
             if len(refatomgrp.resids) != len(set(refatomgrp.resids)):
                 raise ValueError("Refatoms string leads to more than one entry per molecule")
-            center = refatomgrp.center_of_mass()
-            leaf1 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] >= center[2]]
-            leaf2 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] <  center[2]]
+            orientations = {}
+            for residue in refatomgrp.residues:
+                headsel = 'name {}'.format( ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
+                tailsel = 'name {}'.format( ' '.join( np.array( lipidmolecules.tailcarbons_of(residue.resname) )[:,-1] ) )
+                head_pos = residue.atoms.select_atoms( headsel ).center_of_mass()
+                tail_pos = residue.atoms.select_atoms( tailsel ).center_of_mass()
+                orientations[residue.resid] =  molecule_leaflet_orientation( head_pos, tail_pos )
+            #center = refatomgrp.center_of_mass()
+            #leaf1 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] >= center[2]]
+            #leaf2 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] <  center[2]]
+            leaf1 = np.array( [(atm.resid, atm.position) for atm  in refatomgrp.atoms if orientations[ atm.resid ] ] )
+            leaf2 = np.array( [(atm.resid, atm.position) for atm  in refatomgrp.atoms if not orientations[ atm.resid ] ] )
         elif mode == "tails":
             cnt = 0
             orientations = {}
@@ -176,6 +185,8 @@ class Neighbors(SysInfo):
             raise ValueError("Invalid mode, choose one of {}".format(modes))
         return (leaf1, leaf2)
 
+    def get_orientation_dict():
+        ''' '''
 
     def _determine_neighbors_parallel(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
         ''' Creates "neighbor_info" containing all information on lipid arrangement '''
