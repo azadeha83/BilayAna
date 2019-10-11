@@ -127,26 +127,34 @@ class Energy(SysInfo):
 
     def selfinteractions_edr_to_xvg(self):
         ''' Extracts all self interaction energy values from .edr files using gmx energy '''
+        missing_edr = []
         for res in self.MOLRANGE:
             relev_energies = self.get_relev_self_interaction(res)
             tprout = ''.join([self.energypath, 'tprfiles/mdrerun_resid', str(res), '_', '0', self.part, '.tpr'])
             energyf_output = ''.join([self.energypath, 'edrfiles/energyfile_resid', str(res), '_'+'0', self.part, '.edr'])
+            if not os.path.isfile(energyf_output):
+                missing_edr.append(energyf_output)
+                continue
             xvg_out = ''.join([self.energypath, 'xvgtables/energies_residue', str(res), '_selfinteraction', self.part, '.xvg'])
             self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
+        if missing_edr:
+            raise FileNotFoundError("Following files are missing: {}".format(missing_edr))
+
     def selfinteractions_xvg_to_dat(self):
         ''' Extracts all self interaction energy entries from xvg files
             and writes them to "selfinteractions.dat"
         '''
         with open("selfinteractions.dat", "w") as energyoutput:
             print(\
-                  '{: <10}{: <10}'
+                  '{: <10}{: <10}{: <10}'
                   '{: <20}{: <20}{: <20}{: <20}{: <20}{: <20}{: <20}'\
-                  .format("Time", "Lipid",
+                  .format("Time", "resid", "resname",
                           "Etot", "VdWSR", "CoulSR", "VdW14", "Coul14", "VdWtot", "Coultot", ),
                   file=energyoutput)
 
             for resid in self.MOLRANGE:
                 xvg_out = ''.join([self.energypath, 'xvgtables/energies_residue', str(resid), '_selfinteraction', self.part, '.xvg'])
+                restype = self.resid_to_lipid[resid]
                 with open(xvg_out,"r") as xvgfile:
                     res_to_row = {}
 
@@ -177,9 +185,9 @@ class Energy(SysInfo):
 
                             Etot = float(vdw_sr)+float(coul_sr)+float(vdw_14)+float(coul_14)
                             print(
-                                  '{: <10}{: <10}{: <20.5f}'
+                                  '{: <10}{: <10}{: <10}{: <20.5f}'
                                   '{: <20}{: <20}{: <20}{: <20}{: <20.5f}{: <20.5f}'
-                                  .format(time, resid,  Etot,
+                                  .format(time, resid, restype, Etot,
                                           vdw_sr, coul_sr, vdw_14, coul_14, vdw_tot, coul_tot,),
                                   file=energyoutput)
 

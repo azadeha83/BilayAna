@@ -65,7 +65,7 @@ def initialize_system(systemname, temperature, jobname, *args,
     jobfilename = complete_systemname[2:]+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(\
-            'import os, sys, gc'
+            'import os, sys'
             '\nimport bilana'
             '\nfrom bilana import SysInfo'
             '\nfrom bilana import analysis'
@@ -73,8 +73,7 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nfrom bilana.analysis.order import Order'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
-            '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True)'
-            '\ngc.collect()'
+            '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True, parallel=False)'
             '\nneib_inst.create_indexfile()'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
             '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo(inputfilename="{0}"))'
@@ -103,8 +102,7 @@ def calc_scd(systemname, temperature, jobname, *args,
             '\nfrom bilana.systeminfo import SysInfo'
             '\nfrom bilana.analysis.order import Order, calc_tilt'
             '\ncalc_tilt(SysInfo())'
-            '\ngc.collect()'
-            '\nOrder(inputfilename="{0}").create_orderfile()'
+            '\nOrder(inputfilename="{0}").create_orderfile(parallel=False)'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
         if not dry:
@@ -177,6 +175,32 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
             '\nelse:'
             '\n    raise ValueError("There are .edr files missing.")'
             '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename,  scdfilename, energyfilename),
+            file=scriptf)
+        if not dry:
+            write_submitfile('submit.sh', jobfilename, mem='16G', prio=True)
+            cmd = ['sbatch', '-J', jobfilename, 'submit.sh','python3', scriptfilename]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+
+def write_selfinteraction(systemname, temperature, jobname, lipidpart, *args,
+    inputfilename="inputfile",
+    neighborfilename="neighbor_info",
+    dry=False,
+    **kwargs,):
+    ''' Write selfinteractions.dat from existing .edr files '''
+    complete_systemname = './{}_{}'.format(systemname, temperature)
+    os.chdir(complete_systemname)
+    scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
+    jobfilename = complete_systemname[2:]+jobname
+    with open(scriptfilename, 'w') as scriptf:
+        print(\
+            'import os, sys'
+            '\nfrom bilana.analysis.energy import Energy'
+            '\nenergy_instance = Energy("{0}", inputfilename="{1}", neighborfilename="{2}")'
+            '\nenergy_instance.selfinteractions_edr_to_xvg()'
+            '\nenergy_instance.selfinteractions_xvg_to_dat()'
+            '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem='16G', prio=True)
