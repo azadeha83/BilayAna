@@ -77,7 +77,6 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nneib_inst.create_indexfile()'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
             '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo(inputfilename="{0}"))'
-            '\nanalysis.order.calc_tilt(SysInfo(inputfilename="{0}"))'
             .format(inputfilename, refatoms),
             file=scriptf)
         if not dry:

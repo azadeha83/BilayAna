@@ -1,11 +1,11 @@
 '''
     Definitions that are used by multiple modules are stored here
 '''
-import os
+import os, sys
 import subprocess
 from multiprocessing import Pool
 
-GMXNAME = "/usr/bin/gmx"
+GMXNAME = find_executable("gmx")
 
 def loop_to_pool(func, inp, maxtasknum=1000):
     ''' Map inparray to func, if inp is iterable use pool.starmap '''
@@ -83,26 +83,46 @@ def get_minmaxdiv(startdiv, numerator, direction=-1):
     else:
         return startdiv
 
-def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False):
+def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False, queue=None):
     username = os.environ['LOGNAME']
-    if not prio:
-        queue = 'short'
-    else:
-        queue = 'prio'
-    with open(submitout, "w") as sfile:
-        print('#!/bin/bash'
-              '\n#SBATCH -A q0heuer'
-              '\n#SBATCH -p {queue}'
-              '\n#SBATCH --output={jobname}.out'
-              '\n#SBATCH --mail-type=fail'
-              '\n#SBATCH --mail-user={username}@wwu.de'
-              '\n#SBATCH --time=48:00:00'
-              '\n#SBATCH --ntasks=1'
-              '\n#SBATCH --nodes=1'
-              '\n#SBATCH --cpus-per-task={ncores}'
-              '\n#SBATCH --mem={mem}'
-              '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
-              '\nsrun $@'.format(**locals()), file=sfile)
+    hostname = os.environ["HOSTNAME"]
+    if hostname == "bagheera":
+        if not prio:
+            queue = 'short'
+        else:
+            queue = 'prio'
+        with open(submitout, "w") as sfile:
+            print('#!/bin/bash'
+                  '\n#SBATCH -A q0heuer'
+                  '\n#SBATCH -p {queue}'
+                  '\n#SBATCH --output={jobname}.out'
+                  '\n#SBATCH --mail-type=fail'
+                  '\n#SBATCH --mail-user={username}@wwu.de'
+                  '\n#SBATCH --time=48:00:00'
+                  '\n#SBATCH --ntasks=1'
+                  '\n#SBATCH --nodes=1'
+                  '\n#SBATCH --cpus-per-task={ncores}'
+                  '\n#SBATCH --mem={mem}'
+                  '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
+                  '\nsrun $@'.format(**locals()), file=sfile)
+
+    elif hostname == 'r06m01':
+        if queue is None:
+            queue='hims,q0heuer,normal'
+        with open(submitout, "w") as sfile:
+            print('#!/bin/bash'
+                  '\n#SBATCH -A q0heuer'
+                  '\n#SBATCH -p {queue}' 
+                  '\n#SBATCH --output={jobname}.out'
+                  '\n#SBATCH --mail-type=fail'
+                  '\n#SBATCH --mail-user={username}@wwu.de'
+                  '\n#SBATCH --time=48:00:00'
+                  '\n#SBATCH --ntasks=1'
+                  '\n#SBATCH --nodes=1'
+                  '\n#SBATCH --cpus-per-task={ncores}'
+                  '\n#SBATCH --mem={mem}'
+                  '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
+                  '\nsrun $@'.format(**locals()), file=sfile)
 
 
 def make_movie_from_images(moviename, picture_name, framerate=40):
@@ -123,3 +143,43 @@ def make_movie_from_images(moviename, picture_name, framerate=40):
     proc.stderr.close()
     print(out.decode())
     print(err.decode())
+
+def find_executable(executable, path=None):
+    """
+    FROM:
+    # https://gist.github.com/4368898
+    # Public domain code by anatoly techtonik <techtonik@gmail.com>
+    # AKA Linux `which` and Windows `where`
+    
+    Find if 'executable' can be run. Looks for it in 'path'
+    (string that lists directories separated by 'os.pathsep';
+    defaults to os.environ['PATH']). Checks for all executable
+    extensions. Returns full path or None if no command is found.
+    """
+    if path is None:
+        path = os.environ['PATH']
+    paths = path.split(os.pathsep)
+    extlist = ['']
+    if os.name == 'os2':
+        (base, ext) = os.path.splitext(executable)
+        # executable files on OS/2 can have an arbitrary extension, but
+        # .exe is automatically appended if no dot is present in the name
+        if not ext:
+            executable = executable + ".exe"
+    elif sys.platform == 'win32':
+        pathext = os.environ['PATHEXT'].lower().split(os.pathsep)
+        (base, ext) = os.path.splitext(executable)
+        if ext.lower() not in pathext:
+            extlist = pathext
+    for ext in extlist:
+        execname = executable + ext
+        if os.path.isfile(execname):
+            return execname
+        else:
+            for p in paths:
+                f = os.path.join(p, execname)
+                if os.path.isfile(f):
+                    return f
+    else:
+        return None
+
