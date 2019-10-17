@@ -133,11 +133,11 @@ class Neighbors(SysInfo):
         modes = ["atom", "center", "tails"]
         if mode == "atom":
             if len(refatomgrp.resids) != len(set(refatomgrp.resids)):
-                raise ValueError("Refatoms string leads to more than one entry per molecule")
+                raise ValueError("Refatoms string leads to more than one entry per molecule: {}-{}".format(refatomgrp, refatomgrp.resids))
             orientations = {}
             for residue in refatomgrp.residues:
                 headsel = 'name {}'.format( ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
-                tailsel = 'name {}'.format( ' '.join( np.array( lipidmolecules.tailcarbons_of(residue.resname) )[:,-1] ) )
+                tailsel = 'name {}'.format( ' '.join( [taillist[-1] for taillist in lipidmolecules.tailcarbons_of(residue.resname) ] ) )
                 head_pos = residue.atoms.select_atoms( headsel ).center_of_mass()
                 tail_pos = residue.atoms.select_atoms( tailsel ).center_of_mass()
                 orientations[residue.resid] =  molecule_leaflet_orientation( head_pos, tail_pos )

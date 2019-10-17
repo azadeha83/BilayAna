@@ -89,7 +89,7 @@ class SysInfo():
 
         # ''' Dictionaries and info '''
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
-        self.system_size, self.number_of_lipids, self.RESIDS =\
+        self.system_size, self.number_of_lipids, self.RESIDS, self.protein_resids, self.protein_resnames =\
             self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
 
@@ -152,6 +152,10 @@ class SysInfo():
         outstr.append('{: <25}{: <20}\n'.format('Total number of atoms:', self.system_size))
         outstr.append('{: <25}{: <20}\n'.format('Number of lipids:', self.number_of_lipids))
         outstr.append('{: <25}{: <20}\n'.format('Residue types found:', ' '.join(self.RESNAMES)))
+        if self.protein_resnames is not None:
+            outstr.append('{: <25}\n'.format('Protein found:') )
+            outstr.append('{: <25}{: <20}\n'.format('... with resnames:', ' '.join(self.protein_resnames)) )
+            outstr.append('{: <25}{: <20}\n'.format('... and resids:', ' '.join([str(i) for i in self.protein_resids])) )
         outstr.append('\n')
         outstr = ''.join(outstr)
         print(outstr)
@@ -185,6 +189,8 @@ class SysInfo():
 
     def determine_systemsize_and_number_of_lipids(self):
         ''' returns number of atoms in system and number of lipid molecules '''
+        protein_resids   = None
+        protein_resnames = None
         grofile = self.gropath
         number_of_lipids = 0
         with open(grofile,"r") as fgro:
@@ -199,10 +205,18 @@ class SysInfo():
                     resid = int(grps[0].strip())
                     resname = grps[1].strip()
                     if resname in self.molecules:
-                        lipids_found.append(resname)
-                        resids.append(resid)
+                        if lipidmolecules.is_protein(resname):
+                            if protein_resids is None:
+                                protein_resids   = []
+                                protein_resnames = []
+                            protein_resids.append(resid)
+                            protein_resnames.append(resname)
+                        else:
+                            lipids_found.append(resname)
+                            resids.append(resid)
             LOGGER.debug("Read gro file.")
             lipids_found = list(set(lipids_found))
+            protein_resnames = list( set(protein_resnames))
             resids = list(set(resids))
             number_of_lipids = len(resids)
             if not number_of_lipids:
@@ -210,7 +224,7 @@ class SysInfo():
             if len(lipids_found) != len(self.molecules):
                 LOGGER.warning("Not all lipids, given in the input file, found in structure file! %s", grofile)
         LOGGER.debug("Output: %s %s %s", system_size, number_of_lipids, resids)
-        return system_size, number_of_lipids, resids
+        return system_size, number_of_lipids, resids, protein_resids, protein_resnames
 
     def assign_res_to_leaflet(self):
         '''
