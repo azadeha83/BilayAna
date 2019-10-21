@@ -5,7 +5,45 @@ import os, sys
 import subprocess
 from multiprocessing import Pool
 
-GMXNAME = find_executable("gmx")
+def find_executable(executable, path=None):
+    """
+    FROM:
+    # https://gist.github.com/4368898
+    # Public domain code by anatoly techtonik <techtonik@gmail.com>
+    # AKA Linux `which` and Windows `where`
+    
+    Find if 'executable' can be run. Looks for it in 'path'
+    (string that lists directories separated by 'os.pathsep';
+    defaults to os.environ['PATH']). Checks for all executable
+    extensions. Returns full path or None if no command is found.
+    """
+    if path is None:
+        path = os.environ['PATH']
+    paths = path.split(os.pathsep)
+    extlist = ['']
+    if os.name == 'os2':
+        (base, ext) = os.path.splitext(executable)
+        # executable files on OS/2 can have an arbitrary extension, but
+        # .exe is automatically appended if no dot is present in the name
+        if not ext:
+            executable = executable + ".exe"
+    elif sys.platform == 'win32':
+        pathext = os.environ['PATHEXT'].lower().split(os.pathsep)
+        (base, ext) = os.path.splitext(executable)
+        if ext.lower() not in pathext:
+            extlist = pathext
+    for ext in extlist:
+        execname = executable + ext
+        if os.path.isfile(execname):
+            return execname
+        else:
+            for p in paths:
+                f = os.path.join(p, execname)
+                if os.path.isfile(f):
+                    return f
+    else:
+        return None
+
 
 def loop_to_pool(func, inp, maxtasknum=1000):
     ''' Map inparray to func, if inp is iterable use pool.starmap '''
@@ -144,42 +182,6 @@ def make_movie_from_images(moviename, picture_name, framerate=40):
     print(out.decode())
     print(err.decode())
 
-def find_executable(executable, path=None):
-    """
-    FROM:
-    # https://gist.github.com/4368898
-    # Public domain code by anatoly techtonik <techtonik@gmail.com>
-    # AKA Linux `which` and Windows `where`
-    
-    Find if 'executable' can be run. Looks for it in 'path'
-    (string that lists directories separated by 'os.pathsep';
-    defaults to os.environ['PATH']). Checks for all executable
-    extensions. Returns full path or None if no command is found.
-    """
-    if path is None:
-        path = os.environ['PATH']
-    paths = path.split(os.pathsep)
-    extlist = ['']
-    if os.name == 'os2':
-        (base, ext) = os.path.splitext(executable)
-        # executable files on OS/2 can have an arbitrary extension, but
-        # .exe is automatically appended if no dot is present in the name
-        if not ext:
-            executable = executable + ".exe"
-    elif sys.platform == 'win32':
-        pathext = os.environ['PATHEXT'].lower().split(os.pathsep)
-        (base, ext) = os.path.splitext(executable)
-        if ext.lower() not in pathext:
-            extlist = pathext
-    for ext in extlist:
-        execname = executable + ext
-        if os.path.isfile(execname):
-            return execname
-        else:
-            for p in paths:
-                f = os.path.join(p, execname)
-                if os.path.isfile(f):
-                    return f
-    else:
-        return None
+
+GMXNAME = find_executable("gmx")
 
