@@ -42,10 +42,6 @@ class SysInfo():
         self.startres = 1 # Initialize value
         self.system_info = self.read_infofile(inputfilename)
         cwd = os.getcwd()
-        os.makedirs(cwd+'/datafiles/',   exist_ok=True)
-        os.makedirs(cwd+'/indexfiles/',  exist_ok=True)
-        os.makedirs(cwd+'/tempfiles/',   exist_ok=True)
-        os.makedirs(cwd+'/energyfiles/', exist_ok=True)
 
         # ''' general system information '''
         self.system       = self.system_info['System']
@@ -81,11 +77,6 @@ class SysInfo():
             self.trjpath = self.trjpath.replace(".trr", ".xtc")
             self.check_file_exists(self.trjpath)
 
-        # ''' outputpaths (specify _absolute_ paths! '''
-        self.indexpath  = "{}/indexfiles/".format(cwd)
-        self.datapath   = "{}/datafiles/".format(cwd)
-        self.temppath   = "{}/tempfiles/".format(cwd)
-        self.energypath = "{}/energyfiles/".format(cwd)
 
         # ''' Dictionaries and info '''
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
@@ -93,6 +84,7 @@ class SysInfo():
             self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
 
+        # ''' Initialize MDAnalysis Universe '''
         if load_univ:
             if os.path.isfile(self.trjpath_whole):
                 LOGGER.info("Loading pbc whole trajectory into universe")
@@ -117,11 +109,28 @@ class SysInfo():
 
             self.RESNAMES          = list(set(self.universe.residues.resnames))
             [self.RESNAMES.remove(solvent) for  solvent in lipidmolecules.SOLVENTS if solvent in self.RESNAMES]
+        else:
+            #''' Time information '''
+            self.t_start = int(self.times[0])
+            self.t_end = int(self.times[1])
+            self.dt         = self.times[2]
 
-        # Set constants
+        # ''' Set constants ''' 
         self.NUMBEROFMOLECULES = self.number_of_lipids
         self.MOLRANGE          = self.RESIDS
+        
+        # ''' Create dirs and store paths '''
+        os.makedirs(cwd+'/datafiles/',   exist_ok=True)
+        os.makedirs(cwd+'/indexfiles/',  exist_ok=True)
+        os.makedirs(cwd+'/tempfiles/',   exist_ok=True)
+        os.makedirs(cwd+'/energyfiles/', exist_ok=True)
 
+        self.indexpath  = "{}/indexfiles/".format(cwd)
+        self.datapath   = "{}/datafiles/".format(cwd)
+        self.temppath   = "{}/tempfiles/".format(cwd)
+        self.energypath = "{}/energyfiles/".format(cwd)
+
+        # ''' If tail reference is used, do following '''
         self.tail = self.system_info.get("tail", None)
         if self.tail is not None:
             LOGGER.warn("The tail implementation is not well tested and will not work for most of the tools included in this package")
