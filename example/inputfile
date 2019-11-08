@@ -1,6 +1,6 @@
 #System info
 System: dppc_chol20
-Lipidmolecules: dppc,chol
+Lipidmolecules: DPPC,CHOL
 Temperature: 290
 Timeframe: 0,1000000,1000
 cutoff: 1.0

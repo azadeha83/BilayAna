@@ -137,7 +137,7 @@ CENTRAL_ATOM_OF = {
 INCLUDED_TAILS = ['DP', 'DM', 'DS', 'DO', 'DY', 'DU', 'PO', 'PL']
 INCLUDED_HEADS = ['PC', 'PE', 'PS', 'PI', 'PA']
 STEROLS        = ['CHL1', 'CHIM', 'ERG', 'ch1m']
-PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS',]
+PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD']
 SOLVENTS       = ["TIP3", "SOL", "CL", "POT", "NA"]
 SHORTESTCHAIN  = len(TAILCARBS['DM'])
 
