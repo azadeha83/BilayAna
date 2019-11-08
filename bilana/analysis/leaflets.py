@@ -1,7 +1,9 @@
+import os
 import re
 import numpy as np
 import pandas as pd
 from ..definitions import lipidmolecules
+from ..common import exec_gromacs
 from .. import log
 LOGGER = log.LOGGER
 
@@ -98,6 +100,52 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
                 leaflet = 1
             print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
         LOGGER.info("UP: %s LOW: %s", sum_upper, sum_lower)
+
+
+def calc_density(systeminfo, selstr, outname="density.xvg", overwrite=False, **kw_den):
+    ''' 
+        Uses density calculation of gromacs
+        1. Get index file using gmx select with
+            gmx select -f ... -select <selstr>
+        2. Run
+            gmx density -f ... -center -d Z 
+            NOTE: Additional flags can be set adding with kw_den like b=3 converted to -b 3
+    '''
+    os.makedirs(systeminfo.datapath + "densities", exist_ok=True)
+    TRJ = systeminfo.trjpath_whole
+    TPR = systeminfo.tprpath
+    NDX = systeminfo.temppath + "temp.ndx"
+    OUT = systeminfo.datapath + "densities/" + outname
+    if not overwrite and os.path.exists(OUT):
+        LOGGER.warning("Density file already exists")
+        return OUT
+
+    # Get index file containing respective residue indices
+    LOGGER.info("Creating index file...")
+    commandstring = 'gmx select -f {} -s {} -on {} -select'.format(TRJ, TPR, NDX) ## dont forget the selstr
+    cmd = commandstring.split() + [selstr]
+    out, err = exec_gromacs(cmd)
+    with open("gmx_select.log", "w") as f:
+        print(err, file=f)
+        print(out, file=f)
+
+    # Run gmx density
+    LOGGER.info("Run gmx density...")
+    additional_input = []
+    if kw_den:
+        keys = kw_den.keys()
+        keys = ["-"+i for i in keys]
+        vals = kw_den.values()
+        for z in zip(keys, vals):
+            additional_input += list(z)
+    commandstring = "gmx density -f {} -s {} -n {} -o {}  -d Z".format(TRJ, TPR, NDX, OUT)
+    cmd = commandstring.split() + additional_input
+    out, err = exec_gromacs(cmd)
+    with open("gmx_density.log", "w") as f:
+        print(err, file=f)
+        print(out, file=f)
+
+    return OUT
 
 
 def calc_thickness(universe, ref_atomname, fname="bilayer_thickness"):

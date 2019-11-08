@@ -10,6 +10,7 @@ import os, sys
 import numpy as np
 import MDAnalysis as mda
 from .. import log
+from . import protein
 from ..common import exec_gromacs, loop_to_pool, GMXNAME
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
@@ -46,11 +47,13 @@ class Neighbors(SysInfo):
         else:
             raise ValueError("Invalid value for options.")
 
-    def _determine_neighbors_2d(self, refatoms="name P O3", mode="atom", outputfilename="neighbor_info", _2D=True, parallel=True, **kwargs):
+    def _determine_neighbors_2d(self, mode="atom", outputfilename="neighbor_info", _2D=True, parallel=True, **kwargs):
         ''' Creates neighbor_info file based on 2d distances (xy plane) '''
         DEBUG = False
         if DEBUG:
             LOGGER.setLevel("DEBUG")
+
+        refatoms = self.reference_atom_selection
 
         traj_len = len(self.universe.trajectory)
         inpargs = []
@@ -65,7 +68,7 @@ class Neighbors(SysInfo):
             refatomgrp = self.universe.select_atoms(refatoms)
             LOGGER.debug("Found %s atoms: %s ", len(refatomgrp.atoms), refatomgrp.atoms)
             leaflets_tmp = leaflets
-            leaflets = self.get_ref_postions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
+            leaflets = self.get_ref_positions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
             if len(leaflets[0]) != len(leaflets[1]):
                 #raise ValueError("Number of found ref positions differs: {} vs {}".format(len(leaflets[0]), len(leaflets[1])))
                 LOGGER.warning("frame %s: Number of found ref positions differs: %s vs %s", t, len(leaflets[0]), len(leaflets[1]))
@@ -128,7 +131,7 @@ class Neighbors(SysInfo):
         LOGGER.info("finished at %s", time)
         return outp
 
-    def get_ref_postions(self, mode, refatomgrp):
+    def get_ref_positions(self, mode, refatomgrp):
         ''' Possible modes atom, center, tails'''
         modes = ["atom", "center", "tails"]
         if mode == "atom":
@@ -136,8 +139,8 @@ class Neighbors(SysInfo):
                 raise ValueError("Refatoms string leads to more than one entry per molecule: {}-{}".format(refatomgrp, refatomgrp.resids))
             orientations = {}
             for residue in refatomgrp.residues:
-                headsel = 'name {}'.format( ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
-                tailsel = 'name {}'.format( ' '.join( [taillist[-1] for taillist in lipidmolecules.tailcarbons_of(residue.resname) ] ) )
+                headsel = 'resname {} and name {}'.format(residue.resname, ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
+                tailsel = 'resname {} and name {}'.format(residue.resname, ' '.join( [taillist[-1] for taillist in lipidmolecules.tailcarbons_of(residue.resname) ] ) )
                 head_pos = residue.atoms.select_atoms( headsel ).center_of_mass()
                 tail_pos = residue.atoms.select_atoms( tailsel ).center_of_mass()
                 orientations[residue.resid] =  molecule_leaflet_orientation( head_pos, tail_pos )
@@ -150,8 +153,8 @@ class Neighbors(SysInfo):
             cnt = 0
             orientations = {}
             for residue in refatomgrp.residues:
-                headsel = 'name {}'.format( ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
-                tailsel = 'name {}'.format( ' '.join( np.array( lipidmolecules.tailcarbons_of(residue.resname) )[:,-1] ) )
+                headsel = 'resname {} name {}'.format(residue.resname, ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
+                tailsel = 'resname {} name {}'.format(residue.resname, ' '.join( np.array( lipidmolecules.tailcarbons_of(residue.resname) )[:,-1] ) )
                 head_pos = residue.atoms.select_atoms( headsel ).center_of_mass()
                 tail_pos = residue.atoms.select_atoms( tailsel ).center_of_mass()
                 orientations[residue.resid] =  molecule_leaflet_orientation( head_pos, tail_pos )
@@ -184,181 +187,252 @@ class Neighbors(SysInfo):
         else:
             raise ValueError("Invalid mode, choose one of {}".format(modes))
         return (leaf1, leaf2)
-
-    def get_orientation_dict():
-        ''' '''
-
-    def _determine_neighbors_parallel(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
-        ''' Creates "neighbor_info" containing all information on lipid arrangement '''
-        LOGGER.info("____Determining neighbors____\n")
-        os.makedirs(self.datapath+'/neighborfiles', exist_ok=True)
-        cmdlists = []
-        datafileoutputs = []
-        # Get command lists
-        LOGGER.info("preparing files ...")
-        LOGGER.debug("for mols: %s", self.MOLRANGE)
-        for residue in  self.MOLRANGE:
-            if residue not in self.resid_to_lipid.keys():
-                continue
-            selectionfile = self.create_selectionfile_neighborsearch(residue, refatoms=refatoms)
-            if selectionfile is None:
-                continue
-            indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.indexpath, residue)
-            datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.datapath, residue)
-            datafileoutputs.append(datafileoutput)
-            if os.path.isfile(datafileoutput) and not overwrite:
-                print("Neighbor file of residue {} already exists. Skipping.".format(residue))
-                LOGGER.debug("Skipping %s", residue)
-            else:
-                cmdlist=[
-                    GMXNAME, 'select', '-s', self.tprpath, '-f', self.trjpath,
-                    '-sf', selectionfile,'-on', indexoutput,'-oi', datafileoutput,
-                    '-b', str(self.t_start), '-e', str(self.t_end),
-                    '-dt', str(self.dt),
-                    ]
-                cmdlists.append(cmdlist)
-        LOGGER.info("Running gromacs processes ...")
-        LOGGER.debug("CMDS %s", cmdlists)
-        if cmdlists:
-            outputlogs = loop_to_pool(exec_gromacs, cmdlists)
-            with open("gmx_select_determineneighbors.log","w") as logfile:
-                for out, err in outputlogs:
-                    logfile.write(out)
-                    logfile.write(err)
-        LOGGER.info("Read output")
-        neibfiledata = loop_to_pool(_process_neighborfileoutput, datafileoutputs)
-        neibfiledata = [i for tup in neibfiledata for i in tup]
-        neibfiledata.sort()
-        LOGGER.info("Print output to file %s", outputfilename)
-        with open(outputfilename, "w") as outfile:
-            print('{: <10}{: <25}{: <10}{: >25}'.format('Resid', 'Time', 'Number_of_neighbors', 'List_of_Neighbors'), file=outfile)
-            for datatup in neibfiledata:#datatup is (residue, time, nneibs, neibindeces)
-                LOGGER.debug("Writing %s", datatup)
-                residue  = datatup[0]
-                time     = datatup[1]
-                nneibs   = datatup[2]
-                neibindeces = [int(x) for x in datatup[3]]
-                neibresids  = [self.index_to_resid[x] for x in neibindeces]
-                neibstring  = ','.join([str(x) for x in neibresids])
-                print('{: <10}{: <25}{: <10}{: >25}'.format(residue, time, nneibs, neibstring), file=outfile)
-
-
-    def _determine_neighbors_serial(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
-        ''' Creates "neighbor_info" containing all information on lipid arrangement '''
-        LOGGER.info("\n____Determining neighbors____\n")
-        os.makedirs(self.datapath+'/neighborfiles', exist_ok=True)
-        with open(outputfilename, "w") as outfile:
-            print('{: <10}{: <20}{: <10}{: >25}'.format('Resid', 'Time', 'Number_of_neighbors', 'List_of_Neighbors'), file=outfile)
-            for residue in  self.MOLRANGE:
-                if residue not in self.resid_to_lipid.keys():
-                    continue
-                selectionfile = self.create_selectionfile_neighborsearch(residue, refatoms=refatoms)
-                if selectionfile is None:
-                    continue
-                LOGGER.info(". . . Working on residue: %s . . .", residue)
-                indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.indexpath, residue)
-                datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.datapath, residue)
-                if os.path.isfile(datafileoutput) and not overwrite:
-                    print("Neighbor file of residue {} already exists. Skipping.".format(residue))
-                else:
-                    cmdlist=[
-                        GMXNAME, 'select', '-s', self.tprpath, '-f', self.trjpath,
-                        '-sf', selectionfile,'-on', indexoutput,'-oi', datafileoutput,
-                        '-b', str(self.t_start), '-e', str(self.t_end),
-                        '-dt', str(self.dt),
-                        ]
-                    out, err = exec_gromacs(cmdlist)
-                    with open("gmx_select.log","w") as logfile:
-                        logfile.write(err)
-                        logfile.write(out)
-                with open(datafileoutput,"r") as datfile:
-                    for line in datfile:
-                        cols = line.split()
-                        time = cols.pop(0)
-                        nneibs = cols.pop(0)
-                        neibindeces = [int(x) for x in cols]
-                        neibresid = [self.index_to_resid[x] for x in neibindeces]
-                        residlist = ','.join([str(x) for x in neibresid])
-                        print('{: <10}{: <20}{: <10}{: >25}'.format(residue, time, nneibs, residlist), file=outfile)
-
-    def create_selectionfile_neighborsearch(self, resid, refatoms='P'):
-        ''' Create a selectionfile to get an input for gmx select
-            This function is used by determine_neighbors()
-            Selection depends on choice of
-                refatom
-                cutoff
-            returns name of created selectionfile
+    
+    def determine_neighbors_protein(self, mode="atom", prot_cutoff=1.2, outputfilename="neighbor_info_protein", overwrite=False, **kwargs):
+        ''' 
+            Determine all neighbors of a protein, based on cutoff distance
+            neighbor_info_prot then looks like:
+            < time > < resid > 
         '''
-        filename = "{}/selection_resid{}".format(self.temppath, resid)
-        hosttype = self.resid_to_lipid[resid]
-        if hosttype not in self.molecules:
-            return
-        ref_atm = lipidmolecules.central_atom_of
-        # hoststring creates selection for all atoms of lipid with resid
-        hoststring = "resid {0} and (name {1})"\
-                     .format(resid, ref_atm(hosttype))
-        # same as hoststring but for neighbors of host
-        neibstring_parts = ' or '.join(
-            ["(resname {} and name {})"\
-             .format(i, ref_atm(i))\
-             for i in self.RESNAMES],
-            )
-        neibstring = "(({0}) and not host) and within {1} of host"\
-                     .format(neibstring_parts, self.cutoff)
-        with open(filename,"w") as selection:
-            if refatoms == 'P':
-                print(\
-                    'host =  {};\n'
-                    'neibs = {};\n'
-                    'neibs;'\
-                    .format(hoststring, neibstring), file=selection)
-            elif refatoms == 'bothtails':
-                print(
-                    'host = resid {0} and name C34 C24 O3;\n'
-                    'allOAtoms = resname CHL1 and name O3 and not host;\n'
-                    'allTail1Atoms = resname DPPC DUPC and name C34 and not host;\n'
-                    'allTail2Atoms = resname DPPC DUPC and name C24 and not host;\n'
-                    'neibOs = allOAtoms and within {1} of host;\n'
-                    'neibTail1 = allTail1Atoms and within {1} of host;\n'
-                    'neibTail2 = allTail2Atoms and within {1} of host;\n'
-                    'neibs = neibOs or neibTail1 or neibTail2;\n'
-                    'neibs;'\
-                    .format(resid, self.cutoff), file=selection)
-            elif refatoms == 'glycerol':
-                print(
-                    'host = resid {0} and name C31 C21 O3;\n'
-                    'allOAtoms = resname CHL1 and name O3 and not host;\n'
-                    'allTail1Atoms = resname DPPC DUPC and name C31 and not host;\n'
-                    'allTail2Atoms = resname DPPC DUPC and name C21 and not host;\n'
-                    'neibOs = allOAtoms and within {1} of host;\n'
-                    'neibTail1 = allTail1Atoms and within {1} of host;\n'
-                    'neibTail2 = allTail2Atoms and within {1} of host;\n'
-                    'neibs = neibOs or neibTail1 or neibTail2;\n'
-                    'neibs;'\
-                    .format(resid, self.cutoff), file=selection)
-            elif refatoms == 'tails_com':
-                tail_atm = lipidmolecules.tailcarbons_of
-                tailstr_l = []
-                for resn in self.RESNAMES:
-                    for tailn in [0, 1]:
-                        tailstr = "tail{}=(resname {} and name {});\n"\
-                                  .format(tailn, resn, ' '.join(tail_atm(resn)[tailn]))
-                        tailstr_l.append(tailstr)
-                tailstr = ''.join(tailstr_l)
-                print(
-                    '{2}'
-                    'host1 = (resid {0} and (tail0 or name O3));\n'
-                    'host2 = (resid {0} and (tail1 or name O3));\n'
-                    'allOAtoms = resname CHL1 and name O3 and not (host1 or host2);\n'
-                    'neibOs = allOAtoms and (within {1} of com of host1 or within {1} of com of host2);\n'
-                    'neibTail = (tail0 or tail1) and (within {1} of com of host1 or within {1} of com of host2);\n'
-                    'neibs = neibOs or neibTail;\n'
-                    'neibs;'\
-                    .format(resid, self.cutoff, tailstr), file=selection)
-            else:
-                raise ValueError("Wrong input for refatoms with: {}"\
-                                 .format(refatoms))
-        return filename
+        DEBUG = False
+        if DEBUG:
+            LOGGER.setLevel("DEBUG")
+
+        refatoms = self.reference_atom_selection
+
+        traj_len = len(self.universe.trajectory)
+        inpargs = []
+        LOGGER.info("Collect inpargs")
+        outp = []
+        leaflets = [[[],], [[],]]
+        if not overwrite and os.path.isfile(outputfilename):
+            LOGGER.info("File {} exists, will not overwrite".format(outputfilename))
+        with open(outputfilename, "w") as outf:
+            print("{: <20}{: <20}{: <20}{: <20}".format("Resid", "Time", "Number_of_neighbors", "List_of_Neighbors"), file=outf)
+            for t in range(traj_len):
+                time = self.universe.trajectory[t].time
+                if self.t_end < time or self.t_start > time:
+                    continue
+
+                refatomgrp = self.universe.select_atoms(refatoms)
+                LOGGER.debug("Found %s atoms: %s ", len(refatomgrp.atoms), refatomgrp.atoms)
+                leaflets_tmp = leaflets
+                leaflets = self.get_ref_positions(mode, refatomgrp) # leaflets=( [(resid1, pos1), ...], [(residN, posN), ...] )
+
+                # Get correct protein position
+                ref_res_prot = protein.get_reference_resids() # [pos_leaf1, pos,leaf2]
+                sel1 = "resid {}".format(' '.join([str(i) for i in ref_res_prot[0]])) 
+                sel2 = "resid {}".format(' '.join([str(i) for i in ref_res_prot[1]])) 
+                prot_pos_leaf1 = self.universe.select_atoms( sel1 ).center_of_mass()
+                prot_pos_leaf2 = self.universe.select_atoms( sel2 ).center_of_mass()
+                leaflets = [ [(0, prot_pos_leaf1), *leaflets[0]], [(0, prot_pos_leaf2), *leaflets[1]] ] 
+
+                if len(leaflets[0]) != len(leaflets[1]):
+                    #raise ValueError("Number of found ref positions differs: {} vs {}".format(len(leaflets[0]), len(leaflets[1])))
+                    LOGGER.warning("frame %s: Number of found ref positions differs: %s vs %s", t, len(leaflets[0]), len(leaflets[1]))
+                    LOGGER.warning("Difference1: %s", set([i[0] for i in leaflets[0]]).symmetric_difference(set([i[0] for i in leaflets_tmp[0]])))
+
+                boxdim = self.universe.dimensions.copy()
+                cutoff = self.cutoff
+
+                for all_coords_per_leaflet in leaflets:
+
+                    for i in range(len(all_coords_per_leaflet)): # Make it "2D"
+                        all_coords_per_leaflet[i][1][2] = 0      # By setting z values to 0
+
+                    prot_res, prot_pos = all_coords_per_leaflet[0]
+                    position_array =  np.array([pos for resid, pos in all_coords_per_leaflet]) # Get all positions in leaflet selection
+                    dist_array = mda.lib.distances.distance_array(prot_pos, position_array, box=boxdim)[0] # output is [ [[dist1], [dist2], ...] ]
+
+                    neiblist = []
+                    for resndx, distance in enumerate(dist_array):
+                        if distance <= prot_cutoff*10.0:
+                            LOGGER.debug("prot %s, resndx %s, neib %s", prot_res, resndx, all_coords_per_leaflet[resndx][0])
+                            LOGGER.debug("protpos vs neibpos: %s vs %s", prot_pos, all_coords_per_leaflet[resndx][1] )
+                            LOGGER.debug("box %s", boxdim)
+                            LOGGER.debug("dist %s and dist_self %s", distance, dist_helper(prot_pos,  all_coords_per_leaflet[resndx][1], boxdim))
+                            neiblist.append(all_coords_per_leaflet[resndx][0])
+
+                    neiblist = list(set(neiblist)) # delete duplicates
+                    neiblist.sort()
+                    neiblist = [ str(n) for n in neiblist if n != prot_res] # delete prot entry
+                    n_neibs = len(neiblist)
+                    line =  (prot_res, time, n_neibs, ','.join(str(i) for i in neiblist)) 
+
+                    print("{: <20}{: <20}{: <20}{: <20}".format(*line), file=outf)
+
+
+    #def _determine_neighbors_parallel(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
+    #    ''' Creates "neighbor_info" containing all information on lipid arrangement '''
+    #    LOGGER.info("____Determining neighbors____\n")
+    #    os.makedirs(self.datapath+'/neighborfiles', exist_ok=True)
+    #    cmdlists = []
+    #    datafileoutputs = []
+    #    # Get command lists
+    #    LOGGER.info("preparing files ...")
+    #    LOGGER.debug("for mols: %s", self.MOLRANGE)
+    #    for residue in  self.MOLRANGE:
+    #        if residue not in self.resid_to_lipid.keys():
+    #            continue
+    #        selectionfile = self.create_selectionfile_neighborsearch(residue, refatoms=refatoms)
+    #        if selectionfile is None:
+    #            continue
+    #        indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.indexpath, residue)
+    #        datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.datapath, residue)
+    #        datafileoutputs.append(datafileoutput)
+    #        if os.path.isfile(datafileoutput) and not overwrite:
+    #            print("Neighbor file of residue {} already exists. Skipping.".format(residue))
+    #            LOGGER.debug("Skipping %s", residue)
+    #        else:
+    #            cmdlist=[
+    #                GMXNAME, 'select', '-s', self.tprpath, '-f', self.trjpath,
+    #                '-sf', selectionfile,'-on', indexoutput,'-oi', datafileoutput,
+    #                '-b', str(self.t_start), '-e', str(self.t_end),
+    #                '-dt', str(self.dt),
+    #                ]
+    #            cmdlists.append(cmdlist)
+    #    LOGGER.info("Running gromacs processes ...")
+    #    LOGGER.debug("CMDS %s", cmdlists)
+    #    if cmdlists:
+    #        outputlogs = loop_to_pool(exec_gromacs, cmdlists)
+    #        with open("gmx_select_determineneighbors.log","w") as logfile:
+    #            for out, err in outputlogs:
+    #                logfile.write(out)
+    #                logfile.write(err)
+    #    LOGGER.info("Read output")
+    #    neibfiledata = loop_to_pool(_process_neighborfileoutput, datafileoutputs)
+    #    neibfiledata = [i for tup in neibfiledata for i in tup]
+    #    neibfiledata.sort()
+    #    LOGGER.info("Print output to file %s", outputfilename)
+    #    with open(outputfilename, "w") as outfile:
+    #        print('{: <10}{: <25}{: <10}{: >25}'.format('Resid', 'Time', 'Number_of_neighbors', 'List_of_Neighbors'), file=outfile)
+    #        for datatup in neibfiledata:#datatup is (residue, time, nneibs, neibindeces)
+    #            LOGGER.debug("Writing %s", datatup)
+    #            residue  = datatup[0]
+    #            time     = datatup[1]
+    #            nneibs   = datatup[2]
+    #            neibindeces = [int(x) for x in datatup[3]]
+    #            neibresids  = [self.index_to_resid[x] for x in neibindeces]
+    #            neibstring  = ','.join([str(x) for x in neibresids])
+    #            print('{: <10}{: <25}{: <10}{: >25}'.format(residue, time, nneibs, neibstring), file=outfile)
+
+
+    #def _determine_neighbors_serial(self, refatoms='P', overwrite=True, outputfilename="neighbor_info"):
+    #    ''' Creates "neighbor_info" containing all information on lipid arrangement '''
+    #    LOGGER.info("\n____Determining neighbors____\n")
+    #    os.makedirs(self.datapath+'/neighborfiles', exist_ok=True)
+    #    with open(outputfilename, "w") as outfile:
+    #        print('{: <10}{: <20}{: <10}{: >25}'.format('Resid', 'Time', 'Number_of_neighbors', 'List_of_Neighbors'), file=outfile)
+    #        for residue in  self.MOLRANGE:
+    #            if residue not in self.resid_to_lipid.keys():
+    #                continue
+    #            selectionfile = self.create_selectionfile_neighborsearch(residue, refatoms=refatoms)
+    #            if selectionfile is None:
+    #                continue
+    #            LOGGER.info(". . . Working on residue: %s . . .", residue)
+    #            indexoutput = '{}/neighbors_of_residue{}.ndx'.format(self.indexpath, residue)
+    #            datafileoutput = '{}/neighborfiles/neighbors_of_residue{}.dat'.format(self.datapath, residue)
+    #            if os.path.isfile(datafileoutput) and not overwrite:
+    #                print("Neighbor file of residue {} already exists. Skipping.".format(residue))
+    #            else:
+    #                cmdlist=[
+    #                    GMXNAME, 'select', '-s', self.tprpath, '-f', self.trjpath,
+    #                    '-sf', selectionfile,'-on', indexoutput,'-oi', datafileoutput,
+    #                    '-b', str(self.t_start), '-e', str(self.t_end),
+    #                    '-dt', str(self.dt),
+    #                    ]
+    #                out, err = exec_gromacs(cmdlist)
+    #                with open("gmx_select.log","w") as logfile:
+    #                    logfile.write(err)
+    #                    logfile.write(out)
+    #            with open(datafileoutput,"r") as datfile:
+    #                for line in datfile:
+    #                    cols = line.split()
+    #                    time = cols.pop(0)
+    #                    nneibs = cols.pop(0)
+    #                    neibindeces = [int(x) for x in cols]
+    #                    neibresid = [self.index_to_resid[x] for x in neibindeces]
+    #                    residlist = ','.join([str(x) for x in neibresid])
+    #                    print('{: <10}{: <20}{: <10}{: >25}'.format(residue, time, nneibs, residlist), file=outfile)
+
+    #def create_selectionfile_neighborsearch(self, resid, refatoms='P'):
+    #    ''' Create a selectionfile to get an input for gmx select
+    #        This function is used by determine_neighbors()
+    #        Selection depends on choice of
+    #            refatom
+    #            cutoff
+    #        returns name of created selectionfile
+    #    '''
+    #    filename = "{}/selection_resid{}".format(self.temppath, resid)
+    #    hosttype = self.resid_to_lipid[resid]
+    #    if hosttype not in self.molecules:
+    #        return
+    #    ref_atm = lipidmolecules.central_atom_of
+    #    # hoststring creates selection for all atoms of lipid with resid
+    #    hoststring = "resid {0} and (name {1})"\
+    #                 .format(resid, ref_atm(hosttype))
+    #    # same as hoststring but for neighbors of host
+    #    neibstring_parts = ' or '.join(
+    #        ["(resname {} and name {})"\
+    #         .format(i, ref_atm(i))\
+    #         for i in self.RESNAMES],
+    #        )
+    #    neibstring = "(({0}) and not host) and within {1} of host"\
+    #                 .format(neibstring_parts, self.cutoff)
+    #    with open(filename,"w") as selection:
+    #        if refatoms == 'P':
+    #            print(\
+    #                'host =  {};\n'
+    #                'neibs = {};\n'
+    #                'neibs;'\
+    #                .format(hoststring, neibstring), file=selection)
+    #        elif refatoms == 'bothtails':
+    #            print(
+    #                'host = resid {0} and name C34 C24 O3;\n'
+    #                'allOAtoms = resname CHL1 and name O3 and not host;\n'
+    #                'allTail1Atoms = resname DPPC DUPC and name C34 and not host;\n'
+    #                'allTail2Atoms = resname DPPC DUPC and name C24 and not host;\n'
+    #                'neibOs = allOAtoms and within {1} of host;\n'
+    #                'neibTail1 = allTail1Atoms and within {1} of host;\n'
+    #                'neibTail2 = allTail2Atoms and within {1} of host;\n'
+    #                'neibs = neibOs or neibTail1 or neibTail2;\n'
+    #                'neibs;'\
+    #                .format(resid, self.cutoff), file=selection)
+    #        elif refatoms == 'glycerol':
+    #            print(
+    #                'host = resid {0} and name C31 C21 O3;\n'
+    #                'allOAtoms = resname CHL1 and name O3 and not host;\n'
+    #                'allTail1Atoms = resname DPPC DUPC and name C31 and not host;\n'
+    #                'allTail2Atoms = resname DPPC DUPC and name C21 and not host;\n'
+    #                'neibOs = allOAtoms and within {1} of host;\n'
+    #                'neibTail1 = allTail1Atoms and within {1} of host;\n'
+    #                'neibTail2 = allTail2Atoms and within {1} of host;\n'
+    #                'neibs = neibOs or neibTail1 or neibTail2;\n'
+    #                'neibs;'\
+    #                .format(resid, self.cutoff), file=selection)
+    #        elif refatoms == 'tails_com':
+    #            tail_atm = lipidmolecules.tailcarbons_of
+    #            tailstr_l = []
+    #            for resn in self.RESNAMES:
+    #                for tailn in [0, 1]:
+    #                    tailstr = "tail{}=(resname {} and name {});\n"\
+    #                              .format(tailn, resn, ' '.join(tail_atm(resn)[tailn]))
+    #                    tailstr_l.append(tailstr)
+    #            tailstr = ''.join(tailstr_l)
+    #            print(
+    #                '{2}'
+    #                'host1 = (resid {0} and (tail0 or name O3));\n'
+    #                'host2 = (resid {0} and (tail1 or name O3));\n'
+    #                'allOAtoms = resname CHL1 and name O3 and not (host1 or host2);\n'
+    #                'neibOs = allOAtoms and (within {1} of com of host1 or within {1} of com of host2);\n'
+    #                'neibTail = (tail0 or tail1) and (within {1} of com of host1 or within {1} of com of host2);\n'
+    #                'neibs = neibOs or neibTail;\n'
+    #                'neibs;'\
+    #                .format(resid, self.cutoff, tailstr), file=selection)
+    #        else:
+    #            raise ValueError("Wrong input for refatoms with: {}"\
+    #                             .format(refatoms))
+    #    return filename
 
     def create_indexfile(self):
         '''

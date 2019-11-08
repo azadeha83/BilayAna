@@ -52,7 +52,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
 
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
-    refatoms="name P O3",
+    #refatoms="name P O3",
     cores=16,
     prio=False,
     dry=False,
@@ -73,11 +73,11 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nfrom bilana.analysis.order import Order'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
-            '\nneib_inst.determine_neighbors(refatoms="{1}", overwrite=True, parallel=False)'
+            '\nneib_inst.determine_neighbors(overwrite=True, parallel=False)'
             '\nneib_inst.create_indexfile()'
             '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
             '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo(inputfilename="{0}"))'
-            .format(inputfilename, refatoms),
+            .format(inputfilename),
             file=scriptf)
         if not dry:
             write_submitfile('submit.sh', jobfilename, mem=mem, ncores=cores, prio=prio)
