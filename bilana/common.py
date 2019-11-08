@@ -2,6 +2,7 @@
     Definitions that are used by multiple modules are stored here
 '''
 import os, sys
+import numpy as np
 import subprocess
 from multiprocessing import Pool
 
@@ -182,6 +183,19 @@ def make_movie_from_images(moviename, picture_name, framerate=40):
     print(out.decode())
     print(err.decode())
 
+
+def rotate_2d(vec, angle_rad):
+    mat = np.matrix([[np.cos(angle_rad), np.sin(angle_rad) ], [-1*np.sin(angle_rad), np.cos(angle_rad) ]])
+    nvec = np.array( mat.dot(vec) )[0]
+    return nvec
+
+def angle_clockwise(A, B):
+    inner_ang = np.dot(A, B) / np.linalg.norm(A) * np.linalg.norm(B)
+    det = np.linalg.det(np.matrix([A, B]))
+    if det < 0:
+        return inner_ang
+    else:
+        return 2*np.pi - inner_ang
 
 GMXNAME = find_executable("gmx")
 
