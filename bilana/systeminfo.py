@@ -13,6 +13,7 @@
 import os
 import re
 import numpy as np
+import pandas as pd
 import MDAnalysis as mda
 from . import log
 from .definitions import lipidmolecules
@@ -48,6 +49,7 @@ class SysInfo():
         self.temperature  = self.system_info['Temperature']
         self.cutoff       = float(self.system_info['cutoff'])
         self.times        = [int(x) for x in self.system_info['Timeframe'].split(',')] # Start,End,step
+        self.reference_atom_selection = self.system_info['refatomselection']
         if len(self.times) < 3:
             self.times.append(None)
         self.molecules    = sorted([x.strip() for x in\
@@ -58,6 +60,7 @@ class SysInfo():
         if 'WSC1' in self.molecules:
             self.molecules.remove('WSC1')
             self.molecules += lipidmolecules.PROTEINS
+        self.PL_molecules = [mol for mol in self.molecules if not (lipidmolecules.is_protein(mol) or lipidmolecules.is_sterol(mol))]
 
         # ''' absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
@@ -80,7 +83,7 @@ class SysInfo():
 
         # ''' Dictionaries and info '''
         self.index_to_resid, self.resid_to_lipid = self.index_conversion_dict()
-        self.system_size, self.number_of_lipids, self.RESIDS, self.protein_resids, self.protein_resnames =\
+        self.system_size, self.number_of_lipids, self.resids, self.protein_resids, self.protein_resnames =\
             self.determine_systemsize_and_number_of_lipids()
         self.res_to_leaflet = self.assign_res_to_leaflet()
 
@@ -117,7 +120,12 @@ class SysInfo():
 
         # ''' Set constants ''' 
         self.NUMBEROFMOLECULES = self.number_of_lipids
-        self.MOLRANGE          = self.RESIDS
+        self.MOLRANGE          = self.resids
+        self.MOLRANGE_PROT     = self.protein_resids
+
+        # ''' Do protein stuff '''
+        if self.MOLRANGE_PROT:
+            self.res_to_leaflet_prot, self.res_to_region_prot = self.assign_res_to_leaflet_prot()
         
         # ''' Create dirs and store paths '''
         os.makedirs(cwd+'/datafiles/',   exist_ok=True)
@@ -143,12 +151,14 @@ class SysInfo():
         system_info = {}
         with open(inputfname,"r") as inputf:
             # Creates a list like [[system,dppc_chol],[temperature,290]]
-            regex = re.compile(r'^([\w,\d,\s]*):([\w,\d,\s, \., /]*)#*.*$')
+            regex = re.compile(r'^([\w,\d,\s]*):([\w,\d,\s, \(, \), \., /]*)#*.*$')
             for line in inputf:
                 match = regex.match(line)
                 if match is not None:
                     key = match.group(1).strip()
-                    item = match.group(2).strip().replace(" ", "").replace("\n", "")
+                    item = match.group(2).strip().replace("\n", "")
+                    if key != "refatomselection":
+                        item = item.replace(" ", "")
                     system_info[key] = item
         return system_info
 
@@ -192,8 +202,8 @@ class SysInfo():
                     if firstres:
                         firstres = False
                         self.startres = resid
-                in2res[ind] = resid
-                res2mol[resid] = lipid
+                    in2res[ind] = resid
+                    res2mol[resid] = lipid
         return in2res, res2mol
 
     def determine_systemsize_and_number_of_lipids(self):
@@ -225,7 +235,9 @@ class SysInfo():
                             resids.append(resid)
             LOGGER.debug("Read gro file.")
             lipids_found = list(set(lipids_found))
-            protein_resnames = list( set(protein_resnames))
+            if protein_resids is not None:
+                protein_resnames = list( set(protein_resnames))
+                protein_resids = list( set(protein_resids) )
             resids = list(set(resids))
             number_of_lipids = len(resids)
             if not number_of_lipids:
@@ -255,6 +267,18 @@ class SysInfo():
                   'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
         return outdict
 
+    def assign_res_to_leaflet_prot(inputfilename="leaflet_assignment_prot.csv"):
+        try:
+            dat = pd.read_csv(inputfilename)
+        except ValueError:
+            #except FileNotFoundError:
+            LOGGER.warning('File "leaflet_assignment.dat" does not exist.\n'
+                  'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
+            return None, None
+        resid_to_leaflet = dat.filter(["resid", "leaflet"]).set_index("resid").T.to_dict()
+        resid_to_region  = dat.filter(["resid", "region"]).set_index("resid").T.to_dict()
+        return resid_to_leaflet, resid_to_region
+
     def check_file_exists(self, fpath):
         ''' Checks existence of mdfiles '''
         if os.path.isfile(fpath):
@@ -270,7 +294,7 @@ class SysInfo():
             as now there are more than one reference position per resid
 
             Attributes that are changed:
-                MOLRANGE = RESIDS
+                MOLRANGE = resids
                 resid_to_lipid
                 res_to_leaflet
                 index_to_resid
@@ -284,7 +308,7 @@ class SysInfo():
         new_res_to_leaflet = {}
         new_index_to_resid = {}
 
-        for res in self.RESIDS:
+        for res in self.resids:
             resname = self.resid_to_lipid[res]
             if self.res_to_leaflet:
                 leaflet = self.res_to_leaflet[res]
@@ -314,13 +338,13 @@ class SysInfo():
 
         # get new index_to_resid
         for ind, res in self.index_to_resid.items():
-            if res not in self.RESIDS:
+            if res not in self.resids:
                 continue
             for nres in old_to_new_resid[res]:
                 new_index_to_resid[ind] = nres
 
         # overwrite old dicts
-        self.MOLRANGE = self.RESIDS = new_resids
+        self.MOLRANGE = self.resids = new_resids
         self.resid_to_lipid = new_resid_to_lipid
         self.res_to_leaflet = new_res_to_leaflet
         self.index_to_resid = new_index_to_resid
