@@ -1,7 +1,9 @@
+import os
 import re
 import numpy as np
 import pandas as pd
 from ..definitions import lipidmolecules
+from ..common import exec_gromacs
 from .. import log
 LOGGER = log.LOGGER
 
@@ -19,6 +21,12 @@ def is_neighbor_in_leaflet(systeminfo_inst, neiblist):
                     host_has_interleafletneib.append([host, neib])
     LOGGER.info(host_has_interleafletneib)
 
+
+def molecule_leaflet_orientation(atompos1: np.array, atompos2: np.array, axis=np.array([0.0, 0.0, 1.0])) -> int:
+    ''' Takes two positions and returns 0 or 1 depending if molecule is oriented upside down or up '''
+    new_coords = atompos1 - atompos2
+    cos = np.dot(new_coords, axis) / np.linalg.norm(new_coords)
+    return ( 0 if cos <= 0 else 1 )
 
 def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
     ''' Creates a file with that assigns all lipids to upper or lower leaflet
@@ -62,14 +70,13 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
                     LOGGER.debug("Resid/resname/atmname %s/%s/%s", resid, resname, atomname)
                     LOGGER.debug("Coords head/base: %s/%s", coord_head, coord_base)
 
-                    new_coords = coord_head - coord_base
-                    cos = np.dot(new_coords, np.array([0.0,0.0,1.0]))/np.linalg.norm(new_coords)
-                    if cos <= 0:
-                        sum_upper += 1
-                        leaflet = 0
-                    else:
+                    leaflet = molecule_leaflet_orientation(coord_head, coord_base)
+
+                    if leaflet:
                         sum_lower += 1
-                        leaflet = 1
+                    else:
+                        sum_upper += 1
+
                     print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
 
                     old_resid = resid
@@ -93,6 +100,52 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
                 leaflet = 1
             print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
         LOGGER.info("UP: %s LOW: %s", sum_upper, sum_lower)
+
+
+def calc_density(systeminfo, selstr, outname="density.xvg", overwrite=False, **kw_den):
+    ''' 
+        Uses density calculation of gromacs
+        1. Get index file using gmx select with
+            gmx select -f ... -select <selstr>
+        2. Run
+            gmx density -f ... -center -d Z 
+            NOTE: Additional flags can be set adding with kw_den like b=3 converted to -b 3
+    '''
+    os.makedirs(systeminfo.datapath + "densities", exist_ok=True)
+    TRJ = systeminfo.trjpath_whole
+    TPR = systeminfo.tprpath
+    NDX = systeminfo.temppath + "temp.ndx"
+    OUT = systeminfo.datapath + "densities/" + outname
+    if not overwrite and os.path.exists(OUT):
+        LOGGER.warning("Density file already exists")
+        return OUT
+
+    # Get index file containing respective residue indices
+    LOGGER.info("Creating index file...")
+    commandstring = 'gmx select -f {} -s {} -on {} -select'.format(TRJ, TPR, NDX) ## dont forget the selstr
+    cmd = commandstring.split() + [selstr]
+    out, err = exec_gromacs(cmd)
+    with open("gmx_select.log", "w") as f:
+        print(err, file=f)
+        print(out, file=f)
+
+    # Run gmx density
+    LOGGER.info("Run gmx density...")
+    additional_input = []
+    if kw_den:
+        keys = kw_den.keys()
+        keys = ["-"+i for i in keys]
+        vals = kw_den.values()
+        for z in zip(keys, vals):
+            additional_input += list(z)
+    commandstring = "gmx density -f {} -s {} -n {} -o {}  -d Z".format(TRJ, TPR, NDX, OUT)
+    cmd = commandstring.split() + additional_input
+    out, err = exec_gromacs(cmd)
+    with open("gmx_density.log", "w") as f:
+        print(err, file=f)
+        print(out, file=f)
+
+    return OUT
 
 
 def calc_thickness(universe, ref_atomname, fname="bilayer_thickness"):

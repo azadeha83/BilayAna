@@ -1,8 +1,0 @@
-[console_scripts]
-check_and_write = src.command_line:check_and_write
-initialize_system = src.command_line:initialize_system
-mend_energyruns = src.command_line:mend_energyruns
-submit_energycalcs = src.command_line:submit_energycalcs
-write_eofscd = src.command_line:write_eofscd
-write_nofscd = src.command_line:write_nofscd
-
