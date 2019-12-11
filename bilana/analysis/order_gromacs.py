@@ -31,7 +31,7 @@ class Order(SysInfo):
         get_selection = [GMXNAME, 'make_ndx', '-f', self.gropath, '-o', 'sn1']
         print(get_selection)
         
-        inp_str = b'2 & a C21\n2 & a C22\n2 & a C23\n2 & a C24\n2 & a C25\n2 & a C26\n2 & a C27\n2 & a C28\n2 & a C29\n2 & a C210\n2 & a C211\n2 & a C212\n2 & a C213\n2 & a C214\n2 & a C215\n2 & a C216\ndel 0-4\nq\n'
+        inp_str = b'r DPPC & a C21\nr DPPC & a C22\nr DPPC & a C23\nr DPPC & a C24\nr DPPC & a C25\nr DPPC & a C26\nr DPPC & a C27\nr DPPC & a C28\nr DPPC & a C29\nr DPPC & a C210\nr DPPC & a C211\nr DPPC & a C212\nr DPPC & a C213\nr DPPC & a C214\nr DPPC & a C215\nr DPPC & a C216\ndel 0-4\nq\n'
 
         out, err = exec_gromacs(get_selection, inp_str)
 

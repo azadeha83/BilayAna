@@ -94,7 +94,7 @@ class ElectronDensity(SysInfo):
         
         get_density = [GMXNAME, 'density', '-f', self.trjpath, '-s', self.tprpath, '-n', 'electrondensity_index.ndx', '-b', str(start_time), '-e', str(end_time), \
             '-o', electron_density_output_raw, '-dens', 'electron', '-ei', 'electrons_partial.dat', '-center', '-relative', '-d', 'Z', '-sl', str(n_bins)]
-        
+        print(get_density)
         out, err = exec_gromacs(get_density)
 
         with open("gmx_density.log","a") as logfile:

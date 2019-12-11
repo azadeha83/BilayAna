@@ -60,7 +60,7 @@ class EofScd(Neighbors):
                 lipid2index = self.molecules.index(lipid2)
                 if lipid2index > lipid1index:  # Ignore double entries: Lipid1_Lipid2 = Lipid2_Lipid1
                     break
-                self.lipidpairs.append(''.join([lipid2, '_', lipid1]))
+                self.lipidpairs.append(''.join([lipid2, '_', lipid1]))        
 
     def create_eofscdfile(self):
         ''' Creates files of data of E(S) for each lipid part'''
@@ -83,6 +83,13 @@ class EofScd(Neighbors):
             components += ["CHL1_host"] # Chols that are neighbor to host
             components += ["CHL1_neib"] # Chols ... to neib
             components += ['CHL1_both'] # Chols ... to both
+            components += ['CHL1_partboth'] # Chols ... not to both
+        
+        if 'ERG' in self.molecules:
+            components += ["ERG_host"] # Ergs that are neighbor to host
+            components += ["ERG_neib"] # Ergs ... to neib
+            components += ['ERG_both'] # Ergs ... to both
+            components += ['ERG_partboth'] # Ergs ... not to both
         
         # Create Eofs output name
         if energyfile == 'all_energies.dat':
@@ -104,14 +111,19 @@ class EofScd(Neighbors):
                             "Etot", "Evdw",
                             "Ecoul", "Ntot")\
                             + (len(components)*'{: <15}').format(*components) + '{: <15}{: <15}{: <15}'.format("Facing", "Notfacing", "Orient_flag"), file=outf)
-
+            
+            lipid1 = lipidpair.split('_')[0]
+            lipid2 = lipidpair.split('_')[1]
+            
             # Read all_energies file
             efile.readline()
             for line in efile:
                 cols = line.split()
+                
+                if lipid1 == lipid2:
 
-                if int(cols[1]) > int(cols[2]):
-                    continue
+                    if int(cols[1]) > int(cols[2]):
+                        continue
 
                 time = float(cols[0])
                 if time > self.t_end:
@@ -140,9 +152,14 @@ class EofScd(Neighbors):
                 type_host = self.resid_to_lipid[host]
                 type_neib = self.resid_to_lipid[neib]
                 type_pair = ('{0}_{1}'.format(type_host, type_neib), '{1}_{0}'.format(type_host, type_neib))
-                if neib < host or (type_pair[0] != lipidpair and type_pair[1] != lipidpair):  # Ignore second pair
-                    # energies same for res1-res2 and res2-res1 so take just 1st version
-                    continue
+                
+                if lipid1 == lipid2:
+                    if neib < host or (type_pair[0] != lipidpair and type_pair[1] != lipidpair):  # Ignore second pair
+                        # energies same for res1-res2 and res2-res1 so take just 1st version
+                        continue
+                else:
+                    if type_host == type_neib or type_host != lipid1:
+                        continue
 
                 # Get energy values
                 Etot = float(cols[6])
@@ -177,7 +194,7 @@ class EofScd(Neighbors):
                         else:
                             n_sterol_notfacing_neib += 1
 
-                # This part assigns a flag to the orientation of the two sterols with respect to each other:
+                # This part assigns a flag to the orientation of the sterol-sterol or lipid-sterol with respect to each other:
                 # 0: not facing, 1: one is facing to the other, 2: two are facing to each other
                 orient_flag = 0
 
@@ -217,7 +234,7 @@ class EofScd(Neighbors):
                 for lip in self.components:
                     ncomp = [self.resid_to_lipid[N] for N in pair_neibs].count(lip)
                     neib_comp_list.append(ncomp)
-
+                
                 # Get number of cholesterol neighbors, that are neighbor to both PLs
                 if 'CHL1' in self.molecules:
                     host_chol = [self.resid_to_lipid[N] for N in neighbors if N != neib].count('CHL1')
@@ -229,7 +246,31 @@ class EofScd(Neighbors):
                     shared_neighbors = list(set(neighbors) & set(neighbors_neib))
                     shared_chol = [self.resid_to_lipid[N]\
                         for N in shared_neighbors].count('CHL1')
+                    
+                    not_shared_neighbors = list(set(neighbors) ^ set(neighbors_neib))
+                    not_shared_chol = [self.resid_to_lipid[N]\
+                        for N in not_shared_neighbors].count('CHL1')
+                    
                     neib_comp_list.append(shared_chol)
+                    neib_comp_list.append(shared_chol + not_shared_chol/2)
+                    
+                if 'ERG' in self.molecules:
+                    host_erg = [self.resid_to_lipid[N] for N in neighbors if N != neib].count('ERG')
+                    neib_comp_list.append(host_erg)
+
+                    hostneib_erg = [self.resid_to_lipid[N] for N in neighbors_neib].count('ERG')
+                    neib_comp_list.append(hostneib_erg)
+
+                    shared_neighbors = list(set(neighbors) & set(neighbors_neib))
+                    shared_erg = [self.resid_to_lipid[N]\
+                        for N in shared_neighbors].count('ERG')
+                    
+                    not_shared_neighbors = list(set(neighbors) ^ set(neighbors_neib))
+                    not_shared_erg = [self.resid_to_lipid[N]\
+                        for N in not_shared_neighbors].count('ERG')
+
+                    neib_comp_list.append(shared_erg)
+                    neib_comp_list.append(shared_erg + not_shared_erg/2)
                 
                 # Get order values
                 scd_host = timetoscd[(time, host)]

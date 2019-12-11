@@ -99,13 +99,13 @@ class Areaperlipid_compressibility(SysInfo):
 
         df = pd.read_table('area_per_lipid.dat', header=0, delim_whitespace=True)
         df1 = df.loc[df['Time'] > start_time]
-
+        #df1 = df1.loc[df1['Time'] % 1000 == 0]
+        print(len(df1.index))
         n_blocks = number_of_blocks
         area_data = list(df1.loc[:,'area_per_lipid'])
         l = int(len(area_data)/n_blocks)
-
         block_lists = []
-
+        
         j = 0
         for i in range(n_blocks):
             blocks = area_data[i+j:i+j+l-1]
@@ -116,13 +116,14 @@ class Areaperlipid_compressibility(SysInfo):
 
         area_mean = np.mean(area_blocks,axis=1)
         area_variance = np.var(area_blocks,axis=1)
+        
         T = float(self.temperature)
-        Boltzman = (1.380649 / 100)*1e-3 # in order to change the units of KT to pN.nm
-        comp = Boltzman*T*(area_mean/area_variance)
+        Boltzman = 1.380649 * 1e-23 
+        comp = Boltzman*T*(area_mean/area_variance) * 1e+18
 
         with open('area_compressibility.csv','w') as f:
                     writer = csv.writer(f,delimiter='\t')
-                    writer.writerow(["mean_area", "std_area", "compressibility", "std_compressibility","se_compressibility"])
+                    writer.writerow(["mean_area", "std_area", "compressibility", "std_compressibility", "se_compressibility"])
                     writer.writerow([np.mean(area_mean),np.std(area_mean),np.mean(comp),np.std(comp),np.std(comp)/np.sqrt(n_blocks)])
 
         # self.area_mean = np.mean(list(df1.iloc[:,1]))

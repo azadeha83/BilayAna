@@ -8,7 +8,7 @@ LOGGER = log.LOGGER
 GLYCATM = ['C1', 'O11', 'C2', 'O21', 'C21', 'O22', 'C3', 'O31', 'C31', 'O32', 'HA', 'HB', 'HY', 'HX', 'HS', ]
 
 HEADATM = {
-    'PC':['P', 'O12', 'O13', 'O14', 'N', 'C11', 'C12', 'C13', 'C14', 'C15',
+    'PC':['P', 'O11', 'O12', 'O13', 'O14', 'N', 'C11', 'C12', 'C13', 'C14', 'C15',
           'H11A', 'H11B', 'H12A', 'H12B', 'H13A', 'H13B', 'H13C', 'H14A', 'H14B', 'H14C', 'H15A', 'H15B', 'H15C'],
     'PA':['P', 'O12', 'O13', 'O14', 'H12'],
     'PE':['P', 'O12', 'O13', 'O14', 'C11', 'C12', 'N', 'HN1', 'HN2', 'HN3', 'H11A', 'H11B', 'H12A', 'H12B',],
@@ -102,10 +102,10 @@ HEAD_ATOMS_OF = {\
     'PS':HEADATM['PS']+GLYCATM,
     'PI':HEADATM['PI']+GLYCATM,
     'PA':HEADATM['PA']+GLYCATM,
-    'CHL1':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10', 'C8', 'C13', 'C19'],
+    'CHL1':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14', 'C15', 'C16', 'C17', 'C18', 'C19'],
     #'ch1m':['all'],
     #'CHIM':['all'],
-    'ERG':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C10', 'C8', 'C13', 'C19'],
+    'ERG':['O3', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14', 'C15', 'C16', 'C17', 'C18', 'C19'],
                 }
 
 TAIL_ATOMS_OF = {\
@@ -118,7 +118,7 @@ TAIL_ATOMS_OF = {\
     'PO':[TAILCARBS['PO'][0], TAILHYDR['PO'][0], TAILCARBS['PO'][1], TAILHYDR['PO'][1],],
     'PL':[TAILCARBS['PL'][0], TAILHYDR['PL'][0], TAILCARBS['PL'][1], TAILHYDR['PL'][1],],
     'CHL1':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25']],
-    'ERG':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25']],
+    'ERG':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25', 'C28']],
                 }
 
 CENTRAL_ATOM_OF = {

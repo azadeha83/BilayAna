@@ -6,6 +6,7 @@ import os
 from .. import log
 from ..common import exec_gromacs, GMXNAME
 from ..systeminfo import SysInfo
+from bilana.definitions import lipidmolecules
 import MDAnalysis as mda
 import pandas as pd
 import numpy as np
@@ -20,6 +21,10 @@ class Hbonds(SysInfo):
 
             self.lipid_types_mainlipid = ''.join(self.molecules[0])
             self.lipid_types_sterol = ''.join(self.molecules[1])
+            
+            if self.lipid_types_sterol not in lipidmolecules.STEROLS:
+                self.lipid_types_sterol = ''.join(self.molecules[0])
+                self.lipid_types_mainlipid = ''.join(self.molecules[1])
 
     def hbonds_sterol_lipid(self):
         ''' This module calculates the hbonds between sterol and lipid molecules '''

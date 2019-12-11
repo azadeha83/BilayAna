@@ -27,7 +27,7 @@ class MSDanalysis(SysInfo):
     
             self.lipid_type_items = ' '.join(self.molecules)
             self.lipid_types_mainlipid = ''.join(self.molecules[0])
-            self.lipid_types_sterol = ''.join(self.molecules[1])
+            #self.lipid_types_sterol = ''.join(self.molecules[1])
 
     
     def MSD_mdanalysis(self,start_frame,end_frame):

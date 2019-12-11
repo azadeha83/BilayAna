@@ -141,14 +141,17 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
             '\nfrom bilana.analysis.order import Order'
-            '\norder_inst = Order(inputfilename="{2}")'
-            '\norder_inst.create_orientationfile()'
+            #'\norder_inst = Order(inputfilename="{2}")'
+            #'\norder_inst.create_orientationfile()'
             '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
-            '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
-            '\n    energy_instance.write_energyfile()'
-            '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
-            '\n    eofs.create_eofscdfile()'.format(lipidpart, overwrite,
+            # '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
+            # '\n    energy_instance.write_energyfile()'
+            # '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
+            # '\n    eofs.create_eofscdfile()'.format(lipidpart, overwrite,
+            # '\nenergy_instance.write_energyfile()'
+            '\neofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
+            '\neofs.create_eofscdfile()'.format(lipidpart, overwrite,
                 inputfilename, neighborfilename, energyfilename, scdfilename),
             file=scriptf)
         if not dry:
@@ -176,8 +179,8 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
             '\nfrom bilana.analysis.order import Order'
-            '\norder_inst = Order(inputfilename="{1}")'
-            '\norder_inst.create_orientationfile()'
+            #'\norder_inst = Order(inputfilename="{1}")'
+            #'\norder_inst.create_orientationfile()'
             '\nenergy_instance = Energy("{0}", inputfilename="{1}", neighborfilename="{2}")'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
