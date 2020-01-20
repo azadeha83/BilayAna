@@ -123,8 +123,8 @@ def get_minmaxdiv(startdiv, numerator, direction=-1):
         return startdiv
 
 def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False, queue=None):
-    username = os.environ['LOGNAME']
-    hostname = os.environ["HOSTNAME"]
+    username = "aalaviza"
+    hostname = "bagheera"
     if hostname == "bagheera":
         if not prio:
             queue = 'short'
@@ -195,26 +195,7 @@ def angle_clockwise(A, B):
     if det < 0:
         return inner_ang
     else:
-<<<<<<< HEAD
-        queue = 'prio'
-    with open(submitout, "w") as sfile:
-        print('#!/bin/bash'
-              '\n#SBATCH -A q0heuer'
-              '\n#SBATCH -p {queue}'
-              '\n#SBATCH --output={jobname}.out'
-              '\n#SBATCH --mail-type=fail'
-              '\n#SBATCH --mail-user={username}@wwu.de'
-              '\n#SBATCH --time=48:00:00'
-              '\n#SBATCH --ntasks=1'
-              '\n#SBATCH --nodes=1'
-              '\n#SBATCH --cpus-per-task={ncores}'
-              '\n#SBATCH --mem={mem}'
-              '\n#SBATCH --exclude=kaa-33,kaa-111,kaa-96,kaa-99'
-              '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
-              '\nsrun $@'.format(**locals()), file=sfile)
-=======
         return 2*np.pi - inner_ang
 
 GMXNAME = find_executable("gmx")
 
->>>>>>> 1150a148da2864b88eff2bfb8204a5f51ace0b9a

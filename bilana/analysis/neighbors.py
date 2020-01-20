@@ -92,42 +92,6 @@ class Neighbors(SysInfo):
         LOGGER.info("Write output file")
         with open(outputfilename, "w") as outf:
             print("{: <20}{: <20}{: <20}{: <20}".format("Resid", "Time", "Number_of_neighbors", "List_of_Neighbors"), file=outf)
-<<<<<<< HEAD
-            for t in range(traj_len):
-                time = self.universe.trajectory[t].time
-                if self.t_end < time or self.t_start > time:
-                    continue
-                LOGGER.info("Time %s", time)
-                refatomgrp = self.universe.select_atoms(refatoms)
-                leaflets = self.get_ref_postions(mode, refatomgrp)
-                print(leaflets)
-                for leaf in leaflets:
-
-                    if _2D:
-                        for i in range(len(leaf)): # Make it "2D"
-                            #print(leaf[i][1][2])
-                            leaf[i][1][2] = 0
-                    leafoutput = {}
-
-                    for res, coord in leaf:
-                        # leaf = (res, pos)
-                        res += 1
-                        neiblist  = []
-                        if res in leafoutput.keys():
-                            neiblist = leafoutput[res]
-
-                        pos_array = mda.lib.distances.distance_array(coord, np.array([pos for res, pos in leaf]), box=self.universe.dimensions)
-                        neiblist_tmp = [leaf[i][0]+1 for i,j in enumerate(pos_array[0]) if j <= self.cutoff*10]
-                        neiblist += [str(n) for n in neiblist_tmp if n != res]
-                        neiblist = list(set(neiblist))
-                        leafoutput[res] = neiblist
-
-                    for res, neiblist in leafoutput.items():
-                        n_neibs = len(neiblist)
-                        print("{: <20}{: <20}{: <20}{: <20}".format(res, time, n_neibs, ','.join(neiblist)), file=outf)
-
-    def get_ref_postions(self, mode, refatomgrp):
-=======
             for line in outp:
                 print("{: <20}{: <20}{: <20}{: <20}".format(*line), file=outf)
 
@@ -168,7 +132,6 @@ class Neighbors(SysInfo):
         return outp
 
     def get_ref_positions(self, mode, refatomgrp):
->>>>>>> 1150a148da2864b88eff2bfb8204a5f51ace0b9a
         ''' Possible modes atom, center, tails'''
         modes = ["atom", "center", "tails"]
         if mode == "atom":

@@ -75,7 +75,7 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nneib_inst.info()'
             '\nneib_inst.determine_neighbors(overwrite=True, parallel=False)'
             '\nneib_inst.create_indexfile()'
-            '\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
+            #'\nanalysis.lateraldistribution.write_neighbortype_distr(SysInfo(inputfilename="{0}"))'
             '\nanalysis.leaflets.create_leaflet_assignment_file(SysInfo(inputfilename="{0}"))'
             .format(inputfilename),
             file=scriptf)

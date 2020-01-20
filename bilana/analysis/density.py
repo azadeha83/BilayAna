@@ -477,7 +477,6 @@ class Density(Neighbors):
                     orient_flag = 0
                     distance = 0 
 
-
                     if len(neibs) != 0:
                         
                         n_sterol += 1
