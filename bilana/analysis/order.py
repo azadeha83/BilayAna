@@ -13,7 +13,6 @@ import MDAnalysis as mda
 from . import neighbors
 from .neighbors import Neighbors
 from .. import log
-from ..systeminfo import SysInfo
 from ..common import loop_to_pool
 from ..definitions import lipidmolecules
 from ..definitions.structure_formats import REGEXP_GRO
@@ -30,7 +29,6 @@ class Order(Neighbors):
     def __init__(self, inputfilename="inputfile"):
         super().__init__(inputfilename)
         self.atomlist = lipidmolecules.scd_tail_atoms_of
-        self.neiblist = neighbors.get_neighbor_dict()
         self.components = self.molecules
         self.neiblist = neighbors.get_neighbor_dict()
         # Change dict entries from neiblist[host][time] to neiblist[time][host]
@@ -73,36 +71,163 @@ class Order(Neighbors):
         else:
             raise ValueError("Mode not yet implement use mode=CC (default)")
 
-    def create_orientationfile(self, outputfile="orientation.dat"):
-        ''' Assigning orientation of the sterol molecule with respect to the neighboring molecules '''
+        ## Gather all input data for _calc_scd_output function
+        LOGGER.info("Start adding tasks")
+        len_traj = len(self.universe.trajectory)
+        for t in range(len_traj):
 
-        u = self.universe
-        len_traj = len(u.trajectory)
+            time = self.universe.trajectory[t].time
+            if time % self.dt != 0 or self.t_start > time or self.t_end < time:
+                continue
 
-        with open(outputfile, "w") as orifile:
-            print("{: <12}{: <10}{: <10}{: <15}{: <15}{: <15}".format("Time", "Resid", "Resname", "Neib_resid", "Neib_resn", "Orientation")\
-                ,file=orifile)
-            
-            for t in range(len_traj):
-                time = u.trajectory[t].time 
-                if time % self.dt != 0 or time > self.t_end or time < self.t_start:
-                    continue
-                LOGGER.info("At time %s", time)
+            # Get tilt of leaflet for time
+            if with_tilt_correction:
+                new_axis = np.asarray(dat.loc[(dat.time == time)][["x", "y", "z"]]).copy()
+                LOGGER.debug("Corrected angle %s", new_axis)
+            else:
+                new_axis = None
 
-                for res in self.MOLRANGE:
-                    resn = self.resid_to_lipid[res]
-                    if resn not in lipidmolecules.STEROLS:
-                        continue
+            if mode == 'CC':
+                # Collect input arguments in tuple
+                inptup = (calc_s, new_axis, self.MOLRANGE, self.universe.atoms, self.universe.atoms.positions,
+                    time, self.components, neiblist_t[time], self.res_to_leaflet, self.resid_to_lipid,)
+                if parallel:
+                    pool.apply_async(self._calc_scd_output, args=inptup, callback=catch_callback)
+                else:
+                    outputlist.append(self._calc_scd_output(*inptup))
 
-                    neibs = self.neiblist[res][float(time)]
-                    if len(neibs) != 0:
-                        for neib in neibs:
-                            orientation = self.calc_orientation(self.universe, res, neib)
-                            resname_neib = self.resid_to_lipid[neib]
-                            print("{: <12.2f}{: <10}{: <10}{: <15}{: <15}{: <15}".format(
-                                time, res, resn, neib, resname_neib, orientation),
-                                file=orifile)
-    
+            elif mode == 'profile':
+                # Collect input arguments in tuple
+                inptup = (calc_s, new_axis, self.MOLRANGE, self.universe.atoms, self.universe.atoms.positions,
+                    time, self.res_to_leaflet, self.resid_to_lipid,)
+                if parallel:
+                    pool.apply_async(self._calc_scd_profile_output, args=inptup, callback=catch_callback)
+                else:
+                    outputlist.append(self._calc_scd_profile_output(*inptup))
+
+        if parallel:
+            # finalize pool
+            pool.close()
+            pool.join()
+
+
+        ## Sort output and write to file
+        LOGGER.info("Writing to file ...")
+        outputlist = [i for l in outputlist for i in l]
+        outputlist = sorted(outputlist, key=lambda tup: tup[:2])
+        if mode == "CC":
+            with open(outputfile, "w") as scdfile:
+                print("{: <12}{: <10}{: <10}{: <7}{: <15}".format("Time", "Residue", "leaflet", "Type", "Scd")\
+                    + (len(self.components)*'{: ^7}').format(*self.components),
+                    file=scdfile)
+                for line in outputlist:
+                    line = "{: <12.2f}{: <10}{: <10}{: <7}{: <15.8}".format(*line[:5]) + (len(self.components)*"{: ^7}").format(*line[5:])
+                    print(line, file=scdfile)
+        elif mode == "profile":
+            with open(outputfile, "w") as scdfile:
+                print("{: <12}{: <10}{: <10}{: <7}{: <15}{: <15}{: <10}{: <10}".format("Time", "Residue", "leaflet", "Type", "avgS", "S", "carbon", "chain" ), file=scdfile)
+                for line in outputlist:
+                    line = "{: <12.2f}{: <10}{: <10}{: <7}{: <15.8}{: <15.8}{: <10}{: <10}".format(*line)
+                    print(line, file=scdfile)
+
+
+
+    @staticmethod
+    def _calc_scd_output(s_fun, new_axis, molrange, all_atms, positions, time, components, neiblist, res_to_leaflet, resid_to_lipid):
+        outp = []
+        for res in molrange:
+            leaflet = res_to_leaflet[res]
+            neibs   = neiblist[res]
+            resname = resid_to_lipid[res]
+            if new_axis is not None:
+                new_axis_at_t = new_axis[leaflet]
+
+            LOGGER.debug("At time %s and residue %s", time, res)
+
+            # If resname is not known skip, this residue
+            if resname[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
+                and resname not in lipidmolecules.STEROLS\
+                and resname not in lipidmolecules.PROTEINS:
+                LOGGER.debug("Skipping")
+                continue
+
+            tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+            neib_comp_list = []
+            for lip in components:
+                ncomp = [resid_to_lipid[N] for N in neibs].count(lip)
+                neib_comp_list.append(ncomp)
+
+            scd_value = s_fun(res, tailatms, all_atms, positions, tilt_correction=new_axis_at_t)
+            LOGGER.debug("Calculated order: %s", scd_value)
+            outp.append( (time, res, leaflet, resname, scd_value, *neib_comp_list) )
+
+        LOGGER.info("finished with time %s", time)
+
+        return outp
+
+    @staticmethod
+    def _calc_scd_profile_output(s_fun, new_axis, molrange, all_atms, positions, time, res_to_leaflet, resid_to_lipid):
+        outp = []
+        for res in molrange:
+            leaflet = res_to_leaflet[res]
+            resname = resid_to_lipid[res]
+            if new_axis is not None:
+                new_axis_at_t = new_axis[leaflet]
+
+            LOGGER.debug("At time %s and residue %s", time, res)
+
+            # If resname is not known skip, this residue
+            if resname[:-2] not in lipidmolecules.TAIL_ATOMS_OF.keys()\
+                and resname not in lipidmolecules.STEROLS\
+                and resname not in lipidmolecules.PROTEINS:
+                LOGGER.debug("Skipping")
+                continue
+
+            tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+
+            scds_per_tail, avg_scd = s_fun(res, tailatms, all_atms, positions, tilt_correction=new_axis_at_t)
+            LOGGER.debug("scds at tail with avg %s: %s", avg_scd, scds_per_tail)
+            for chain, scdvals in enumerate(scds_per_tail, start=1):
+                for ndx, scdval in enumerate(scdvals, start=1):
+                    outputtuple = (time, res, leaflet, resname, avg_scd, scdval, ndx, "sn"+str(chain) )
+                    outp.append(outputtuple)
+
+        LOGGER.info("finished with time %s", time)
+        return outp
+
+    @staticmethod
+    def get_order_profile(res, tailatms, all_atmnames, positions, tilt_correction=None):
+        ''' Calculate order parameter profiles for each chain '''
+
+        if tilt_correction is None:
+            tilt_correction = [0, 0, 1] # Use z-axis
+
+
+        scds_of_tails = []
+        for tailndx, tail in enumerate(tailatms):
+            scds_of_tails.append([])
+
+            for atomindex in range(len(tail)-1):
+
+                atm1, atm2 = tail[atomindex], tail[atomindex+1]
+                #coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
+
+                mask1 =  ( all_atmnames.names == tail[ atomindex ], all_atmnames.resids == res )
+                mask2 =  ( all_atmnames.names == tail[ atomindex + 1 ], all_atmnames.resids == res )
+                atm1, atm2 = positions[ mask1[0] & mask1[1] ][0], positions[ mask2[0] & mask2[1] ][0]
+
+                diffvector = atm2 - atm1
+                diffvector /= np.linalg.norm(diffvector)
+                LOGGER.debug("Diffvector %s", diffvector)
+
+                cos_angle = np.dot(diffvector, tilt_correction)
+                LOGGER.debug("Resulting cos %s", cos_angle)
+                scds_of_tails[tailndx].append( 0.5 * ( ( 3 * (cos_angle**2)) - 1 )  )
+
+        LOGGER.debug("Scds of res %s: %s", res, scds_of_tails)
+
+        return scds_of_tails, np.array(scds_of_tails).mean()
+
     @staticmethod
     def scc_of_res(res, tailatms, all_atmnames, positions, tilt_correction=None):
         ''' Calculate the order parameter  '''
@@ -113,6 +238,7 @@ class Order(Neighbors):
 
         scds_of_tails = []
         for tail in tailatms:
+
             scds_of_atoms = []
             for atomindex in range(len(tail)-1):
 
@@ -135,44 +261,7 @@ class Order(Neighbors):
 
         return np.array(scds_of_tails).mean()
 
-    def calc_orientation(self, mda_uni, resid, neib_resid):
-        ''' Calculate the orientation angle of sterol molecule with its neighbors '''
-                
-        resn = self.resid_to_lipid[resid]
-
-        C8_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[8])).positions
-        C10_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[10])).positions
-        C13_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[13])).positions
-        #C19_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[19])).positions # just for checking
-        
-        v1 = np.subtract(C8_sterol,C10_sterol)
-        v2 = np.subtract(C13_sterol,C10_sterol)
-        v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
-        #v4 = np.subtract(C19_sterol,C10_sterol) # just for checking
-        
-        neib_resn = self.resid_to_lipid[neib_resid]
-        
-        if neib_resn in lipidmolecules.STEROLS:
-
-            C10_neib_sterol = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[6])).positions
-            a = np.subtract(C10_neib_sterol,C10_sterol)
-            
-        elif neib_resn[:-2] in lipidmolecules.TAIL_ATOMS_OF.keys():
-
-            P_lip = mda_uni.select_atoms("resid {} and name P".format(neib_resid)).positions
-            a = np.subtract(P_lip,C10_sterol)
-
-        orient_angle = np.arccos(np.dot(a[0], v3[0])/(np.linalg.norm(a)*np.linalg.norm(v3))) * (180/np.pi)
-        #orient_angle1 = np.arccos(np.dot(v3[0], v4[0])/(np.linalg.norm(v3)*np.linalg.norm(v4))) * (180/np.pi) # just for checking
-        orient_flag = 0
-        
-        if orient_angle < 90:
-            orient_flag += 1
-        
-        LOGGER.debug("Res:  %s -- neib_resid: %s with orientation of %s", resid, neib_resid, orient_angle)
-        return orient_flag
-
-def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv"):
+def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv", parallel=True):
     ''' End to end vector of each tail, average vector is substracted depending on include_neighbors variable
         include_neighbors can be "global", "local"(not implemented)
     '''
