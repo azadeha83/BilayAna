@@ -103,12 +103,12 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
 
 
 def calc_density(systeminfo, selstr, outname="density.xvg", overwrite=False, **kw_den):
-    ''' 
+    '''
         Uses density calculation of gromacs
         1. Get index file using gmx select with
             gmx select -f ... -select <selstr>
         2. Run
-            gmx density -f ... -center -d Z 
+            gmx density -f ... -d Z
             NOTE: Additional flags can be set adding with kw_den like b=3 converted to -b 3
     '''
     os.makedirs(systeminfo.datapath + "densities", exist_ok=True)
