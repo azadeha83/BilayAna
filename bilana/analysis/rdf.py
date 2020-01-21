@@ -13,7 +13,7 @@ from ..systeminfo import SysInfo
 LOGGER = log.LOGGER
 GMXNAME = 'gmx'
 
-def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom', binsize=0.002, refprot=False):
+def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom', binsize=0.002, refprot=False, **kw_rdf):
     ''' Calculates 2D RDF of sel relative to ref only for one specific leaflet
         leaflet_assignment.dat (created in leaflets.py) is needed
         Using gmx rdf
@@ -65,6 +65,12 @@ def radialdistribution(systeminfo, ref, sel, seltype='atom', selrpos='atom', bin
         '-sel',  '-sf', selectdict[sel],
         '-selrpos', selrpos, '-seltype', seltype, '-bin', str(binsize),
         ]
+
+    additional_commands = []
+    for key, val in kw_rdf.items():
+        additional_commands += ["-"+key, str(val)]
+    g_rdf_arglist += additional_commands
+
     out, err = exec_gromacs(g_rdf_arglist)
     rdf_log = 'rdf_{}-{}.log'.format(ref, sel).replace(" ", "")
     with open(rdf_log, "w") as logfile:
