@@ -1,9 +1,11 @@
+import os
 import numpy as np
 import MDAnalysis as mda
 from . import neighbors
 from . import protein
 from ..import log
 from ..import common as cm
+from ..common import exec_gromacs
 
 LOGGER = log.LOGGER
 
@@ -55,7 +57,7 @@ def get_neighbor_of(hostres, time):
 
 def create_prot_pl_distance(neighbor_inst, outputfilename="protein_distances.dat"):
     ''' Creates file with columns
-            < Time > < Residue > < distance > 
+            < Time > < Residue > < distance >
     '''
     u = neighbor_inst.universe
     refatoms = neighbor_inst.reference_atom_selection
@@ -133,7 +135,7 @@ def write_neighbortype_distr(neighbor_instance, fname="neighbortype_distribution
         for resid in neighbor_instance.MOLRANGE:
             LOGGER.debug("At res %s", resid)
             lipidtype = neighbor_instance.resid_to_lipid[resid]
-            for time in range(neighbor_instance.t_start, neighbor_instance.t_end + neighbor_instance.dt, neighbor_instance.dt):
+            for time in range(neighbor_instance.t_start, neighbor_instance.t_end, neighbor_instance.dt):
                 LOGGER.debug("At time %s", time)
                 neibs = neiblist[resid][float(time)]
                 neib_comp_list = []
@@ -191,10 +193,10 @@ def separate_quadrants(coords, vec, ang_to_x):
         |1\|/2|
         | /|\ |
         |/ |3\|
-        -------        
+        -------
     '''
     def is_within(p, vecleft, vecright):
-        ''' Checks in which area spanned by AxB point p lies 
+        ''' Checks in which area spanned by AxB point p lies
             Both vectors must face upwards!!!
         '''
         #         Upper    Left    Right  Lower
@@ -214,13 +216,42 @@ def separate_quadrants(coords, vec, ang_to_x):
 
 
 def create_scd_map(sysinfo, orderfilename="scd_distribution.dat"):
-    ''' 
+    '''
         Creates map with order parameter entries and lipid + protein relative positions
         protein_pos phi r S
                       /r
                      /phi
                     /______
                   TMD
-                
+
     '''
 
+
+def calc_diffusion(sysinfo, selection, mol=False):
+    ''' Use gromacs to calculate diffusion of lipid type '''
+    outpath = sysinfo.datapath + "diffusion/"
+    os.makedirs(outpath, exist_ok=True)
+
+    # get index entry for atom choice
+    ndxname = sysinfo.temppath + "tmp{}.ndx".format(selection.replace(" ", ""))
+    selstr = 'sel={};sel'.format(selection)
+    cmd = [ "gmx", "select",
+        "-s", sysinfo.gropath, "-on", ndxname,
+        "-select", selstr,
+    ]
+    out, err = exec_gromacs(cmd)
+    print(out+"\n", err+"\n")
+
+    # Calculate MSD and diffusion
+    output_msd = outpath + "msd_{}.xvg".format(selection.replace(" ", ""))
+    output_diff = outpath + "diff_{}.xvg".format(selection.replace(" ", ""))
+    inpstr = "sel" + "\n"
+    cmd = ["gmx", "msd",
+        "-f", sysinfo.trjpath, "-s", sysinfo.tprpath, "-n", ndxname,
+        "-o", output_msd,
+        "-lateral", "z", "-xvg", "none"
+    ]
+    if mol:
+        cmd += ["-mol", output_diff]
+    out, err = exec_gromacs(cmd, inpstr)
+    print(out+"\n", err+"\n")
