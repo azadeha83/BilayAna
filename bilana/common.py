@@ -12,7 +12,7 @@ def find_executable(executable, path=None):
     # https://gist.github.com/4368898
     # Public domain code by anatoly techtonik <techtonik@gmail.com>
     # AKA Linux `which` and Windows `where`
-    
+
     Find if 'executable' can be run. Looks for it in 'path'
     (string that lists directories separated by 'os.pathsep';
     defaults to os.environ['PATH']). Checks for all executable
@@ -82,17 +82,15 @@ def exec_gromacs(cmd, inp_str=None):
     proc.wait()
     proc.stdout.close()
     proc.stderr.close()
-    #if proc.returncode != 0:
-    if proc.returncode == "noval":
-        print("CODE", proc.returncode)
+    if proc.returncode != 0:
+        print("Exited with error code", proc.returncode)
         if proc.returncode == 132:
             raise ChildProcessError("Core was dumped. This is probably due to an incompatible gromacs version")
         try:
-            err = err.decode()
-            print(out)
-            print(err)
+            print(out.decode())
+            print(err.decode())
         except UnboundLocalError:
-            pass
+            print("No error output")
         raise ChildProcessError(
             'Failed to execute command "{}" and input "{}"'\
             .format(' '.join(cmd), inp_str))
@@ -124,12 +122,32 @@ def get_minmaxdiv(startdiv, numerator, direction=-1):
 
 def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False, queue=None):
     username = os.environ['LOGNAME']
-    hostname = os.environ["HOSTNAME"]
-    if hostname == "bagheera":
+    hostname = os.uname()[1]
+    if hostname == "login" or "kaa" in hostname: # bagheera main node host name
         if not prio:
             queue = 'short'
         else:
             queue = 'prio'
+        with open(submitout, "w") as sfile:
+            print('#!/bin/bash'
+                  '\n#SBATCH -A q0heuer'
+                  '\n#SBATCH -p {queue}'
+                  '\n#SBATCH --output={jobname}.out'
+                  '\n#SBATCH --mail-type=fail'
+                  '\n#SBATCH --mail-user={username}@wwu.de'
+                  '\n#SBATCH --exclude=kaa-[72,73,76,77,78,82,12,13]'
+                  '\n#SBATCH --constraint="avx|avx2|fma4"'
+                  '\n#SBATCH --time=48:00:00'
+                  '\n#SBATCH --ntasks=1'
+                  '\n#SBATCH --nodes=1'
+                  '\n#SBATCH --cpus-per-task={ncores}'
+                  '\n#SBATCH --mem={mem}'
+                  '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
+                  '\nsrun $@'.format(**locals()), file=sfile)
+
+    elif hostname == 'r06m01': # palma main node host name
+        if queue is None:
+            queue='hims,q0heuer,normal'
         with open(submitout, "w") as sfile:
             print('#!/bin/bash'
                   '\n#SBATCH -A q0heuer'
@@ -144,24 +162,8 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False, queue=N
                   '\n#SBATCH --mem={mem}'
                   '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
                   '\nsrun $@'.format(**locals()), file=sfile)
-
-    elif hostname == 'r06m01':
-        if queue is None:
-            queue='hims,q0heuer,normal'
-        with open(submitout, "w") as sfile:
-            print('#!/bin/bash'
-                  '\n#SBATCH -A q0heuer'
-                  '\n#SBATCH -p {queue}' 
-                  '\n#SBATCH --output={jobname}.out'
-                  '\n#SBATCH --mail-type=fail'
-                  '\n#SBATCH --mail-user={username}@wwu.de'
-                  '\n#SBATCH --time=48:00:00'
-                  '\n#SBATCH --ntasks=1'
-                  '\n#SBATCH --nodes=1'
-                  '\n#SBATCH --cpus-per-task={ncores}'
-                  '\n#SBATCH --mem={mem}'
-                  '\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK'\
-                  '\nsrun $@'.format(**locals()), file=sfile)
+    else:
+        raise ValueError("Hostname not found")
 
 
 def make_movie_from_images(moviename, picture_name, framerate=40):
@@ -198,4 +200,3 @@ def angle_clockwise(A, B):
         return 2*np.pi - inner_ang
 
 GMXNAME = find_executable("gmx")
-
