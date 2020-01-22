@@ -50,6 +50,48 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             out, err = proc.communicate()
             print(out.decode(), err.decode())
 
+def submit_energycalc_leaflet(systemname, temperature, jobname, *args,
+    inputfilename="inputfile",
+    neighborfile="neighbor_info",
+    startdivisor=80,
+    overwrite=True,
+    cores=2,
+    dry=False,
+    **kwargs,):
+    ''' Divide energyruns into smaller parts for faster computation and submit those runs '''
+    complete_name = './{}_{}'.format(systemname, temperature)
+    os.chdir(complete_name)
+    mysystem = SysInfo(inputfilename)
+    systemsize = mysystem.number_of_lipids
+    divisor = get_minmaxdiv(startdivisor, systemsize)
+    if divisor % 1 != 0:
+        raise ValueError("divisor must be int")
+    resids_to_calculate = mysystem.MOLRANGE
+    lipids_per_part = systemsize//divisor
+    print("System and temperature:", systemname, temperature)
+    print("Will overwrite:", overwrite)
+    print("Lipids per job:", lipids_per_part)
+    for jobpart in range(divisor):
+        list_of_res = resids_to_calculate[jobpart*lipids_per_part:(jobpart+1)*lipids_per_part]
+        jobfile_name = str(jobpart)+'_'+jobname
+        jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
+        with open(jobscript_name, "w") as jobf:
+            print(
+                '\nimport os, sys'
+                '\nfrom bilana.analysis.energy import Energy'
+                '\nenergy_instance = Energy(complete, overwrite="{0}", inputfilename="{1}", neighborfilename="{2}")'
+                '\nenergy_instance.info()'
+                '\nenergy_instance.run_lip_leaflet_interaction(resids={3})'
+                '\nos.remove(sys.argv[0])'.format(overwrite, inputfilename, neighborfile, list_of_res),
+                file=jobf)
+        if not dry:
+            write_submitfile('submit.sh', jobfile_name, ncores=cores)
+            cmd = ['sbatch', '-J', complete_name[2:]+"_"+str(jobpart)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            print(out.decode(), err.decode())
+
+
 def submit_energycalc_on_res(systemname, temperature, jobname, lipidpart, resid, *args,
     inputfilename="inputfile",
     neighborfile="neighbor_info",
