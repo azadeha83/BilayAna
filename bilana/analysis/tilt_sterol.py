@@ -25,7 +25,7 @@ class Tilt_sterol(Order):
         super().__init__(inputfilename)
     
         self.lipid_type_items = ' '.join(self.molecules)
-        self.u = mda.Universe(self.gropath,self.trjpath)  
+        self.u = mda.Universe(self.gropath,self.trjpath_whole)  
         self.sterol_lipid = ''.join(self.molecules[1])
         print(self.sterol_lipid)
     '''                        
@@ -54,7 +54,7 @@ class Tilt_sterol(Order):
         n_frame = 0
         ptilt_total = []
         ttilt_total = []
-        with open("tilt_sterol_direct.dat" , 'w') as fout, open('tilt_total.dat', 'w') as fout1:
+        with open("tilt_sterol_direct_whole.dat" , 'w') as fout, open('tilt_total_whole.dat', 'w') as fout1:
                 
             fout.write('Time\tplane_tilt_angle\ttail_tilt_angle\n')
             fout1.write('Time\tresid\tplane_tilt_angle\ttail_tilt_angle\n')
@@ -148,7 +148,7 @@ class Tilt_sterol(Order):
         #print(resname)
         planeatms = lipidmolecules.head_atoms_of(resname)
         
-        atm1, atm2, atm3, atm4 = planeatms[7], planeatms[10], planeatms[8], planeatms[9]
+        atm1, atm2, atm3, atm4 = planeatms[10], planeatms[19], planeatms[13], planeatms[18] # C10, C19, C13, C18
         
         coords1 = mda_uni.select_atoms("resid {} and name {}".format(resid,atm1)).positions
         coords2 = mda_uni.select_atoms("resid {} and name {} ".format(resid,atm2)).positions
