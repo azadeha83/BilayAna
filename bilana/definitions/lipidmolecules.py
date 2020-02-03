@@ -55,7 +55,7 @@ INCLUDED_HEADS = ['PC']
 STEROLS        = ['CHL1', 'ERG']
 PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD']
 SOLVENTS       = ["TIP3", "SOL", "CL", "POT", "NA"]
-SHORTESTCHAIN  = len(TAILCARBS['DM'])
+#SHORTESTCHAIN  = len(TAILCARBS['DM'])
 
 
 
