@@ -13,7 +13,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     neighborfile="neighbor_info",
     startdivisor=80,
-    overwrite=False,
+    overwrite=True,
     cores=2,
     dry=False,
     **kwargs,):
@@ -38,17 +38,45 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             print(
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
-                '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
+                '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
                 '\nenergy_instance.info()'
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
                 file=jobf)
         if not dry:
             write_submitfile('submit.sh', jobfile_name, ncores=cores)
-            cmd = ['sbatch', '-J', complete_name[2:]+str(jobpart)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+            cmd = ['sbatch', '-J', complete_name[2:]+"_"+str(jobpart)+'_'+jobname, 'submit.sh','python3', jobscript_name]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             print(out.decode(), err.decode())
+
+def submit_energycalc_on_res(systemname, temperature, jobname, lipidpart, resid, *args,
+    inputfilename="inputfile",
+    neighborfile="neighbor_info",
+    cores=2,
+    dry=False,
+    **kwargs,):
+    complete_name = './{}_{}'.format(systemname, temperature)
+    os.chdir(complete_name)
+    print("System and temperature:", systemname, temperature)
+    jobfile_name = str(resid)+'_'+jobname
+    jobscript_name = 'exec_energycalc'+str(jobfile_name)+'.py'
+    with open(jobscript_name, "w") as jobf:
+        print(
+            '\nimport os, sys'
+            '\nfrom bilana.analysis.energy import Energy'
+            '\nenergy_instance = Energy("{0}", overwrite=True, inputfilename="{1}", neighborfilename="{2}")'
+            '\nenergy_instance.info()'
+            '\nenergy_instance.run_calculation(resids=[{3}])'
+            '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfile, resid),
+            file=jobf)
+    if not dry:
+        write_submitfile('submit.sh', jobfile_name, ncores=cores)
+        cmd = ['sbatch', '-J', complete_name[2:]+"_"+str(resid)+'_'+jobname, 'submit.sh','python3', jobscript_name]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+        print(out.decode(), err.decode())
+
 
 def initialize_system(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
@@ -62,7 +90,7 @@ def initialize_system(systemname, temperature, jobname, *args,
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
-    jobfilename = complete_systemname[2:]+jobname
+    jobfilename = complete_systemname[2:]+"_"+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(\
             'import os, sys, gc'
@@ -94,7 +122,7 @@ def calc_scd(systemname, temperature, jobname, *args,
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
-    jobfilename = complete_systemname[2:]+jobname
+    jobfilename = complete_systemname[2:]+"_"+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(
             'import os, sys, gc'
@@ -124,7 +152,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
-    jobfilename = complete_systemname[2:]+jobname
+    jobfilename = complete_systemname[2:]+"_"+jobname
     if overwrite:
         oflag = "--overwrite"
     else:
@@ -166,7 +194,7 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
     ''' Write eofscd file from table containing all interaction energies '''
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
-    scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
+    scriptfilename = 'exec'+complete_systemname[2:]+"_"+jobname+'.py'
     jobfilename = complete_systemname[2:]+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(\
@@ -200,7 +228,7 @@ def write_selfinteraction(systemname, temperature, jobname, lipidpart, *args,
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
-    jobfilename = complete_systemname[2:]+jobname
+    jobfilename = complete_systemname[2:]+"_"+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(\
             'import os, sys'
@@ -227,7 +255,7 @@ def write_nofscd(systemname, temperature, jobname, *args,
     complete_systemname = './{}_{}'.format(systemname, temperature)
     os.chdir(complete_systemname)
     scriptfilename = 'exec'+complete_systemname[2:]+jobname+'.py'
-    jobfilename = complete_systemname[2:]+jobname
+    jobfilename = complete_systemname[2:]+"_"+jobname
     with open(scriptfilename, 'w') as scriptf:
         print(\
             '\nimport os, sys'

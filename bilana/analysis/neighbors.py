@@ -8,6 +8,7 @@ This module automates certain tasks in gromacs:
 '''
 import os, sys
 import numpy as np
+import pandas as pd
 import MDAnalysis as mda
 from .. import log
 from . import protein
@@ -64,12 +65,15 @@ class Neighbors(SysInfo):
             time = self.universe.trajectory[t].time
             if self.t_end < time or self.t_start > time:
                 continue
+            if time % self.dt != 0:
+                continue
 
             refatomgrp = self.universe.select_atoms(refatoms)
             LOGGER.debug("Found %s atoms: %s ", len(refatomgrp.atoms), refatomgrp.atoms)
             leaflets_tmp = leaflets
             leaflets = self.get_ref_positions(mode, refatomgrp) # leaflets=[(resid1, pos1), ...]
-            if len(leaflets[0]) != len(leaflets[1]):
+            LOGGER.debug("Dimension of leaflets %s", np.array(leaflets).shape)
+            if len(leaflets[0]) != len(leaflets[1]) and np.array(leaflets_tmp).shape[-1] != 0:
                 #raise ValueError("Number of found ref positions differs: {} vs {}".format(len(leaflets[0]), len(leaflets[1])))
                 LOGGER.warning("frame %s: Number of found ref positions differs: %s vs %s", t, len(leaflets[0]), len(leaflets[1]))
                 LOGGER.warning("Difference1: %s", set([i[0] for i in leaflets[0]]).symmetric_difference(set([i[0] for i in leaflets_tmp[0]])))
@@ -149,12 +153,16 @@ class Neighbors(SysInfo):
             #leaf2 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] <  center[2]]
             leaf1 = np.array( [(atm.resid, atm.position) for atm  in refatomgrp.atoms if orientations[ atm.resid ] ] )
             leaf2 = np.array( [(atm.resid, atm.position) for atm  in refatomgrp.atoms if not orientations[ atm.resid ] ] )
+            LOGGER.debug("dim leaf1 %s and leaf2 %s ", leaf1.shape, leaf2.shape)
+
         elif mode == "tails":
             cnt = 0
             orientations = {}
             for residue in refatomgrp.residues:
-                headsel = 'resname {} name {}'.format(residue.resname, ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
-                tailsel = 'resname {} name {}'.format(residue.resname, ' '.join( np.array( lipidmolecules.tailcarbons_of(residue.resname) )[:,-1] ) )
+                headsel = 'resname {} and name {}'.format(residue.resname, ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
+                tailsel = 'resname {} and name {}'.format(residue.resname, ' '.join( np.array( lipidmolecules.tailcarbons_of(residue.resname) )[:,-1] ) )
+                LOGGER.debug("Head selection: %s", headsel)
+                LOGGER.debug("Tail selection: %s", tailsel)
                 head_pos = residue.atoms.select_atoms( headsel ).center_of_mass()
                 tail_pos = residue.atoms.select_atoms( tailsel ).center_of_mass()
                 orientations[residue.resid] =  molecule_leaflet_orientation( head_pos, tail_pos )
@@ -187,12 +195,12 @@ class Neighbors(SysInfo):
         else:
             raise ValueError("Invalid mode, choose one of {}".format(modes))
         return (leaf1, leaf2)
-    
+
     def determine_neighbors_protein(self, mode="atom", prot_cutoff=1.2, outputfilename="neighbor_info_protein", overwrite=False, **kwargs):
-        ''' 
+        '''
             Determine all neighbors of a protein, based on cutoff distance
             neighbor_info_prot then looks like:
-            < time > < resid > 
+            < time > < resid >
         '''
         DEBUG = False
         if DEBUG:
@@ -221,11 +229,11 @@ class Neighbors(SysInfo):
 
                 # Get correct protein position
                 ref_res_prot = protein.get_reference_resids() # [pos_leaf1, pos,leaf2]
-                sel1 = "resid {}".format(' '.join([str(i) for i in ref_res_prot[0]])) 
-                sel2 = "resid {}".format(' '.join([str(i) for i in ref_res_prot[1]])) 
+                sel1 = "resid {}".format(' '.join([str(i) for i in ref_res_prot[0]]))
+                sel2 = "resid {}".format(' '.join([str(i) for i in ref_res_prot[1]]))
                 prot_pos_leaf1 = self.universe.select_atoms( sel1 ).center_of_mass()
                 prot_pos_leaf2 = self.universe.select_atoms( sel2 ).center_of_mass()
-                leaflets = [ [(0, prot_pos_leaf1), *leaflets[0]], [(0, prot_pos_leaf2), *leaflets[1]] ] 
+                leaflets = [ [(0, prot_pos_leaf1), *leaflets[0]], [(0, prot_pos_leaf2), *leaflets[1]] ]
 
                 if len(leaflets[0]) != len(leaflets[1]):
                     #raise ValueError("Number of found ref positions differs: {} vs {}".format(len(leaflets[0]), len(leaflets[1])))
@@ -257,7 +265,7 @@ class Neighbors(SysInfo):
                     neiblist.sort()
                     neiblist = [ str(n) for n in neiblist if n != prot_res] # delete prot entry
                     n_neibs = len(neiblist)
-                    line =  (prot_res, time, n_neibs, ','.join(str(i) for i in neiblist)) 
+                    line =  (prot_res, time, n_neibs, ','.join(str(i) for i in neiblist))
 
                     print("{: <20}{: <20}{: <20}{: <20}".format(*line), file=outf)
 
@@ -473,6 +481,8 @@ class Neighbors(SysInfo):
             filecontent = output.readlines()
             resindex_all.write(''.join(filecontent)+"\n\n")
         resindex_all.close()
+        self.add_water_groups_to_index(self.SOLVENT)
+        #self.add_leaflet_groups_to_index()
 
     def create_selectionfile_indexcreation(self, selectionfilename, mol):
         '''
@@ -572,6 +582,45 @@ class Neighbors(SysInfo):
                    for i in range(0, len(methylatomslists[0])-1, 6)]
         methylatomstrings = [' '.join(t) for i in methylgroups for t in i]
         return methylatomstrings
+
+    def add_water_groups_to_index(self, watername, add_grp_to="resindex_all.ndx"):
+        ''' Make index file using gmx select and append index group to <add_grp_to> '''
+        selectionstr = 'solv=resname {}; solv;'.format(watername)
+        outputsel = self.temppath + "/tmp_leaflet.ndx"
+        cmd = [
+            "gmx", "select", "-f", self.gropath,
+            "-s", self.tprpath, "-select", selectionstr,
+            "-on", outputsel
+        ]
+        out, err = exec_gromacs(cmd)
+        print(out, err)
+        with open(outputsel, "r") as selectionf, open(add_grp_to, "a") as ndxf:
+            for line in selectionf:
+                ndxf.write(line)
+
+    def add_leaflet_groups_to_index(self, leaflet_assignment_fname, add_grp_to="resindex_all.ndx"):
+        ''' Make index file using gmx select and append index group to <add_grp_to> '''
+        leafdat = pd.read_table(leaflet_assignment_fname, delim_whitespace=True)
+        resid_list = [[], []]
+        outputsel = self.temppath + "/tmp_leaflet.ndx"
+        for leafndx, fr in leafdat.groupby("leaflet"):
+            resid_list[leafndx] += list(fr.resid)
+        selectionstr = 'leaflet0=resname {0} and resid {1}; leaflet1=resname {0} and resid {2}; leaflet0; leaflet1;'.format(
+                ' '.join(self.molecules),
+                ' '.join( [ str(i) for i in resid_list[0] ] ),
+                ' '.join( [ str(i) for i in resid_list[1] ] ),
+            )
+        print(selectionstr)
+        cmd = [
+            "gmx", "select", "-f", self.gropath,
+            "-s", self.tprpath, "-select", selectionstr,
+            "-on", outputsel
+        ]
+        out, err = exec_gromacs(cmd)
+        print(out, err)
+        with open(outputsel, "r") as selectionf, open(add_grp_to, "a") as ndxf:
+            for line in selectionf:
+                ndxf.write(line)
 
 
 def get_neighbor_dict(neighborfilename='neighbor_info',):

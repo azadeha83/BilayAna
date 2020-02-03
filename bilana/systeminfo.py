@@ -110,7 +110,12 @@ class SysInfo():
                 self.t_end = int(self.t_end_real)
             self.t_start = int(self.times[0])
 
-            self.RESNAMES          = list(set(self.universe.residues.resnames))
+            self.RESNAMES     = list(set(self.universe.residues.resnames))
+            self.SOLVENT      = [solv for solv in self.RESNAMES if solv in ["SOL", "TIP3"]]
+            if len(self.SOLVENT) > 1:
+                raise ValueError("Multiple water models found {}".format(self.SOLVENT))
+            else:
+                self.SOLVENT = self.SOLVENT[0]
             [self.RESNAMES.remove(solvent) for  solvent in lipidmolecules.SOLVENTS if solvent in self.RESNAMES]
         else:
             #''' Time information '''
@@ -118,7 +123,7 @@ class SysInfo():
             self.t_end = int(self.times[1])
             self.dt         = self.times[2]
 
-        # ''' Set constants ''' 
+        # ''' Set constants '''
         self.NUMBEROFMOLECULES = self.number_of_lipids
         self.MOLRANGE          = self.resids
         self.MOLRANGE_PROT     = self.protein_resids
@@ -126,7 +131,7 @@ class SysInfo():
         # ''' Do protein stuff '''
         if self.MOLRANGE_PROT:
             self.res_to_leaflet_prot, self.res_to_region_prot = self.assign_res_to_leaflet_prot()
-        
+
         # ''' Create dirs and store paths '''
         os.makedirs(cwd+'/datafiles/',   exist_ok=True)
         os.makedirs(cwd+'/indexfiles/',  exist_ok=True)
@@ -151,7 +156,8 @@ class SysInfo():
         system_info = {}
         with open(inputfname,"r") as inputf:
             # Creates a list like [[system,dppc_chol],[temperature,290]]
-            regex = re.compile(r'^([\w,\d,\s]*):([\w,\d,\s, \(, \), \., /]*)#*.*$')
+            #regex = re.compile(r'^([\w,\d,\s]*):([\w,\d,\s, \(, \), \., /]*)#*.*$')
+            regex = re.compile(r'^([\w,\d,\s]*):([\w, \d, \s, \(, \), \., /]*)\s*#*.*$')
             for line in inputf:
                 match = regex.match(line)
                 if match is not None:
@@ -168,6 +174,7 @@ class SysInfo():
         for key, val in self.system_info.items():
             outstr.append("{: <25}{: <20}\n".format(key+':', val))
         outstr.append('\n')
+        outstr.append('{: <25} {}\n'.format('String for reference selection:', self.reference_atom_selection))
         outstr.append('{: <25}{: <20}\n'.format('Total number of atoms:', self.system_size))
         outstr.append('{: <25}{: <20}\n'.format('Number of lipids:', self.number_of_lipids))
         outstr.append('{: <25}{: <20}\n'.format('Residue types found:', ' '.join(self.RESNAMES)))
@@ -267,7 +274,7 @@ class SysInfo():
                   'Consider creating it using mainanalysis.create_leaflet_assignment_file()')
         return outdict
 
-    def assign_res_to_leaflet_prot(inputfilename="leaflet_assignment_prot.csv"):
+    def assign_res_to_leaflet_prot(self, inputfilename="leaflet_assignment_prot.csv"):
         try:
             dat = pd.read_csv(inputfilename)
         except ValueError:

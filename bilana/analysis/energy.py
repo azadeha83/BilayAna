@@ -125,6 +125,81 @@ class Energy(SysInfo):
                     self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
         return 1
 
+    def run_lip_leaflet_interaction(self, resids):
+        ''' '''
+        LOGGER.info('Rerunning MD for energyfiles')
+        self.groupblocks = [None, None]
+        for res in resids:
+            LOGGER.info('Working on lipid %s ...', res)
+            leaflet = self.res_to_leaflet[res]
+
+            res_other_leaflet = []
+            for nres in self.MOLRANGE:
+                leaf = self.res_to_leaflet[nres]
+                if leaf != leaflet:
+                    res_other_leaflet.append(nres)
+
+            outputndx = self.temppath + "/energy_leaflet_res{}.ndx".format(res)
+            self.resindex_all = outputndx
+            selectionstr = 'System=all; leaflet=resname {0} and resid {1}; resid_{2}= resid {2}; resid_{2}; leaflet; System;'.format(
+                ' '.join(self.molecules),
+                ' '.join([str(i) for i in res_other_leaflet]),
+                res,
+                )
+
+            print(selectionstr)
+            cmd = [
+                "gmx", "select", "-f", self.gropath,
+                "-s", self.tprpath, "-select", selectionstr,
+                "-on", outputndx,
+            ]
+            out, err = exec_gromacs(cmd)
+            print(out, err)
+
+            g_energy_output = ''.join([\
+                self.energypath, '/xvgtables/energies_residue',\
+                str(res), '_leaflet', '.xvg',\
+                ])
+            mdpout = ''.join([self.energypath, 'mdpfiles/energy_mdp_recalc_resid', str(res), '_leaflet', '.mdp'])
+            tprout = ''.join([self.energypath, 'tprfiles/mdrerun_resid', str(res), "_leaflet", '.tpr'])
+            energyf_output = ''.join([self.energypath, 'edrfiles/energyfile_resid', str(res), '_leaflet', '.edr'])
+            xvg_out = ''.join([self.energypath, 'xvgtables/energies_residue', str(res), '_leaflet', '.xvg'])
+            energygroups = "resid_{} leaflet".format(res)
+            relev_energies = '\n'.join( ["Coul-SR:resid_{}-leaflet".format(res), "LJ-SR:resid_{}-leaflet".format(res), '\n'] )
+
+            # Run functions
+            self.create_MDP(mdpout, energygroups)
+            self.create_TPR(mdpout, tprout)
+            if os.path.isfile(energyf_output) and not self.overwrite:
+                LOGGER.info("Edrfile for lipid %s part %s already exists. Will skip this calculation.", res)
+            else:
+                self.do_Energyrun(res, 0, tprout, energyf_output)
+            if os.path.isfile(g_energy_output) and not self.overwrite:
+                LOGGER.info("Xvgtable for lipid %s part %s already exists. Will skip this calculation.", res)
+            else:
+                self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
+        return 1
+
+    def create_lipid_water_interaction_file(self):
+        ''' Create a file with entries of
+            interaction of resid at time to solvent
+            <Time> <resid> <resname> <Etot> <Evdw> <Ecoul>
+        '''
+
+    def create_lipid_leaflet_interaction_file(self):
+        ''' Create a file with entries of
+            interaction of resid at time to leaflet0 and leaflet1
+            <Time> <resid> <resname> <host_leaflet> <leaflet_index> <Etot> <Evdw> <Ecoul>
+        '''
+
+    def gather_selfinteractions(self):
+        '''
+            Create selfinteraction.dat file from existing *.edr calculation
+            !!! Attention !!! Can only be done after actual energy run.
+        '''
+        self.selfinteractions_edr_to_xvg()
+        self.selfinteractions_xvg_to_dat()
+
     def selfinteractions_edr_to_xvg(self):
         ''' Extracts all self interaction energy values from .edr files using gmx energy '''
         missing_edr = []
@@ -201,6 +276,14 @@ class Energy(SysInfo):
             else:
                 for part in self.molparts:
                     energygroup_list.append(''.join([part,str(resid)]))
+            # Add leaflet and water groups
+        #leaflet = self.res_to_leaflet[res]
+        #if leaflet:
+        #    energygroup_list += ["leaflet0", "solv"]
+        #else:
+        #    energygroup_list += ["leaflet1", "solv"]
+        energygroup_list += ["solv"]
+
         energygroup_string = ' '.join(energygroup_list)
         return energygroup_string
 
@@ -313,7 +396,7 @@ class Energy(SysInfo):
         LOGGER.info('...Rerunning trajectory for energy calculation...')
         os.makedirs(self.energypath+'edrfiles', exist_ok=True)
         os.makedirs(self.energypath+'logfiles', exist_ok=True)
-        logoutput_file = self.energypath+'logfiles/'+'mdrerun_resid'+str(res)+self.part+'frag'+groupfragment+'.log'
+        logoutput_file = self.energypath+'logfiles/'+'mdrerun_resid'+str(res)+self.part+'frag'+str(groupfragment)+'.log'
         trajout = 'EMPTY.trr' # As specified in mdpfile, !NO! .trr-file should be written
         mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath,
                         '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
@@ -475,7 +558,6 @@ class Energy(SysInfo):
             with open(fname, "rb") as f:
                 f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
                 while f.read(1) != b"\n" and f.tell() != 1:   # Until EOL is found... if f.tell() == 0 means cursor is at the beginning of file
-                    print(f.tell())
                     f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
                     cnt += 1
                     if cnt > MAXCOUNT:
@@ -489,6 +571,8 @@ class Energy(SysInfo):
 
         missing_files = []
 
+        time_ok = True
+        missing_res = False
         for resid in self.MOLRANGE:
             all_neibs_of_res = list(set([neibs for t in self.neiblist[resid].keys() for neibs in self.neiblist[resid][t]]))
             n_neibs = len(all_neibs_of_res)
@@ -503,6 +587,7 @@ class Energy(SysInfo):
 
                 if not os.path.isfile(xvgfilename):
                     # Check wether file exists
+                    missing_res = True
                     missing_files.append(xvgfilename)
 
                 elif os.stat(xvgfilename).st_size == 0:
@@ -514,6 +599,7 @@ class Energy(SysInfo):
                     line = read_lastline_only(xvgfilename)
                     time = float(line.decode().split()[0])
                     if time != check_len:
+                        time_ok = False
                         missing_files.append(xvgfilename)
 
         if missing_files:
@@ -528,12 +614,14 @@ class Energy(SysInfo):
                         part = self.part
 
                     submit_missing_energycalculation(res, part, self.system, self.temperature)
+                    LOGGER.debug("Would submit %s", res)
 
                     resubmitted_residues.append(res)
 
                 else:
                     continue
             LOGGER.warning("Submitted following energy calculations for residues: %s", resubmitted_residues)
+            LOGGER.warning("Issues found:\nThere were missing residues: %s\nLength of trajectory not the same as indicated in inputfile: %s", missing_res, not time_ok)
 
             return False
         return True
