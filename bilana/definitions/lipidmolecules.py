@@ -24,7 +24,7 @@ SCD_TAIL_ATOMS_OF = {\
     'DP':[TAILCARBS['DP'][0][::2], TAILCARBS['DP'][1][::2]],
     'DI':[TAILCARBS['DI'][0][::2], TAILCARBS['DI'][1][::2]],
     'DU':[TAILCARBS['DI'][0][::2], TAILCARBS['DI'][1][::2]],
-    'CHL1':[['ROH', 'C2']],
+    'CHOL':[['ROH', 'C2']],
     'ERG':[['ROH', 'C2']],
                     }
 
@@ -32,6 +32,7 @@ HEAD_ATOMS_OF = {\
     'PC':HEADATM['PC']+GLYCATM,
     
     'CHOL':['ROH', 'R1', 'R2', 'R3', 'R4', 'R5'],
+    #'CHOL':['ROH'],
     #'ch1m':['all'],
     #'CHIM':['all'],
     'ERG':['ROH', 'R1', 'R2', 'R3', 'R4', 'R5'],
@@ -40,21 +41,21 @@ HEAD_ATOMS_OF = {\
 TAIL_ATOMS_OF = {\
     'DP':[TAILCARBS['DP'][0], TAILCARBS['DP'][1],],
 
-    'CHL1':[['C1', 'C2']],
+    'CHOL':[['C1', 'C2']],
     'ERG':[['C1', 'C2']],
                 }
 
 CENTRAL_ATOM_OF = {
     'PC':'P',
-    'CHL1':'ROH',
+    'CHOL':'ROH',
     'ERG':'ROH',
                  }
 
 INCLUDED_TAILS = ['DP', 'DI', 'DU']
 INCLUDED_HEADS = ['PC']
-STEROLS        = ['CHL1', 'ERG']
+STEROLS        = ['CHOL', 'ERG']
 PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD']
-SOLVENTS       = ["TIP3", "SOL", "CL", "POT", "NA"]
+SOLVENTS       = ["W", "TIP3", "SOL", "CL", "POT", "NA"]
 #SHORTESTCHAIN  = len(TAILCARBS['DM'])
 
 

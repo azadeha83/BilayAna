@@ -145,8 +145,10 @@ class Neighbors(SysInfo):
             for residue in refatomgrp.residues:
                 headsel = 'resname {} and name {}'.format(residue.resname, ' '.join( lipidmolecules.head_atoms_of(residue.resname) ) )
                 tailsel = 'resname {} and name {}'.format(residue.resname, ' '.join( [taillist[-1] for taillist in lipidmolecules.tailcarbons_of(residue.resname) ] ) )
-                head_pos = residue.atoms.select_atoms( headsel ).center_of_mass()
-                tail_pos = residue.atoms.select_atoms( tailsel ).center_of_mass()
+                print(headsel)
+                print(residue.atoms.select_atoms( headsel ))
+                head_pos = residue.atoms.select_atoms( headsel ).center_of_geometry()
+                tail_pos = residue.atoms.select_atoms( tailsel ).center_of_geometry()
                 orientations[residue.resid] =  molecule_leaflet_orientation( head_pos, tail_pos )
             #center = refatomgrp.center_of_mass()
             #leaf1 = [(atm.resid, atm.position) for atm  in refatomgrp.atoms if atm.position[2] >= center[2]]

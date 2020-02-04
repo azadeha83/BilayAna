@@ -111,7 +111,7 @@ class SysInfo():
             self.t_start = int(self.times[0])
 
             self.RESNAMES     = list(set(self.universe.residues.resnames))
-            self.SOLVENT      = [solv for solv in self.RESNAMES if solv in ["SOL", "TIP3"]]
+            self.SOLVENT      = [solv for solv in self.RESNAMES if solv in ["W" ,"SOL", "TIP3"]]
             if len(self.SOLVENT) > 1:
                 raise ValueError("Multiple water models found {}".format(self.SOLVENT))
             else:
