@@ -28,6 +28,7 @@ class MSDanalysis(SysInfo):
             self.lipid_type_items = ' '.join(self.molecules)
             self.lipid_types_mainlipid = ''.join(self.molecules[0])
             #self.lipid_types_sterol = ''.join(self.molecules[1])
+            self.u = mda.Universe(self.gropath,self.trjpath)
 
     
     def MSD_mdanalysis(self,start_frame,end_frame):
@@ -56,7 +57,33 @@ class MSDanalysis(SysInfo):
             for msd in MSD_analysis.timeseries:
                 fout.write("{time} {msd}\n".format(time=time, msd=msd))
                 time += 1
+
+    def diffusion_gromacs(self, selection, start_time, end_time):
+
+        '''This function calulate the MSD and diffusion coefficient through Gromacs'''
+
+        cwd = os.getcwd()
+        sel = self.u.select_atoms('{}'.format(selection))
+       
+        msd_out = ''.join(cwd + '/' + 'msd' + '_' + '{}'.format('_'.join(map(str, selection.split(' ')))))
+        diff_out = ''.join(cwd + '/' + 'diff' + '_' + '{}'.format('_'.join(map(str, selection.split(' ')))))
         
+        with mda.selections.gromacs.SelectionWriter('index_msd.ndx', mode='w') as ndx:
+            ndx.write(sel, name='{}'.format(selection))
+
+        get_msd = [GMXNAME, 'msd', '-f', self.trjpath, '-s', self.tprpath, '-n', 'index_msd.ndx', \
+            '-o', msd_out, '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1', '-xvg', 'none']
+            
+        out, err = exec_gromacs(get_msd)
+
+        # get_diff = [GMXNAME, 'msd', '-f', self.trjpath, '-s', self.tprpath, '-n', 'index_msd.ndx', \
+        #     '-o', msd_out, '-mol', diff_out, '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1', '-xvg', 'none']
+        # inpstr = '{}'.format(selection) + "\n"
+        
+        # #get_diff = get_msd + ["-mol", diff_out]
+        # out, err = exec_gromacs(get_diff,inpstr)
+
+
     def MSD_gromacs_mainlipid(self,start_time,end_time):
 
         '''This function calulate the MSD through Gromacs'''
