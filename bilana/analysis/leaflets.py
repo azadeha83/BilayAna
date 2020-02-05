@@ -2,6 +2,7 @@ import os
 import re
 import numpy as np
 import pandas as pd
+import MDAnalysis as mda
 from ..definitions import lipidmolecules
 from ..common import exec_gromacs
 from .. import log
@@ -101,6 +102,103 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
             print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
         LOGGER.info("UP: %s LOW: %s", sum_upper, sum_lower)
 
+
+def leaflet_assignment_of_frame(residues: mda.ResidueGroup, refhead: dict, reftail: dict) -> pd.DataFrame:
+    '''
+        Input: MDAnalysis.AtomGroup with selected atoms to assign a leaflet to
+        Returns a pandas dataframe with entries
+            <resid> <resname> <leaflet>
+    '''
+    resids = []
+    resnames = []
+    leaflet_assignment = []
+    LOGGER.debug("H %s\tT: %s", refhead, reftail)
+
+    #Ps    = residues.atoms.select_atoms("name P")
+    #all_ref_atms = residues.atoms.select_atoms("name P O3 C20")
+    #com_p = Ps.positions.center_of_mass()
+    #top  = all_ref_atms[ all_ref_atms.atoms.positions[:,2] > com_p[2]]
+    #bot  = all_ref_atms[ all_ref_atms.atoms.positions[:,2] < com_p[2]]
+
+    for residue in residues:
+        coord_head = residue.atoms.select_atoms(refhead[residue.resname]).atoms.positions[0]
+        coord_tail = residue.atoms.select_atoms(reftail[residue.resname]).atoms.center_of_mass()
+        leaflet = molecule_leaflet_orientation(coord_head, coord_tail)
+        LOGGER.debug("xyz %s %s leaf: %s", coord_head, coord_tail, leaflet)
+        resids.append(residue.resid)
+        resnames.append(residue.resname)
+        leaflet_assignment.append(leaflet)
+
+    dt = pd.DataFrame({"resid":resids, "resname":resnames, "leaflet":leaflet_assignment})
+    return dt
+
+def leaflet_assignment_time_evolution(sysinfo, outputfilename="leaflet_trajectory.csv"):
+    ''' Create leaflet assignment file for whole trajectory '''
+    u = sysinfo.universe
+    frames = []
+    refdict_head = {}
+    refdict_tail = {}
+    for mol in sysinfo.molecules:
+        refdict_head[mol] = "name {}".format( lipidmolecules.central_atom_of(mol) )
+        refdict_tail[mol] = "name {}".format( ' '.join( [i[-1] for i in lipidmolecules.scd_tail_atoms_of(mol)] ) )
+    for ts in u.trajectory:
+        time = ts.time
+        if time < sysinfo.t_start:
+            continue
+        elif time > sysinfo.t_end:
+            break
+        atomsel = u.atoms.select_atoms("resname {}".format( ' '.join(sysinfo.molecules) ) )
+        frame = leaflet_assignment_of_frame(atomsel.residues, refhead=refdict_head, reftail=refdict_tail)
+        frame["time"] = time
+        LOGGER.debug("Time at %s\n%s", time, frame)
+        frames.append(frame)
+    dat = pd.concat(frames)
+    dat.to_csv(outputfilename, index=False)
+
+def get_flipflop_events(inpfilename, outputfilename="flipflop_events.csv"):
+    ''' Creates two pd.DataFrame(s) with entries:
+        1.    <resid> <resname> <leaflet flip flopped to>
+        2.    <resid> <resname> <start time> <end time>
+        inpfilename must be in .csv format
+    '''
+    dat = pd.read_csv(inpfilename)
+    grpd = dat.groupby("resid")
+    frames1 = []
+    frames2 = []
+    for res, fr in grpd:
+        events = fr[fr.leaflet.diff().fillna(0) != 0]
+        if events.empty:
+            continue
+        split_times = events[events.time.diff().fillna(0) > 10000.0]
+        split_times = [0] + [t for t in split_times.time]
+
+        for i, left_val in enumerate(split_times):
+            if i+1 == len(split_times):
+                dat = events[ events.time >= left_val ]
+            else:
+                right_val = split_times[i+1]
+                dat = events[ (events.time >= left_val) & (events.time < right_val) ]
+            print(dat)
+            start = dat.iloc[0]
+            end   = dat.iloc[-1]
+            if start.leaflet == end.leaflet:
+                frames2.append([start, end])
+
+        events = events[ events.time.diff().fillna(1001.0) > 1000.0 ]
+
+        LOGGER.debug("Mask\n%s", fr.leaflet.diff())
+        LOGGER.debug("At res %s\n%s", res, events)
+        frames1.append(events)
+    final1 = pd.concat(frames1)
+    final1.to_csv(outputfilename, index=False)
+
+    final2 = pd.DataFrame(columns=["resid", "resname", "t_start", "t_end", "leaflet"])
+    for i, l in enumerate(frames2):
+        final2.loc[i] = [l[0].resid, l[0].resname, l[0].time, l[1].time, l[1].leaflet]
+    final2["resid"] = final2.resid.astype(int)
+    final2["leaflet"] = final2.leaflet.astype(int)
+    print(final2)
+    final2.to_csv(outputfilename.replace("events", "complete"), index=False)
 
 def calc_density(systeminfo, selstr, outname="density.xvg", overwrite=False, **kw_den):
     '''
