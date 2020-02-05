@@ -13,7 +13,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
     inputfilename="inputfile",
     neighborfile="neighbor_info",
     startdivisor=80,
-    overwrite=True,
+    overwrite=False,
     cores=2,
     dry=False,
     **kwargs,):
@@ -38,7 +38,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
             print(
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
-                '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
+                '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
                 '\nenergy_instance.info()'
                 '\nenergy_instance.run_calculation(resids={4})'
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
@@ -54,7 +54,7 @@ def submit_energycalc_leaflet(systemname, temperature, jobname, *args,
     inputfilename="inputfile",
     neighborfile="neighbor_info",
     startdivisor=80,
-    overwrite=True,
+    overwrite=False,
     cores=2,
     dry=False,
     **kwargs,):
@@ -79,7 +79,7 @@ def submit_energycalc_leaflet(systemname, temperature, jobname, *args,
             print(
                 '\nimport os, sys'
                 '\nfrom bilana.analysis.energy import Energy'
-                '\nenergy_instance = Energy(complete, overwrite="{0}", inputfilename="{1}", neighborfilename="{2}")'
+                '\nenergy_instance = Energy("complete", overwrite={0}, inputfilename="{1}", neighborfilename="{2}")'
                 '\nenergy_instance.info()'
                 '\nenergy_instance.run_lip_leaflet_interaction(resids={3})'
                 '\nos.remove(sys.argv[0])'.format(overwrite, inputfilename, neighborfile, list_of_res),
@@ -205,7 +205,7 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nimport subprocess'
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
-            '\nenergy_instance = Energy("{0}", overwrite="{1}", inputfilename="{2}", neighborfilename="{3}")'
+            '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.universe.trajectory[-1].time):'
             '\n    energy_instance.write_energyfile()'
