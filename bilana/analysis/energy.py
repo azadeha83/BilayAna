@@ -186,7 +186,7 @@ class Energy(SysInfo):
             <Time> <resid> <resname> <Etot> <Evdw> <Ecoul>
         '''
         energyoutput = open(outputfilename, "w")
-        print('{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}'.format("Time", "resid", "resname", "Etot", "Evdw", "Ecoul"))
+        print('{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}'.format("Time", "resid", "resname", "Etot", "Evdw", "Ecoul"), file=energyoutput)
         for resid in self.MOLRANGE:
             resname = self.resid_to_lipid[resid]
             xvgfilename = self.energypath+'xvgtables/energies_residue'+str(resid)+'_0.xvg'
@@ -195,31 +195,29 @@ class Energy(SysInfo):
                 res_to_rowindex = {}
 
                 for energyline in xvgfile: #folderlayout is: <time> <Coul_resHost_resNeib> <LJ_resHost_resNeib> ...
-                    energyline_cols = energyline.split()
+                    energyline_cols = energyline.split() # Ex.: @ s78 legend "Coul-SR:resid_1-resid_49"
 
-                    if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
+                    if '@ s' in energyline:                       # creating a dict to know which column(energies) belong to which residue
                         rowindex  = int(energyline_cols[1][1:])+1 # time is at row 0 !
-                        neib = energyline_cols[3].split("resid_")[2][:-1]
-                        host = energyline_cols[3].split("resid_")[1][:-1]
+                        host = energyline_cols[3].split("-")[1].split("resid_")[1]
                         energytype = energyline_cols[3].split("-")[0][1:]
-                        LOGGER.debug("Hostid: %s, Neibid: %s", host, neib)
-
-                        res_to_rowindex[(energytype, host, neib)] = rowindex
-                        LOGGER.debug("Adding to dict: Etype %s, host %s, neib %s", energytype, host, neib)
+                        neib = energyline_cols[3].split("-")[2][:-1]
+                        if neib == "solv":
+                            LOGGER.debug("Hostid: %s", host)
+                            LOGGER.debug("Adding to dict: Etype %s, host %s", energytype, host)
+                            res_to_rowindex[(energytype, host)] = rowindex
 
                     elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
                         time = float(energyline_cols[0])
                         if time % self.dt != 0:
                             continue
 
-                            vdw  = energyline_cols[ res_to_rowindex[ ('LJ', "resid_" + str(resid),  "solv" ) ] ]
-                            coul = energyline_cols[ res_to_rowindex[ ('Coul', "resid_" + str(resid), "solv" ) ] ]
-                            Etot = float(vdw) + float(coul)
-                            print(
-                                '{: <10}{: <10}{: <10}'
-                                '{: <20.5f}{: <20.5f}{: <20.5f}'
-                                .format(time, resid, resname, Etot, vdw, coul,),
-                                file=energyoutput)
+                        vdw  = float( energyline_cols[ res_to_rowindex[ ( 'LJ', str(resid) ) ] ] )
+                        coul = float( energyline_cols[ res_to_rowindex[ ( 'Coul', str(resid) ) ] ] )
+                        Etot = vdw + coul
+                        outpline = '{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}{: <20.5f}'.format(time, resid, resname, Etot, vdw, coul,)
+                        LOGGER.debug("%s", outpline)
+                        print(outpline, file=energyoutput)
         energyoutput.close()
 
 
@@ -229,7 +227,7 @@ class Energy(SysInfo):
             <Time> <resid> <resname> <host_leaflet> <Etot> <Evdw> <Ecoul>
         '''
         energyoutput = open(outputfilename, "w")
-        print('{: <10}{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}'.format("Time", "resid", "resname", "host_leaflet", "Etot", "Evdw", "Ecoul"))
+        print('{: <10}{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}'.format("Time", "resid", "resname", "leaflet_h", "Etot", "Evdw", "Ecoul"), file=energyoutput)
         for resid in self.MOLRANGE:
             resname = self.resid_to_lipid[resid]
             leaflet = self.res_to_leaflet[resid]
@@ -243,27 +241,24 @@ class Energy(SysInfo):
 
                     if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
                         rowindex  = int(energyline_cols[1][1:])+1 # time is at row 0 !
-                        neib = energyline_cols[3].split("resid_")[2][:-1]
-                        host = energyline_cols[3].split("resid_")[1][:-1]
+                        host = energyline_cols[3].split("resid_")[1].split("-")[0]
                         energytype = energyline_cols[3].split("-")[0][1:]
-                        LOGGER.debug("Hostid: %s, Neibid: %s", host, neib)
+                        LOGGER.debug("Hostid: %s:", host)
 
-                        res_to_rowindex[(energytype, host, neib)] = rowindex
-                        LOGGER.debug("Adding to dict: Etype %s, host %s, neib %s", energytype, host, neib)
+                        res_to_rowindex[(energytype, host)] = rowindex
+                        LOGGER.debug("Adding to dict: Etype %s, host %s", energytype, host)
 
                     elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
                         time = float(energyline_cols[0])
                         if time % self.dt != 0:
                             continue
 
-                            vdw  = energyline_cols[ res_to_rowindex[ ('LJ', "resid_" + str(resid),  "leaflet" ) ] ]
-                            coul = energyline_cols[ res_to_rowindex[ ('Coul', "resid_" + str(resid), "leaflet" ) ] ]
-                            Etot = float(vdw) + float(coul)
-                            print(
-                                '{: <10}{: <10}{: <10}{: <10}'
-                                '{: <20.5f}{: <20.5f}{: <20.5f}'
-                                .format(time, resid, resname, leaflet, Etot, vdw, coul,),
-                                file=energyoutput)
+                        vdw  = float( energyline_cols[ res_to_rowindex[ ( 'LJ', str(resid) ) ] ] )
+                        coul = float( energyline_cols[ res_to_rowindex[ ( 'Coul', str(resid) ) ] ] )
+                        Etot = vdw + coul
+                        outpline = '{: <10}{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}{: <20.5f}'\
+                        .format(time, resid, resname, leaflet, Etot, vdw, coul,)
+                        print(outpline, file=energyoutput)
         energyoutput.close()
 
 
