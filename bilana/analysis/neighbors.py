@@ -513,9 +513,6 @@ class Neighbors(SysInfo):
                                 ("C1", methylatomstrings[1]),\
                                 ("C2", methylatomstrings[2]),\
                                 ("C3", methylatomstrings[3]),\
-                                ("C4", methylatomstrings[4]),\
-                                ("C5", methylatomstrings[5]),\
-                                ("C6", methylatomstrings[6]),\
                                 ]
                 resid_defs = self.define_selection_for_resids(mol, lipidtype, selprefixes)
 
@@ -568,9 +565,7 @@ class Neighbors(SysInfo):
             #handlinghydr = [iter(lipidmolecules.tailhydr_of(lipidtype)[tailindex])]*2
             #methylgrouplist = [i for i in zip(lipidmolecules.tailcarbons_of(lipidtype)[tailindex], zip(*handlinghydr))]# Getting a list of tuples like [C1,(H1,H2),....]
             methylgrouplist = [i for i in zip(lipidmolecules.tailcarbons_of(lipidtype)[tailindex])]# Getting a list of tuples like [C1,(H1,H2),....]
-            print(methylgrouplist)
             methylgrouplist = [i for tup in methylgrouplist for i in tup]# Unpacking this list
-            print(methylgrouplist)
             methylgrouplist_unp = []
             for particle in methylgrouplist:# get rid of hydr tuples
                 if isinstance(particle, tuple):
@@ -578,14 +573,11 @@ class Neighbors(SysInfo):
                 else:
                     methylgrouplist_unp.append(particle)
             methylatomslists.append(methylgrouplist_unp)
-            print(methylatomslists)
-        methylgroups = [[methylatomslists[0][i:i+3]\
-                        +methylatomslists[0][i+3:i+6]\
-                        +methylatomslists[1][i:i+3]\
-                        +methylatomslists[1][i+3:i+6]]\
-                   for i in range(0, len(methylatomslists[0])-1, 6)]
+        methylgroups = [[methylatomslists[0][i:i+1]\
+                        +methylatomslists[1][i:i+1]]\
+                   for i in range(0, len(methylatomslists[0]), 1)]
+        
         methylatomstrings = [' '.join(t) for i in methylgroups for t in i]
-        print(methylatomstrings)
         return methylatomstrings
 
     def add_water_groups_to_index(self, watername, add_grp_to="resindex_all.ndx"):

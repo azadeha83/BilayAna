@@ -23,9 +23,9 @@ TAILCARBS = {
 SCD_TAIL_ATOMS_OF = {\
     'DP':[TAILCARBS['DP'][0][::2], TAILCARBS['DP'][1][::2]],
     'DI':[TAILCARBS['DI'][0][::2], TAILCARBS['DI'][1][::2]],
-    'DU':[TAILCARBS['DI'][0][::2], TAILCARBS['DI'][1][::2]],
-    'CHOL':[['ROH', 'C2']],
-    'ERG':[['ROH', 'C2']],
+    'DU':[TAILCARBS['DU'][0][::2], TAILCARBS['DU'][1][::2]],
+    'CHOL':[['C1', 'C2']],
+    'ERG':[['C1', 'C2']],
                     }
 
 HEAD_ATOMS_OF = {\
@@ -40,6 +40,7 @@ HEAD_ATOMS_OF = {\
 
 TAIL_ATOMS_OF = {\
     'DP':[TAILCARBS['DP'][0], TAILCARBS['DP'][1],],
+    'DI':[TAILCARBS['DI'][0], TAILCARBS['DI'][1],],
 
     'CHOL':[['C1', 'C2']],
     'ERG':[['C1', 'C2']],

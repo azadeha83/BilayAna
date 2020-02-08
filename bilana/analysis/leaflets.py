@@ -5,6 +5,8 @@ import pandas as pd
 from ..definitions import lipidmolecules
 from ..common import exec_gromacs
 from .. import log
+import MDAnalysis as mda
+
 LOGGER = log.LOGGER
 
 def is_neighbor_in_leaflet(systeminfo_inst, neiblist):
@@ -24,11 +26,12 @@ def is_neighbor_in_leaflet(systeminfo_inst, neiblist):
 
 def molecule_leaflet_orientation(atompos1: np.array, atompos2: np.array, axis=np.array([0.0, 0.0, 1.0])) -> int:
     ''' Takes two positions and returns 0 or 1 depending if molecule is oriented upside down or up '''
+    print(atompos1,atompos2)
     new_coords = atompos1 - atompos2
     cos = np.dot(new_coords, axis) / np.linalg.norm(new_coords)
     return ( 0 if cos <= 0 else 1 )
 
-def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
+def create_leaflet_assignment_file_1(sysinfo_obj, verbosity="INFO"):
     ''' Creates a file with that assigns all lipids to upper or lower leaflet
                         !Attention!
             !Flip flops of Cholesterol are not considered! Though should it?
@@ -101,6 +104,35 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
             print("{: <7} {: <5}".format(old_resid, leaflet), file=outf)
         LOGGER.info("UP: %s LOW: %s", sum_upper, sum_lower)
 
+
+def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
+    ''' Creates a file with that assigns all lipids to upper or lower leaflet
+                        !Attention!
+            !Flip flops of Cholesterol are not considered! Though should it?
+    '''
+    LOGGER.setLevel(verbosity)
+    outputfilename = 'leaflet_assignment.dat'
+    grofile_path = sysinfo_obj.initgropath
+
+    w = mda.Universe(grofile_path)
+    lipids = w.select_atoms('resname {}'.format(' '.join(sysinfo_obj.molecules)))
+    com_lipids = lipids.center_of_geometry()
+    leaflet_assign_flag = 0
+
+    with  open(outputfilename, "w") as outf:
+        print("{: <7} {: <5}".format('resid', 'leaflet'), file=outf)
+
+        for resid in sysinfo_obj.MOLRANGE:
+            resn = sysinfo_obj.resid_to_lipid[resid]
+            head = w.select_atoms('resid {} and name {}'.format(resid, lipidmolecules.head_atoms_of(resn)[0]))
+            com_head = head.center_of_geometry()
+
+            if com_head[2] > com_lipids[2]:
+                leaflet_assign_flag = 1
+            else:
+                leaflet_assign_flag = 0
+
+            print("{: <7} {: <5}".format(resid, leaflet_assign_flag), file=outf)
 
 def calc_density(systeminfo, selstr, outname="density.xvg", overwrite=False, **kw_den):
     '''

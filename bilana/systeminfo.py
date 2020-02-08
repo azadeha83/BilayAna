@@ -54,9 +54,9 @@ class SysInfo():
             self.times.append(None)
         self.molecules    = sorted([x.strip() for x in\
                                 self.system_info['Lipidmolecules'].split(',')])
-        if 'CHOL' in self.molecules:
-            self.molecules.append('CHL1')
-            self.molecules.remove('CHOL')
+        # if 'CHOL' in self.molecules:
+        #     self.molecules.append('CHL1')
+        #     self.molecules.remove('CHOL')
         if 'WSC1' in self.molecules:
             self.molecules.remove('WSC1')
             self.molecules += lipidmolecules.PROTEINS
@@ -66,6 +66,7 @@ class SysInfo():
         self.mdfilepath = self.system_info['mdfiles']
         self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
         self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
+        self.initgropath    = '{}/initial_coords/{}_init.gro'.format(self.mdfilepath, self.system)
         self.toppath    = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
         self.tprpath    = '{}/tpr/{}_{}.tpr'.format(self.mdfilepath, self.system, self.temperature)
         self.edrpath    = '{}/enr/{}_{}.edr'.format(self.mdfilepath, self.system, self.temperature)
