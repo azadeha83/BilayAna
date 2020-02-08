@@ -180,17 +180,87 @@ class Energy(SysInfo):
                 self.write_XVG(energyf_output, tprout, relev_energies, xvg_out)
         return 1
 
-    def create_lipid_water_interaction_file(self):
+    def create_lipid_water_interaction_file(self, outputfilename="water_interaction.dat"):
         ''' Create a file with entries of
             interaction of resid at time to solvent
             <Time> <resid> <resname> <Etot> <Evdw> <Ecoul>
         '''
+        energyoutput = open(outputfilename, "w")
+        print('{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}'.format("Time", "resid", "resname", "Etot", "Evdw", "Ecoul"), file=energyoutput)
+        for resid in self.MOLRANGE:
+            resname = self.resid_to_lipid[resid]
+            xvgfilename = self.energypath+'xvgtables/energies_residue'+str(resid)+'_0.xvg'
 
-    def create_lipid_leaflet_interaction_file(self):
+            with open(xvgfilename,"r") as xvgfile:
+                res_to_rowindex = {}
+
+                for energyline in xvgfile: #folderlayout is: <time> <Coul_resHost_resNeib> <LJ_resHost_resNeib> ...
+                    energyline_cols = energyline.split() # Ex.: @ s78 legend "Coul-SR:resid_1-resid_49"
+
+                    if '@ s' in energyline:                       # creating a dict to know which column(energies) belong to which residue
+                        rowindex  = int(energyline_cols[1][1:])+1 # time is at row 0 !
+                        host = energyline_cols[3].split("-")[1].split("resid_")[1]
+                        energytype = energyline_cols[3].split("-")[0][1:]
+                        neib = energyline_cols[3].split("-")[2][:-1]
+                        if neib == "solv":
+                            LOGGER.debug("Hostid: %s", host)
+                            LOGGER.debug("Adding to dict: Etype %s, host %s", energytype, host)
+                            res_to_rowindex[(energytype, host)] = rowindex
+
+                    elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
+                        time = float(energyline_cols[0])
+                        if time % self.dt != 0:
+                            continue
+
+                        vdw  = float( energyline_cols[ res_to_rowindex[ ( 'LJ', str(resid) ) ] ] )
+                        coul = float( energyline_cols[ res_to_rowindex[ ( 'Coul', str(resid) ) ] ] )
+                        Etot = vdw + coul
+                        outpline = '{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}{: <20.5f}'.format(time, resid, resname, Etot, vdw, coul,)
+                        LOGGER.debug("%s", outpline)
+                        print(outpline, file=energyoutput)
+        energyoutput.close()
+
+
+    def create_lipid_leaflet_interaction_file(self, outputfilename="resid_leaflet_interaction.dat"):
         ''' Create a file with entries of
             interaction of resid at time to leaflet0 and leaflet1
-            <Time> <resid> <resname> <host_leaflet> <leaflet_index> <Etot> <Evdw> <Ecoul>
+            <Time> <resid> <resname> <host_leaflet> <Etot> <Evdw> <Ecoul>
         '''
+        energyoutput = open(outputfilename, "w")
+        print('{: <10}{: <10}{: <10}{: <10}{: <20}{: <20}{: <20}'.format("Time", "resid", "resname", "leaflet_h", "Etot", "Evdw", "Ecoul"), file=energyoutput)
+        for resid in self.MOLRANGE:
+            resname = self.resid_to_lipid[resid]
+            leaflet = self.res_to_leaflet[resid]
+            xvgfilename = self.energypath+'xvgtables/energies_residue'+str(resid)+'_leaflet.xvg'
+
+            with open(xvgfilename,"r") as xvgfile:
+                res_to_rowindex = {}
+
+                for energyline in xvgfile: #folderlayout is: <time> <Coul_resHost_resNeib> <LJ_resHost_resNeib> ...
+                    energyline_cols = energyline.split()
+
+                    if '@ s' in energyline:                     #creating a dict to know which column(energies) belong to which residue
+                        rowindex  = int(energyline_cols[1][1:])+1 # time is at row 0 !
+                        host = energyline_cols[3].split("resid_")[1].split("-")[0]
+                        energytype = energyline_cols[3].split("-")[0][1:]
+                        LOGGER.debug("Hostid: %s:", host)
+
+                        res_to_rowindex[(energytype, host)] = rowindex
+                        LOGGER.debug("Adding to dict: Etype %s, host %s", energytype, host)
+
+                    elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
+                        time = float(energyline_cols[0])
+                        if time % self.dt != 0:
+                            continue
+
+                        vdw  = float( energyline_cols[ res_to_rowindex[ ( 'LJ', str(resid) ) ] ] )
+                        coul = float( energyline_cols[ res_to_rowindex[ ( 'Coul', str(resid) ) ] ] )
+                        Etot = vdw + coul
+                        outpline = '{: <10}{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}{: <20.5f}'\
+                        .format(time, resid, resname, leaflet, Etot, vdw, coul,)
+                        print(outpline, file=energyoutput)
+        energyoutput.close()
+
 
     def gather_selfinteractions(self):
         '''
@@ -320,7 +390,8 @@ class Energy(SysInfo):
 
                         energyselection.append(''.join([interaction, parthost, str(res), "-", partneib,str(neib)]))
 
-        all_relev_energies = '\n'.join(energyselection+['\n'])
+        res_solv_interaction = [ "{}resid_{}-solv".format(etype, res) for etype in Etypes ]
+        all_relev_energies = '\n'.join( res_solv_interaction + energyselection+['\n'] )
         return all_relev_energies
 
     def get_relev_self_interaction(self, res):

@@ -8,7 +8,7 @@ import argparse
 from . import log
 from . import command_line as cmd
 
-commandline_modules = ["initialize", "energy", "assemble_energies", "nofscd", "eofscd", "order", "selfinteraction"]
+commandline_modules = ["initialize", "energy", "assemble_energies", "nofscd", "eofscd", "order", "selfinteraction", "leafletinteraction"]
 
 LOGGER = log.LOGGER
 
@@ -62,6 +62,7 @@ COMMAND = {
     "eofscd":cmd.write_eofscd,
     "order":cmd.calc_scd,
     "selfinteraction":cmd.write_selfinteraction,
+    "leafletinteraction":cmd.submit_energycalc_leaflet,
 }
 
 if ARGS.mode not in commandline_modules:
