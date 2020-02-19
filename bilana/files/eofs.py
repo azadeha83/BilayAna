@@ -84,6 +84,12 @@ class EofScd(Neighbors):
             components += ["CHL1_neib"] # Chols ... to neib
             components += ['CHL1_both'] # Chols ... to both
             components += ['CHL1_partboth'] # Chols ... not to both
+
+        if 'CHOL' in self.molecules:
+            components += ["CHOL_host"] # Chols that are neighbor to host
+            components += ["CHOL_neib"] # Chols ... to neib
+            components += ['CHOL_both'] # Chols ... to both
+            components += ['CHOL_partboth'] # Chols ... not to both
         
         if 'ERG' in self.molecules:
             components += ["ERG_host"] # Ergs that are neighbor to host
@@ -253,6 +259,21 @@ class EofScd(Neighbors):
                     
                     neib_comp_list.append(shared_chol)
                     neib_comp_list.append(shared_chol + not_shared_chol/2)
+                
+                if 'CHOL' in self.molecules:
+                    host_chol = [self.resid_to_lipid[N] for N in neighbors if N != neib].count('CHOL')
+                    neib_comp_list.append(host_chol)
+
+                    hostneib_chol = [self.resid_to_lipid[N] for N in neighbors_neib].count('CHOL')
+                    neib_comp_list.append(hostneib_chol)
+
+                    shared_neighbors = list(set(neighbors) & set(neighbors_neib))
+                    shared_chol = [self.resid_to_lipid[N]\
+                        for N in shared_neighbors].count('CHOL')
+                    
+                    not_shared_neighbors = list(set(neighbors) ^ set(neighbors_neib))
+                    not_shared_chol = [self.resid_to_lipid[N]\
+                        for N in not_shared_neighbors].count('CHOL')
                     
                 if 'ERG' in self.molecules:
                     host_erg = [self.resid_to_lipid[N] for N in neighbors if N != neib].count('ERG')

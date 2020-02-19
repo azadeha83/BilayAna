@@ -21,11 +21,11 @@ TAILCARBS = {
             }
 
 SCD_TAIL_ATOMS_OF = {\
-    'DP':[TAILCARBS['DP'][0][::2], TAILCARBS['DP'][1][::2]],
-    'DI':[TAILCARBS['DI'][0][::2], TAILCARBS['DI'][1][::2]],
-    'DU':[TAILCARBS['DU'][0][::2], TAILCARBS['DU'][1][::2]],
-    'CHOL':[['C1', 'C2']],
-    'ERG':[['C1', 'C2']],
+    'DP':[TAILCARBS['DP'][0][::1], TAILCARBS['DP'][1][::1]],
+    'DI':[TAILCARBS['DI'][0][::1], TAILCARBS['DI'][1][::1]],
+    'DU':[TAILCARBS['DU'][0][::1], TAILCARBS['DU'][1][::1]],
+    'CHOL':[['R1', 'R5']],
+    'ERG':[['R1', 'R5']],
                     }
 
 HEAD_ATOMS_OF = {\
