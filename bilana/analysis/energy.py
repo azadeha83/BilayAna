@@ -472,9 +472,10 @@ class Energy(SysInfo):
 
                             elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
                                 time = float(energyline_cols[0])
-                                if time % self.dt != 0:
+                              
+                                if time % self.dt != 0 or time > self.t_end or time < self.t_start:
                                     continue
-
+                                
                                 for neib in all_neibs_of_res[part]:
 
                                     # This if clause is due to a broken simulation... In future it should be removed

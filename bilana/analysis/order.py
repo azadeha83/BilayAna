@@ -326,6 +326,37 @@ class Order(Neighbors):
         LOGGER.debug("Scds of res %s: %s", res, scds_of_tails)
 
         return np.array(scds_of_tails).mean()
+    
+    @staticmethod
+    def scc_of_resid(mda_uni, resid, tilt_correction=None):
+        ''' Calculate the order parameter  '''
+        resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
+        resname = list(set(resinfo.resnames))
+
+        if tilt_correction is None:
+            tilt_correction = [0, 0, 1] # Use z-axis
+
+        if len(resname) > 1:
+            raise ValueError("Atomselection resulted in selection of multiple residues")
+        else:
+            resname = resname[0]
+
+        tailatms = lipidmolecules.scd_tail_atoms_of(resname)
+        scds_of_tails = []
+        for tail in tailatms:
+            scds_of_atoms = []
+            for atomindex in range(len(tail)-1):
+                atm1, atm2 = tail[atomindex], tail[atomindex+1]
+                coords12 = resinfo.atoms.select_atoms("name {} {}".format(atm1, atm2)).positions
+                diffvector = np.subtract(*coords12)
+                diffvector /= np.linalg.norm(diffvector)
+
+                cos_angle = np.dot(diffvector, tilt_correction)
+                scds_of_atoms += [0.5 * (3 * cos_angle**2 - 1)]
+            scds_of_tails += [np.array(scds_of_atoms).mean()]
+
+        LOGGER.debug("Res:  %s -- Scc of atoms: %s and of tails %s", resid, scds_of_atoms, scds_of_tails)
+        return np.array(scds_of_tails).mean()
 
 def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv", parallel=True):
     ''' End to end vector of each tail, average vector is substracted depending on include_neighbors variable
