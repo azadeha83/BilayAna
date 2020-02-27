@@ -83,6 +83,7 @@ class SysInfo():
         # ''' absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
         self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
+        self.trjpath_energy    = '{}/md_trj/{}_{}_short.trr'.format(self.mdfilepath, self.system, self.temperature)
         self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.initgropath    = '{}/initial_coords/{}_init.gro'.format(self.mdfilepath, self.system)
         self.toppath    = '{}/psf/{}.top'.format(self.mdfilepath, self.system)
