@@ -112,7 +112,11 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
     '''
     LOGGER.setLevel(verbosity)
     outputfilename = 'leaflet_assignment.dat'
-    grofile_path = sysinfo_obj.initgropath
+    
+    try:
+        grofile_path = sysinfo_obj.initgropath
+    except:
+        grofile_path = sysinfo_obj.gropath
 
     w = mda.Universe(grofile_path)
     lipids = w.select_atoms('resname {}'.format(' '.join(sysinfo_obj.molecules)))

@@ -99,6 +99,7 @@ def initialize_system(systemname, temperature, jobname, *args,
             '\nfrom bilana import analysis'
             '\nfrom bilana.analysis.neighbors import Neighbors'
             '\nfrom bilana.analysis.order import Order'
+            '\nSysInfo()'
             '\nneib_inst = Neighbors(inputfilename="{0}")'
             '\nneib_inst.info()'
             '\nneib_inst.determine_neighbors(overwrite=True, parallel=False)'

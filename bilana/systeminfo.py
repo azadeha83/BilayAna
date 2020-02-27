@@ -18,6 +18,7 @@ import MDAnalysis as mda
 from . import log
 from .definitions import lipidmolecules
 from .definitions.structure_formats import REGEXP_GRO
+import glob
 
 LOGGER = log.LOGGER
 INPUTFILENAME = 'inputfile'
@@ -45,6 +46,7 @@ class SysInfo():
         cwd = os.getcwd()
 
         # ''' general system information '''
+        self.mdfilepath = self.system_info['mdfiles']
         self.system       = self.system_info['System']
         self.temperature  = self.system_info['Temperature']
         self.cutoff       = float(self.system_info['cutoff'])
@@ -52,14 +54,30 @@ class SysInfo():
         self.reference_atom_selection = self.system_info['refatomselection']
         if len(self.times) < 3:
             self.times.append(None)
+
+        self.ff = 'force_field'
+        for file_name in glob.glob('{}/ff/gromacs/*.itp'.format(self.mdfilepath)):
+            
+            if re.search('martini',str(file_name)):
+                self.ff = 'coarse'
+            else:
+                self.ff = 'all_atom' 
+        
+        with open('force_field','w') as out:
+            print(self.ff,file=out)
+
         self.molecules    = sorted([x.strip() for x in\
                                 self.system_info['Lipidmolecules'].split(',')])
-        # if 'CHOL' in self.molecules:
-        #     self.molecules.append('CHL1')
-        #     self.molecules.remove('CHOL')
-        if 'WSC1' in self.molecules:
-            self.molecules.remove('WSC1')
-            self.molecules += lipidmolecules.PROTEINS
+
+        if self.ff == 'all_atom':
+            if 'CHOL' in self.molecules:
+                self.molecules.append('CHL1')
+                self.molecules.remove('CHOL')
+
+            if 'WSC1' in self.molecules:
+                self.molecules.remove('WSC1')
+                self.molecules += lipidmolecules.PROTEINS
+                
         self.PL_molecules = [mol for mol in self.molecules if not (lipidmolecules.is_protein(mol) or lipidmolecules.is_sterol(mol))]
 
         # ''' absolute_ paths to  md-files  '''
