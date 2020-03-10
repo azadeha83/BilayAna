@@ -132,103 +132,6 @@ class Order(Neighbors):
                     print(line, file=scdfile)
 
 
-    def create_orientationfile(self, outputfile="orientation.dat"):
-        ''' Assigning orientation of the sterol molecule with respect to the neighboring molecules '''
-
-        u = self.universe
-        len_traj = len(u.trajectory)
-
-        with open(outputfile, "w") as orifile:
-            print("{: <12}{: <10}{: <10}{: <15}{: <15}{: <15}".format("Time", "Resid", "Resname", "Neib_resid", "Neib_resn", "Orientation")\
-                ,file=orifile)
-            
-            for t in range(len_traj):
-                time = u.trajectory[t].time 
-                if time % self.dt != 0 or time > self.t_end or time < self.t_start:
-                    continue
-                LOGGER.info("At time %s", time)
-
-                for res in self.MOLRANGE:
-                    resn = self.resid_to_lipid[res]
-                    if resn not in lipidmolecules.STEROLS:
-                        continue
-
-                    neibs = self.neiblist[res][float(time)]
-                    if len(neibs) != 0:
-                        for neib in neibs:
-                            orientation = self.calc_orientation(self.universe, res, neib)
-                            resname_neib = self.resid_to_lipid[neib]
-                            print("{: <12.2f}{: <10}{: <10}{: <15}{: <15}{: <15}".format(
-                                time, res, resn, neib, resname_neib, orientation),
-                                file=orifile)
-    
-    def calc_orientation(self, mda_uni, resid, neib_resid):
-        ''' Calculate the orientation angle of sterol molecule with its neighbors '''
-                
-        resn = self.resid_to_lipid[resid]
-        
-        if self.force_field =='all_atom':
-        
-            C8_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[8])).positions
-            C10_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[10])).positions
-            C13_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[13])).positions
-            #C19_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[19])).positions # just for checking
-            
-            v1 = np.subtract(C8_sterol,C10_sterol)
-            v2 = np.subtract(C13_sterol,C10_sterol)
-            v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
-            #v4 = np.subtract(C19_sterol,C10_sterol) # just for checking
-            
-            neib_resn = self.resid_to_lipid[neib_resid]
-            
-            if neib_resn in lipidmolecules.STEROLS:
-
-                C10_neib_sterol = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[6])).positions
-                a = np.subtract(C10_neib_sterol,C10_sterol)
-                
-            elif neib_resn[:-2] in lipidmolecules.TAIL_ATOMS_OF.keys():
-
-                P_lip = mda_uni.select_atoms("resid {} and name P".format(neib_resid)).positions
-                a = np.subtract(P_lip,C10_sterol)
-            
-            v1 = np.subtract(C8_sterol,C10_sterol)
-            v2 = np.subtract(C13_sterol,C10_sterol)
-            v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
-            
-        else:
-            
-            R2_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[2])).positions
-            R3_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[3])).positions
-            R4_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[4])).positions
-            #C19_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[19])).positions # just for checking
-            
-            v1 = np.subtract(R2_sterol,R3_sterol)
-            v2 = np.subtract(R4_sterol,R3_sterol)
-            v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
-
-            #v4 = np.subtract(C19_sterol,C10_sterol) # just for checking
-            
-            neib_resn = self.resid_to_lipid[neib_resid]
-            
-            if neib_resn in lipidmolecules.STEROLS:
-
-                R3_neib_sterol = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[3])).positions
-                a = np.subtract(R3_neib_sterol,R3_sterol)
-                
-            elif neib_resn[:-2] in lipidmolecules.TAIL_ATOMS_OF.keys():
-
-                P_lip = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[0])).positions
-                a = np.subtract(P_lip,R3_sterol)
-
-        orient_angle = np.arccos(np.dot(a[0], v3[0])/(np.linalg.norm(a)*np.linalg.norm(v3))) * (180/np.pi)
-        #orient_angle1 = np.arccos(np.dot(v3[0], v4[0])/(np.linalg.norm(v3)*np.linalg.norm(v4))) * (180/np.pi) # just for checking
-        orient_flag = 0
-        
-        if orient_angle < 90:
-            orient_flag += 1
-        
-        LOGGER.debug("Res:  %s -- neib_resid: %s with orientation of %s", resid, neib_resid, orient_angle)
-        return orient_flag
 
     @staticmethod
     def _calc_scd_output(s_fun, new_axis, molrange, all_atms, positions, time, components, neiblist, res_to_leaflet, resid_to_lipid):
@@ -239,6 +142,8 @@ class Order(Neighbors):
             resname = resid_to_lipid[res]
             if new_axis is not None:
                 new_axis_at_t = new_axis[leaflet]
+            else:
+                new_axis_at_t = [0,0,1]
 
             LOGGER.debug("At time %s and residue %s", time, res)
 
@@ -389,6 +294,110 @@ class Order(Neighbors):
 
         LOGGER.debug("Res:  %s -- Scc of atoms: %s and of tails %s", resid, scds_of_atoms, scds_of_tails)
         return np.array(scds_of_tails).mean()
+
+    def create_orientationfile(self, outputfile="orientation.dat"):
+        ''' Assigning orientation of the sterol molecule with respect to the neighboring molecules '''
+
+        u = self.universe
+        len_traj = len(u.trajectory)
+
+        with open(outputfile, "w") as orifile:
+            print("{: <12}{: <10}{: <10}{: <15}{: <15}{: <15}".format("Time", "Resid", "Resname", "Neib_resid", "Neib_resn", "Orientation")\
+                ,file=orifile)
+            
+            for t in range(len_traj):
+                time = u.trajectory[t].time 
+                if time % self.dt != 0 or time > self.t_end or time < self.t_start:
+                    continue
+                LOGGER.info("At time %s", time)
+                print(lipidmolecules.STEROLS)
+                for res in self.MOLRANGE:
+                    resn = self.resid_to_lipid[res]
+                    if resn not in lipidmolecules.STEROLS:
+                        continue
+
+                    print(resn)
+                    neibs = self.neiblist[res][float(time)]
+                    if len(neibs) != 0:
+                        for neib in neibs:
+                            print(neib)
+                            orientation = self.calc_orientation(self.universe, res, neib)
+                            print(orientation)
+                            resname_neib = self.resid_to_lipid[neib]
+                            print("{: <12.2f}{: <10}{: <10}{: <15}{: <15}{: <15}".format(
+                                time, res, resn, neib, resname_neib, orientation),
+                                file=orifile)
+    
+    def calc_orientation(self, mda_uni, resid, neib_resid):
+        ''' Calculate the orientation angle of sterol molecule with its neighbors '''
+                
+        resn = self.resid_to_lipid[resid]
+        print(self.force_field)
+        
+        if self.ff =='all_atom':
+        
+            C8_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[8])).positions
+            C10_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[10])).positions
+            C13_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[13])).positions
+            #C19_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[19])).positions # just for checking
+            
+            v1 = np.subtract(C8_sterol,C10_sterol)
+            v2 = np.subtract(C13_sterol,C10_sterol)
+            v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
+            #v4 = np.subtract(C19_sterol,C10_sterol) # just for checking
+            
+            neib_resn = self.resid_to_lipid[neib_resid]
+            
+            if neib_resn in lipidmolecules.STEROLS:
+
+                C10_neib_sterol = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[6])).positions
+                a = np.subtract(C10_neib_sterol,C10_sterol)
+                
+            elif neib_resn[:-2] in lipidmolecules.TAIL_ATOMS_OF.keys():
+
+                P_lip = mda_uni.select_atoms("resid {} and name P".format(neib_resid)).positions
+                a = np.subtract(P_lip,C10_sterol)
+            
+            v1 = np.subtract(C8_sterol,C10_sterol)
+            v2 = np.subtract(C13_sterol,C10_sterol)
+            v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
+            
+        else:
+            
+            R2_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[2])).positions
+            R3_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[3])).positions
+            R4_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[4])).positions
+            #C19_sterol = mda_uni.select_atoms("resid {} and name {}".format(resid, lipidmolecules.head_atoms_of(resn)[19])).positions # just for checking
+            
+            v1 = np.subtract(R2_sterol,R3_sterol)
+            v2 = np.subtract(R4_sterol,R3_sterol)
+            v3 = np.cross(v1,v2) # vector peripendicular to the plane of sterol molecule
+
+            #v4 = np.subtract(C19_sterol,C10_sterol) # just for checking
+            
+            neib_resn = self.resid_to_lipid[neib_resid]
+            
+            if neib_resn in lipidmolecules.STEROLS:
+
+                R3_neib_sterol = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[3])).positions
+                a = np.subtract(R3_neib_sterol,R3_sterol)
+                
+            elif neib_resn[:-2] in lipidmolecules.TAIL_ATOMS_OF.keys():
+
+                P_lip = mda_uni.select_atoms("resid {} and name {}".format(neib_resid, lipidmolecules.head_atoms_of(neib_resn)[0])).positions
+                a = np.subtract(P_lip,R3_sterol)
+
+        orient_angle = np.arccos(np.dot(a[0], v3[0])/(np.linalg.norm(a)*np.linalg.norm(v3))) * (180/np.pi)
+        #orient_angle1 = np.arccos(np.dot(v3[0], v4[0])/(np.linalg.norm(v3)*np.linalg.norm(v4))) * (180/np.pi) # just for checking
+        orient_flag = 0
+        
+        if orient_angle < 90:
+            orient_flag += 1
+        
+        LOGGER.debug("Res:  %s -- neib_resid: %s with orientation of %s", resid, neib_resid, orient_angle)
+        print(orient_angle)
+        return orient_flag
+
 
 def calc_tilt(sysinfo, include_neighbors="global", filename="tilt.csv", parallel=True):
     ''' End to end vector of each tail, average vector is substracted depending on include_neighbors variable

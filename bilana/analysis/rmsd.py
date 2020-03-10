@@ -8,6 +8,7 @@ from .. import log
 from ..common import exec_gromacs, GMXNAME
 from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
+from .neighbors import get_neighbor_dict
 import MDAnalysis as mda
 import numpy as np
 import scipy
@@ -28,6 +29,7 @@ class RMSD(SysInfo):
         super().__init__(inputfilename)
     
         self.u = mda.Universe(self.gropath,self.trjpath)
+        self.neiblist = get_neighbor_dict()
 
     def rmsd(self, sterol, start_frame, end_frame, step):
         
@@ -211,7 +213,101 @@ class RMSD(SysInfo):
                     ax.axis('tight')
                     plt.show()
                     '''
+    def plane_fitting_neib(self, sterol, start_frame, end_frame, step):
         
+        ringatms = lipidmolecules.head_atoms_of(sterol)[1:18]
+        
+        sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
+        resid_list = list(set(sterol_sel.resids)) 
+
+        # The perpendicular distance (i.e shortest distance) from a given point to a Plane is the perpendicular 
+        # distance from that point to the given plane. Let the co-ordinate of the given point be (x1, y1, z1)
+        # and equation of the plane be given by the equation a * x + b * y + c * z + d = 0, where a, b and c are real constants.
+        
+        def rotate_via_numpy(x,y, radians):
+            """Use numpy to build a rotation matrix and take the dot product."""
+            c, s = np.cos(radians), np.sin(radians)
+            j = np.matrix([[c, s], [-s, c]])
+            m = np.dot(j, [x, y])
+            return m.T[:,0],m.T[:,1]
+        
+        def shortest_distance(x1, y1, z1, a, b, c, d):  
+      
+            d = np.abs((a * x1 + b * y1 + c * z1 + d))  
+            e = (np.sqrt(a * a + b * b + c * c)) 
+            #print("Perpendicular distance is"), d/e 
+            return d/e
+
+        with open("plane_fitting_neib.dat" , 'w') as fout:
+            
+            fout.write('Time\tResid\tn_sterol_neib\tSum_distances\t\n')
+            
+            #for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:step]):
+            for ts in self.u.trajectory[start_frame:end_frame:step]:
+                for i_res,res in enumerate(resid_list):
+                                        
+                    ring_crds = self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res, ' '.join(map(str, ringatms)))).positions
+                    data = np.c_[ring_crds[:,0],ring_crds[:,1],ring_crds[:,2]]
+                    
+                    # print(data)
+                    # print(np.shape(data))
+                    
+                    ring_crds_rotated_x, ring_crds_rotated_y = rotate_via_numpy(ring_crds[:,0],ring_crds[:,1],np.pi/3)
+                    data_rotated = np.c_[ring_crds_rotated_x,ring_crds_rotated_y,ring_crds[:,2]]
+                    #data = np.array(data_rotated) 
+                    
+                    # print(data_rotated)
+                    # print(np.shape(data_rotated))
+                    
+                    mn = np.min(data, axis=0)
+                    mx = np.max(data, axis=0)    
+
+                    X,Y = np.meshgrid(np.linspace(mn[0], mx[0], 20), np.linspace(mn[1], mx[1], 20))
+                    XX = X.flatten()
+                    YY = Y.flatten()
+                        
+                    # best-fit linear plane (1st-order)
+                    A = np.c_[data[:,0], data[:,1], np.ones(data.shape[0])]
+                    C,_,_,_ = scipy.linalg.lstsq(A, data[:,2])    # coefficients
+                        
+                    # evaluate it on grid
+                    Z = C[0]*X + C[1]*Y + C[2]
+
+                    sum_least_squares = 0
+
+                    for i in range(len(data[:,0])):
+                        #print(shortest_distance(data[i,0],data[i,1],data[i,2], C[0], C[1], -1, C[2]))
+
+                        sum_least_squares += shortest_distance(data[i,0],data[i,1],data[i,2], C[0], C[1], -1, C[2])
+                        #print(sum_least_squares)
+                    
+                    neibs = self.neiblist[res][float(self.u.trajectory.time)]
+                    
+                    neib_list = []
+                    
+                    if len(neibs) != 0:
+                        for r in neibs:
+                            resn = self.resid_to_lipid[r]
+                            if resn in lipidmolecules.STEROLS:
+                                neib_list.append(r)
+                    
+                    n_sterol = len(neib_list)
+                    #print(sum_least_squares)
+                    fout.write('{}\t{}\t{}\t{}\n'.format(self.u.trajectory.time, res, n_sterol, sum_least_squares))
+                    '''
+                    # plot points and fitted surface using Matplotlib
+                    #fig1 =  plt.figure(figsize=(10, 10))
+                    fig1 =  plt.figure()
+                    ax = fig1.gca(projection='3d')
+                    ax.plot_surface(X, Y, Z, rstride=1, cstride=1, alpha=0.2)
+                    ax.scatter(data[:,0], data[:,1], data[:,2], c='r', s=50)
+                    plt.xlabel('X')
+                    plt.ylabel('Y')
+                    ax.set_zlabel('Z')
+                    ax.axis('equal')
+                    ax.axis('tight')
+                    plt.show()
+                    '''    
     def angle_tworings(self, sterol, start_frame, end_frame, step):
         
         ringatms1 = lipidmolecules.head_atoms_of(sterol)[1:11]

@@ -398,9 +398,15 @@ class Energy(SysInfo):
         os.makedirs(self.energypath+'logfiles', exist_ok=True)
         logoutput_file = self.energypath+'logfiles/'+'mdrerun_resid'+str(res)+self.part+'frag'+str(groupfragment)+'.log'
         trajout = 'EMPTY.trr' # As specified in mdpfile, !NO! .trr-file should be written
-        mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath_energy,
+        
+        if self.ff == 'all_atom':
+            mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath,
                         '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
-                        ]
+                        ]    
+        else:
+            mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath_energy,
+                            '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
+                            ]
         out, err = exec_gromacs(mdrun_arglist)
         with open("gmx_mdrun.log","a") as logfile:
             logfile.write(err)
@@ -472,10 +478,7 @@ class Energy(SysInfo):
 
                             elif '@' not in energyline and '#' not in energyline: #pick correct energies from energyfile and print
                                 time = float(energyline_cols[0])
-                              
-                                if time % self.dt != 0 or time > self.t_end or time < self.t_start:
-                                    continue
-                                
+
                                 for neib in all_neibs_of_res[part]:
 
                                     # This if clause is due to a broken simulation... In future it should be removed
@@ -489,20 +492,20 @@ class Energy(SysInfo):
                                     for parthost in self.molparts:
                                         parthost = parthost[6:] # remove "resid" from parthost string
 
-                                        if residtype == 'CHL1' and not host_sterol_processed:
+                                        if residtype in lipidmolecules.STEROLS and not host_sterol_processed:
                                             parthost = ''
                                             host_sterol_processed = True
-                                        elif residtype == 'CHL1' and host_sterol_processed:
+                                        elif residtype in lipidmolecules.STEROLS and host_sterol_processed:
                                             continue
 
                                         neib_sterol_processed = False
                                         for partneib in self.molparts:
                                             partneib = partneib[6:] # remove "resid" from parthost string
 
-                                            if neibtype == 'CHL1' and not neib_sterol_processed:
+                                            if neibtype in lipidmolecules.STEROLS and not neib_sterol_processed:
                                                 partneib = ''
                                                 neib_sterol_processed = True
-                                            elif neibtype == 'CHL1' and neib_sterol_processed:
+                                            elif neibtype in lipidmolecules.STEROLS and neib_sterol_processed:
                                                 continue
 
                                             # if partstring is empty take whole lipid
@@ -528,7 +531,7 @@ class Energy(SysInfo):
 
                                             Etot = float(vdw) + float(coul)
                                             print(\
-                                                  '{: <10}{: <10}{: <10}{: <20}'
+                                                  '{: <12.1f}{: <10}{: <10}{: <20}'
                                                   '{: <20}{: <20}{: <20.5f}'
                                                   .format(time, resid, neib, inter,
                                                                             vdw, coul, Etot),

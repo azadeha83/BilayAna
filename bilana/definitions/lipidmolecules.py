@@ -10,7 +10,7 @@ try:
         if ls[0].strip() == 'all_atom':
             ff = 'all_atom'
         else:
-            ff = 'martini'
+            ff = 'coarse'
 except:
     ff = 'all_atom'
 

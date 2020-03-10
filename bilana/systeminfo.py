@@ -55,7 +55,7 @@ class SysInfo():
         if len(self.times) < 3:
             self.times.append(None)
 
-        self.ff = 'force_field'
+        self.ff = 'all_atom'
         for file_name in glob.glob('{}/ff/gromacs/*.itp'.format(self.mdfilepath)):
             
             if re.search('martini',str(file_name)):
@@ -83,7 +83,7 @@ class SysInfo():
         # ''' absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
         self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
-        self.trjpath_energy    = '{}/md_trj/{}_{}_short.trr'.format(self.mdfilepath, self.system, self.temperature)
+        self.trjpath_energy    = '{}/md_trj/{}_{}_short.xtc'.format(self.mdfilepath, self.system, self.temperature)
         self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.initgropath    = '{}/initial_coords/{}_init.gro'.format(self.mdfilepath, self.system)
         self.toppath    = '{}/psf/{}.top'.format(self.mdfilepath, self.system)

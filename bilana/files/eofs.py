@@ -84,18 +84,27 @@ class EofScd(Neighbors):
             components += ["CHL1_neib"] # Chols ... to neib
             components += ['CHL1_both'] # Chols ... to both
             components += ['CHL1_partboth'] # Chols ... not to both
+            components += ['Facing'] # Ergs ... not to both
+            components += ['Notfacing'] # Ergs ... not to both
+            components += ['Orient_flag'] # Ergs ... not to both
 
         if 'CHOL' in self.molecules:
             components += ["CHOL_host"] # Chols that are neighbor to host
             components += ["CHOL_neib"] # Chols ... to neib
             components += ['CHOL_both'] # Chols ... to both
             components += ['CHOL_partboth'] # Chols ... not to both
+            components += ['Facing'] # Ergs ... not to both
+            components += ['Notfacing'] # Ergs ... not to both
+            components += ['Orient_flag'] # Ergs ... not to both
         
         if 'ERG' in self.molecules:
             components += ["ERG_host"] # Ergs that are neighbor to host
             components += ["ERG_neib"] # Ergs ... to neib
             components += ['ERG_both'] # Ergs ... to both
             components += ['ERG_partboth'] # Ergs ... not to both
+            components += ['Facing'] # Ergs ... not to both
+            components += ['Notfacing'] # Ergs ... not to both
+            components += ['Orient_flag'] # Ergs ... not to both
         
         # Create Eofs output name
         if energyfile == 'all_energies.dat':
@@ -116,20 +125,20 @@ class EofScd(Neighbors):
                             "Interaction", "DeltaScd", "AvgScd",
                             "Etot", "Evdw",
                             "Ecoul", "Ntot")\
-                            + (len(components)*'{: <15}').format(*components) + '{: <15}{: <15}{: <15}'.format("Facing", "Notfacing", "Orient_flag"), file=outf)
+                            + (len(components)*'{: <15}').format(*components), file=outf)
             
-            lipid1 = lipidpair.split('_')[0]
-            lipid2 = lipidpair.split('_')[1]
+            # lipid1 = lipidpair.split('_')[0]
+            # lipid2 = lipidpair.split('_')[1]
             
             # Read all_energies file
             efile.readline()
             for line in efile:
                 cols = line.split()
                 
-                if lipid1 == lipid2:
+                #if lipid1 == lipid2:
 
-                    if int(cols[1]) > int(cols[2]):
-                        continue
+                if int(cols[1]) > int(cols[2]):
+                    continue
 
                 time = float(cols[0])
                 if time > self.t_end:
@@ -159,87 +168,90 @@ class EofScd(Neighbors):
                 type_neib = self.resid_to_lipid[neib]
                 type_pair = ('{0}_{1}'.format(type_host, type_neib), '{1}_{0}'.format(type_host, type_neib))
                 
-                if lipid1 == lipid2:
-                    if neib < host or (type_pair[0] != lipidpair and type_pair[1] != lipidpair):  # Ignore second pair
-                        # energies same for res1-res2 and res2-res1 so take just 1st version
-                        continue
-                else:
-                    if type_host == type_neib or type_host != lipid1:
-                        continue
+                #if lipid1 == lipid2:
+                if neib < host or (type_pair[0] != lipidpair and type_pair[1] != lipidpair):  # Ignore second pair
+                    # energies same for res1-res2 and res2-res1 so take just 1st version
+                    continue
+                # else:
+                #     if type_host == type_neib or type_host != lipid1:
+                #         continue
 
                 # Get energy values
                 Etot = float(cols[6])
                 COUL = float(cols[5])
                 VDW  = float(cols[4])
                 interactiontype = cols[3]
+                
+                for i in lipidmolecules.STEROLS:
 
-                # Get orientation data                
-                # This part looks for all the sterol molecules in the neighbors of the host and neib (pair) and check if they are facing to them
-                n_sterol_facing_host = 0
-                n_sterol_notfacing_host = 0
+                    if i in self.molecules:
+                        # Get orientation data                
+                        # This part looks for all the sterol molecules in the neighbors of the host and neib (pair) and check if they are facing to them
+                        n_sterol_facing_host = 0
+                        n_sterol_notfacing_host = 0
 
-                for n in list(set(neighbors)-set([neib])):
-                    if self.resid_to_lipid[n] in lipidmolecules.STEROLS:                        
-                        orientation_neibtohost = timetoorientation[(time, n, host)]
+                        for n in list(set(neighbors)-set([neib])):
+                            if self.resid_to_lipid[n] in lipidmolecules.STEROLS:                        
+                                orientation_neibtohost = timetoorientation[(time, n, host)]
+                                
+                                if orientation_neibtohost == 1:
+                                    n_sterol_facing_host += 1
+                                else:
+                                    n_sterol_notfacing_host += 1
                         
-                        if orientation_neibtohost == 1:
-                            n_sterol_facing_host += 1
-                        else:
-                            n_sterol_notfacing_host += 1
-                
-                n_sterol_facing_neib = 0
-                n_sterol_notfacing_neib = 0
-                
-                for n in list(set(neighbors_neib)-set([host])):
-                    if self.resid_to_lipid[n] in lipidmolecules.STEROLS:
+                        n_sterol_facing_neib = 0
+                        n_sterol_notfacing_neib = 0
+                        
+                        for n in list(set(neighbors_neib)-set([host])):
+                            if self.resid_to_lipid[n] in lipidmolecules.STEROLS:
 
-                        orientation_neibtoneib = timetoorientation[(time, n, neib)]
+                                orientation_neibtoneib = timetoorientation[(time, n, neib)]
 
-                        if orientation_neibtoneib == 1:
-                            n_sterol_facing_neib += 1
-                        else:
-                            n_sterol_notfacing_neib += 1
+                                if orientation_neibtoneib == 1:
+                                    n_sterol_facing_neib += 1
+                                else:
+                                    n_sterol_notfacing_neib += 1
 
-                # This part assigns a flag to the orientation of the sterol-sterol or lipid-sterol with respect to each other:
-                # 0: not facing, 1: one is facing to the other, 2: two are facing to each other
-                orient_flag = 0
-
-                if (lipidpair.split('_')[0] not in lipidmolecules.STEROLS) and (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
-                    
-                    if type_host in lipidmolecules.STEROLS:
-
-                        orientation_steroltohost = timetoorientation[(time, host, neib)]
-                    else:
-                        orientation_steroltohost = timetoorientation[(time, neib, host)]
-
-                    if orientation_steroltohost == 0:
+                        # This part assigns a flag to the orientation of the sterol-sterol or lipid-sterol with respect to each other:
+                        # 0: not facing, 1: one is facing to the other, 2: two are facing to each other
                         orient_flag = 0
-                    else:
-                        orient_flag = 1
-                
-                elif (lipidpair.split('_')[0] in lipidmolecules.STEROLS) and (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
-                    
-                    orientation_steroltosterol1 = timetoorientation[(time, host, neib)]
-                    orientation_steroltosterol2 = timetoorientation[(time, neib, host)]
-                    
-                    if orientation_steroltosterol1 == 0 and orientation_steroltosterol2 == 0:
-                        orient_flag = 0
-                    elif orientation_steroltosterol1 == 1 and orientation_steroltosterol2 == 1:
-                        orient_flag = 2
-                    else:
-                        orient_flag = 1
-                
-                sterol_comp_list = []
-                sterol_comp_list.append(orient_flag)
+
+                        if (lipidpair.split('_')[0] not in lipidmolecules.STEROLS) and (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
+                            
+                            if type_host in lipidmolecules.STEROLS:
+
+                                orientation_steroltohost = timetoorientation[(time, host, neib)]
+                            else:
+                                orientation_steroltohost = timetoorientation[(time, neib, host)]
+
+                            if orientation_steroltohost == 0:
+                                orient_flag = 0
+                            else:
+                                orient_flag = 1
+                        
+                        elif (lipidpair.split('_')[0] in lipidmolecules.STEROLS) and (lipidpair.split('_')[1] in lipidmolecules.STEROLS):
+                            
+                            orientation_steroltosterol1 = timetoorientation[(time, host, neib)]
+                            orientation_steroltosterol2 = timetoorientation[(time, neib, host)]
+                            
+                            if orientation_steroltosterol1 == 0 and orientation_steroltosterol2 == 0:
+                                orient_flag = 0
+                            elif orientation_steroltosterol1 == 1 and orientation_steroltosterol2 == 1:
+                                orient_flag = 2
+                            else:
+                                orient_flag = 1
 
                 # Get number of neighbors of type
+
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
-        
+                
                 ntot = len(pair_neibs)
                 neib_comp_list = []
                 for lip in self.components:
                     ncomp = [self.resid_to_lipid[N] for N in pair_neibs].count(lip)
                     neib_comp_list.append(ncomp)
+                
+                sterol_comp_list = []
                 
                 # Get number of cholesterol neighbors, that are neighbor to both PLs
                 if 'CHL1' in self.molecules:
@@ -293,6 +305,12 @@ class EofScd(Neighbors):
                     neib_comp_list.append(shared_erg)
                     neib_comp_list.append(shared_erg + not_shared_erg/2)
                 
+                    sterol_comp_list.append(n_sterol_facing_host)
+                    sterol_comp_list.append(n_sterol_notfacing_host)
+                    sterol_comp_list.append(n_sterol_facing_neib)
+                    sterol_comp_list.append(n_sterol_notfacing_neib)
+                    sterol_comp_list.append(orient_flag)
+
                 # Get order values
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
@@ -301,7 +319,7 @@ class EofScd(Neighbors):
 
                 # Write output line
                 print(
-                      '{: <10}{: <10}{: <15.5f}{: <10}{: <15.5f}'
+                      '{: <12.1f}{: <10}{: <15.5f}{: <10}{: <15.5f}'
                       '{: <15}{: <15.5f}{: <15.5f}'
                       '{: <15.5f}{: <15.5f}'
                       '{: <15.5f}{: <15}'\
@@ -309,8 +327,7 @@ class EofScd(Neighbors):
                               interactiontype, delta_scd, avg_scd,
                               float(Etot), float(VDW),
                               float(COUL), ntot)\
-                      + (len(neib_comp_list)*'{: <15}').format(*neib_comp_list)+'{: <15}{: <15}{: <15}'.format(n_sterol_facing_host+n_sterol_facing_neib,
-                      n_sterol_notfacing_host+n_sterol_notfacing_neib,orient_flag),file=outf)
+                      + (len(neib_comp_list)*'{: <15}').format(*neib_comp_list) + (len(sterol_comp_list)*'{: <15}').format(*sterol_comp_list),file=outf)
 
     def assemble_eofs_selfinteraction(self, energyfile, lipid, timetoscd, endtime):
         ''' Same as assemble eofs  '''

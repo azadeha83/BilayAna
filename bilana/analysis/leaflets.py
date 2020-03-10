@@ -26,7 +26,6 @@ def is_neighbor_in_leaflet(systeminfo_inst, neiblist):
 
 def molecule_leaflet_orientation(atompos1: np.array, atompos2: np.array, axis=np.array([0.0, 0.0, 1.0])) -> int:
     ''' Takes two positions and returns 0 or 1 depending if molecule is oriented upside down or up '''
-    print(atompos1,atompos2)
     new_coords = atompos1 - atompos2
     cos = np.dot(new_coords, axis) / np.linalg.norm(new_coords)
     return ( 0 if cos <= 0 else 1 )
@@ -113,9 +112,9 @@ def create_leaflet_assignment_file(sysinfo_obj, verbosity="INFO"):
     LOGGER.setLevel(verbosity)
     outputfilename = 'leaflet_assignment.dat'
     
-    try:
+    if os.path.isfile(sysinfo_obj.initgropath):
         grofile_path = sysinfo_obj.initgropath
-    except:
+    else:
         grofile_path = sysinfo_obj.gropath
 
     w = mda.Universe(grofile_path)
