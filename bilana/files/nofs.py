@@ -29,7 +29,7 @@ class NofScd(Neighbors):
 
             # Print header
             print(
-                '{: <10}{: <10}{: <15}{: <20}{: <20}'\
+                '{: <12}{: <10}{: <15}{: <20}{: <20}'\
                 .format("Time", "Host", "Lipid_type", "Host_Scd", "Ntot")\
                 +('{: ^10}'*len(self.components)).format(*self.components),
                 file=outfile)
@@ -54,7 +54,7 @@ class NofScd(Neighbors):
                         neib_comp_list.append(number_neib)
                     scd_host = float(time_to_scd[(time, res)])
                     print(
-                          '{: <10}{: <10}{: <10}{: <20.5f}{: <20.5f}'\
+                          '{: <12.1f}{: <10}{: <10}{: <20.5f}{: <20.5f}'\
                           .format(time, res, host_type, scd_host, float(n_neibs))\
                           +('{: ^10}'*len(neib_comp_list)).format(*neib_comp_list),
                           file=outfile)

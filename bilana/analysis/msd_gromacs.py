@@ -24,69 +24,59 @@ class MSDanalysis(SysInfo):
 
     def __init__(self,inputfilename="inputfile"):
             super().__init__(inputfilename)
+            
+            self.u = mda.Universe(self.gropath,self.trjpath)
     
-            self.lipid_type_items = ' '.join(self.molecules)
-            self.lipid_types_mainlipid = ''.join(self.molecules[0])
-            #self.lipid_types_sterol = ''.join(self.molecules[1])
+    # def MSD_mdanalysis(self,start_frame,end_frame):
+    #     '''This function calulate the MSD through MDAnalaysis'''
 
-    
-    def MSD_mdanalysis(self,start_frame,end_frame):
-        '''This function calulate the MSD through MDAnalaysis'''
-
-        u = mda.Universe(self.gropath,self.trjpath)
+    #     u = mda.Universe(self.gropath,self.trjpath)
         
-        selection = ('resname {} and name P'.format(self.lipid_types_mainlipid))
-        print(self.lipid_types_mainlipid)
+    #     selection = ('resname {} and name P'.format(self.lipid_types_mainlipid))
+    #     print(self.lipid_types_mainlipid)
         
-        if self.times[2] == '1000':
-            start_frame = 100
-            frame_intervals = 1
-            end_frame = 300
-        else:
-            start_frame = 1000
-            frame_intervals = 10 
-            end_frame = 3000       
+    #     if self.times[2] == '1000':
+    #         start_frame = 100
+    #         frame_intervals = 1
+    #         end_frame = 300
+    #     else:
+    #         start_frame = 1000
+    #         frame_intervals = 10 
+    #         end_frame = 3000       
 
-        MSD_analysis = MSD(u, selection, start_frame, end_frame, 20)
-        MSD_analysis.run()
+    #     MSD_analysis = MSD(u, selection, start_frame, end_frame, 20)
+    #     MSD_analysis.run()
 
-        with open("msd_mdanalysis.xvg" , 'w') as fout:
-            time = 0
-            fout.write('Time\tMSD\n')
-            for msd in MSD_analysis.timeseries:
-                fout.write("{time} {msd}\n".format(time=time, msd=msd))
-                time += 1
+    #     with open("msd_mdanalysis.xvg" , 'w') as fout:
+    #         time = 0
+    #         fout.write('Time\tMSD\n')
+    #         for msd in MSD_analysis.timeseries:
+    #             fout.write("{time} {msd}\n".format(time=time, msd=msd))
+    #             time += 1
         
-    def MSD_gromacs_mainlipid(self,start_time,end_time):
+    def MSD_gromacs(self, selection, outputfile_name, start_time, end_time):
 
         '''This function calulate the MSD through Gromacs'''
-
-        cwd = os.getcwd()
-        index_msd = ''.join(cwd + '/' + 'index_msd_mainlipid.ndx')
-       
-        msd_raw = ''.join(cwd + '/' + 'msd_mainlipid_raw')
-
-        get_selection = [GMXNAME, 'select', '-f', self.gropath, '-s', self.tprpath, '-on', index_msd, \
-            '-select', '(resname {} and name P)'.format(self.lipid_types_mainlipid)]
-
-        #print(get_selection)
         
-        out, err = exec_gromacs(get_selection)
+        sel = self.u.select_atoms('{}'.format(selection))
 
-        get_msd = [GMXNAME, 'msd', '-f', self.trjpath, '-s', self.tprpath, '-n', index_msd, \
-            '-o', msd_raw, '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1']
+        with mda.selections.gromacs.SelectionWriter('index_msd.ndx', mode='w') as ndx:
+            ndx.write(sel, name='{}'.format(selection))
+
+        get_msd = [GMXNAME, 'msd', '-f', self.trjpath, '-s', self.tprpath, '-n', 'index_msd.ndx', \
+            '-o', "msd_" + outputfile_name + "_raw", '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1']
             
         #print(get_msd)  
         out, err = exec_gromacs(get_msd)
 
-        with open("gmx_msd_mainlipid.log","a") as logfile:
+        with open("gmx_msd_" + outputfile_name + ".log","a") as logfile:
             logfile.write(err)
             logfile.write(out)
 
-        with open("msd_mainlipid_raw.xvg", 'r') as f:
+        with open("msd_" + outputfile_name + "_raw.xvg", 'r') as f:
             ls = f.readlines()
 
-        with open("msd_mainlipid.dat" , 'w') as fout:
+        with open("msd_" + outputfile_name + ".dat" , 'w') as fout:
             
             fout.write('Time\tMSD\n')
             for l in ls:
@@ -95,46 +85,3 @@ class MSDanalysis(SysInfo):
                     if lc[0] != '#' and lc[0] != '@':
                         lf = lc.split()
                         fout.write('{}\t{}\n'.format(lf[0],lf[1]))
-
-    def MSD_gromacs_sterol(self,start_time,end_time):
-
-        '''This function calulate the MSD through Gromacs'''
-
-        cwd = os.getcwd()
-        index_msd = ''.join(cwd + '/' + 'index_msd_sterol.ndx')
-       
-        msd_raw = ''.join(cwd + '/' + 'msd_sterol_raw')
-        
-        head_atoms = lipidmolecules.head_atoms_of(self.lipid_types_sterol)
-        head_atom = head_atoms[0]
-
-        get_selection = [GMXNAME, 'select', '-f', self.gropath, '-s', self.tprpath, '-on', index_msd, \
-            '-select', '(resname {} and name {})'.format(self.lipid_types_sterol,head_atom)]
-
-        #print(get_selection)
-        
-        out, err = exec_gromacs(get_selection)
-
-        get_msd = [GMXNAME, 'msd', '-f', self.trjpath, '-s', self.tprpath, '-n', index_msd, \
-            '-o', msd_raw, '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1']
-            
-        #print(get_msd)  
-        out, err = exec_gromacs(get_msd)
-
-        with open("gmx_msd_sterol.log","a") as logfile:
-            logfile.write(err)
-            logfile.write(out)
-
-        with open("msd_sterol_raw.xvg", 'r') as f:
-            ls = f.readlines()
-
-        with open("msd_sterol.dat" , 'w') as fout:
-            
-            fout.write('Time\tMSD\n')
-            for l in ls:
-                lc = l.strip()
-                if lc:
-                    if lc[0] != '#' and lc[0] != '@':
-                        lf = lc.split()
-                        fout.write('{}\t{}\n'.format(lf[0],lf[1]))
-                        

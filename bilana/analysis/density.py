@@ -463,7 +463,7 @@ class Density(Neighbors):
         for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
             time = self.u.trajectory.time
             
-            mda.analysis.align.alignto(self.u.atoms, ref.atoms, select='resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms))))       
+            mda.analysis.align.alignto(self.u.atoms, rotated_ref.atoms, select='resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms))))       
 
             for res_s in self.MOLRANGE:
                 resn_s = self.resid_to_lipid[res_s]
