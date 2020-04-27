@@ -55,16 +55,15 @@ class SysInfo():
         if len(self.times) < 3:
             self.times.append(None)
 
-        self.ff = 'all_atom'
-        for file_name in glob.glob('{}/ff/gromacs/*.itp'.format(self.mdfilepath)):
-            
-            if re.search('martini',str(file_name)):
-                self.ff = 'coarse'
-            else:
-                self.ff = 'all_atom' 
-        
-        with open('force_field','w') as out:
-            print(self.ff,file=out)
+        try:
+            with open('force_field','r') as f:
+                ls = f.readlines()
+                if ls[0].strip() == 'all_atom':
+                    self.ff = 'all_atom'
+                else:
+                    self.ff = 'coarse'
+        except FileNotFoundError:
+            LOGGER.info("Could not find the force field file.")
 
         self.molecules    = sorted([x.strip() for x in\
                                 self.system_info['Lipidmolecules'].split(',')])
@@ -82,8 +81,12 @@ class SysInfo():
 
         # ''' absolute_ paths to  md-files  '''
         self.mdfilepath = self.system_info['mdfiles']
-        self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
-        self.trjpath_energy    = '{}/md_trj/{}_{}_short.xtc'.format(self.mdfilepath, self.system, self.temperature)
+
+        if self.ff == 'all_atom':
+            self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
+        else:
+            self.trjpath    = '{}/md_trj/{}_{}_14us.xtc'.format(self.mdfilepath, self.system, self.temperature)
+            
         self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.initgropath    = '{}/initial_coords/{}_init.gro'.format(self.mdfilepath, self.system)
         self.toppath    = '{}/psf/{}.top'.format(self.mdfilepath, self.system)

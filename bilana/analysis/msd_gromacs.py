@@ -85,3 +85,39 @@ class MSDanalysis(SysInfo):
                     if lc[0] != '#' and lc[0] != '@':
                         lf = lc.split()
                         fout.write('{}\t{}\n'.format(lf[0],lf[1]))
+    
+    def MSD_gromacs_slices(self, selection, outputfile_name, start, end, interval):
+
+        '''This function calulate the MSD through Gromacs'''
+        
+        sel = self.u.select_atoms('{}'.format(selection))
+
+        with mda.selections.gromacs.SelectionWriter('index_msd.ndx', mode='w') as ndx:
+            ndx.write(sel, name='{}'.format(selection))
+
+        for i_n, i in enumerate(np.arange(start,end,interval)):
+
+            start_time, end_time = i, i + interval
+
+            get_msd = [GMXNAME, 'msd', '-f', self.trjpath, '-s', self.tprpath, '-n', 'index_msd.ndx', \
+                '-o', "msd_" + outputfile_name + "_raw_{}".format(str(i_n)), '-lateral', 'z', '-b', str(start_time), '-e', str(end_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1']
+                
+            #print(get_msd)  
+            out, err = exec_gromacs(get_msd)
+
+            with open("gmx_msd_" + outputfile_name + ".log","a") as logfile:
+                logfile.write(err)
+                logfile.write(out)
+
+            with open("msd_" + outputfile_name + "_raw_{}.xvg".format(str(i_n)), 'r') as f:
+                ls = f.readlines()
+
+            with open("msd_" + outputfile_name + "_{}.dat".format(str(i_n)) , 'w') as fout:
+                
+                fout.write('Time\tMSD\n')
+                for l in ls:
+                    lc = l.strip()
+                    if lc:
+                        if lc[0] != '#' and lc[0] != '@':
+                            lf = lc.split()
+                            fout.write('{}\t{}\n'.format(lf[0],lf[1]))

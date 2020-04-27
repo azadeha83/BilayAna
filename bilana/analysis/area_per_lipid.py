@@ -18,9 +18,6 @@ class Areaperlipid_compressibility(SysInfo):
     def __init__(self,inputfilename="inputfile"):
             super().__init__(inputfilename)
 
-            self.lipid_type_items = ' '.join(self.molecules)
-            self.lipid_types_first = ''.join(self.molecules[0])
-
     def area_per_lipid(self,end_time):
         ''' This module calculates the area per lipid considering all the lipid molecules including sterol molecules as well as compresseibility'''
 
@@ -37,7 +34,7 @@ class Areaperlipid_compressibility(SysInfo):
             logfile.write(out)
 
         number_of_lipids = self.number_of_lipids/2
-        print(number_of_lipids)
+        #print(number_of_lipids)
 
         with open("box_xy.xvg", 'r') as f:
             ls = f.readlines()
@@ -53,13 +50,13 @@ class Areaperlipid_compressibility(SysInfo):
                         area_per_lipid = (float(lf[1])*float(lf[2]))/number_of_lipids
                         fout.write('{}\t{}\t{}\t{}\n'.format(lf[0],lf[1],lf[2],area_per_lipid))
 
-    def area_per_lipid_mainlipid(self,end_time):
+    def area_per_lipid_mainlipid(self, lipid, end_time):
 
         ''' This module calculates the area per lipid considering only the main lipid molecule'''
 
         u = mda.Universe(self.tprpath,self.trjpath)
 
-        main_lipid_selection = u.select_atoms('resname {} and name P'.format(self.lipid_types_first))
+        main_lipid_selection = u.select_atoms('resname {} and name P'.format(lipid))
         number_of_main_lipid_selection = len(main_lipid_selection)
         print(number_of_main_lipid_selection)
         LOGGER.debug("number of main lipids: %d", number_of_main_lipid_selection)

@@ -399,14 +399,18 @@ class Energy(SysInfo):
         logoutput_file = self.energypath+'logfiles/'+'mdrerun_resid'+str(res)+self.part+'frag'+str(groupfragment)+'.log'
         trajout = 'EMPTY.trr' # As specified in mdpfile, !NO! .trr-file should be written
         
-        if self.ff == 'all_atom':
-            mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath,
-                        '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
-                        ]    
-        else:
-            mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath_energy,
-                            '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
-                            ]
+        mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath,
+                    '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
+                    ]    
+        # if self.ff == 'all_atom':
+        #     mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath,
+        #                 '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
+        #                 ]    
+        # else:
+        #     print('coarse')
+        #     mdrun_arglist = [GMXNAME, 'mdrun', '-s', tprrerun_in, '-rerun', self.trjpath_energy,
+        #                     '-e', energyf_out, '-o', trajout,'-g', logoutput_file,
+        #                     ]
         out, err = exec_gromacs(mdrun_arglist)
         with open("gmx_mdrun.log","a") as logfile:
             logfile.write(err)

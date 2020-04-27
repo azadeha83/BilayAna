@@ -135,8 +135,6 @@ def write_submitfile(submitout, jobname, ncores=2, mem='4G', prio=False, queue=N
                   '\n#SBATCH --output={jobname}.out'
                   '\n#SBATCH --mail-type=fail'
                   '\n#SBATCH --mail-user={username}@wwu.de'
-                  '\n#SBATCH --exclude=kaa-[72,73,76,77,78,82,12,13]'
-                  '\n#SBATCH --constraint="avx|avx2|fma4"'
                   '\n#SBATCH --time=48:00:00'
                   '\n#SBATCH --ntasks=1'
                   '\n#SBATCH --nodes=1'

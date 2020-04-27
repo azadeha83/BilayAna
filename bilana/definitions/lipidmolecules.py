@@ -11,7 +11,7 @@ try:
             ff = 'all_atom'
         else:
             ff = 'coarse'
-except:
+except FileNotFoundError:
     ff = 'all_atom'
 
 # Glycerolpart, also carbonylpart of FA is included
@@ -47,6 +47,8 @@ if ff == 'all_atom':
     'DS':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28', 'C29', 'C210', 'C211', 'C212', 'C213', 'C214', 'C215', 'C216', 'C217', 'C218'],  #18:0
           ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38', 'C39', 'C310', 'C311', 'C312', 'C313', 'C314', 'C315', 'C316', 'C317', 'C318']], #18:0
     'DU':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28', 'C29', 'C210', 'C211', 'C212', 'C213', 'C214', 'C215', 'C216', 'C217', 'C218'],  #18:2
+          ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38', 'C39', 'C310', 'C311', 'C312', 'C313', 'C314', 'C315', 'C316', 'C317', 'C318']], #18:2
+    'DLI':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28', 'C29', 'C210', 'C211', 'C212', 'C213', 'C214', 'C215', 'C216', 'C217', 'C218'],  #18:2
           ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38', 'C39', 'C310', 'C311', 'C312', 'C313', 'C314', 'C315', 'C316', 'C317', 'C318']], #18:2
     'DY':[['C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28', 'C29', 'C210', 'C211', 'C212', 'C213', 'C214', 'C215', 'C216'],                  #16:1
           ['C32', 'C33', 'C34', 'C35', 'C36', 'C37', 'C38', 'C39', 'C310', 'C311', 'C312', 'C313', 'C314', 'C315', 'C316']],                 #16:1
@@ -86,6 +88,10 @@ if ff == 'all_atom':
                     'H14Y','H15X', 'H15Y','H16X', 'H16Y','H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z']],
         'DU':[['H2R', 'H2S', 'H3R', 'H3S', 'H4R', 'H4S', 'H5R', 'H5S', 'H6R', 'H6S', 'H7R', 'H7S','H8R', 'H8S', 'H9R', 'H10R', 'H11R', 'H11S', 'H12R', 'H13R', 'H14R', 'H14S', 'H15R', 'H15S', 'H16R', 'H16S', 'H17R', 'H17S', 'H18R', 'H18S', 'H18T'],
             ['H2X', 'H2Y', 'H3X', 'H3Y', 'H4X', 'H4Y', 'H5X', 'H5Y', 'H6X', 'H6Y', 'H7X', 'H7Y','H8X', 'H8Y', 'H9X', 'H10X', 'H11X', 'H11Y', 'H12X', 'H13X', 'H14X', 'H14Y', 'H15X', 'H15Y', 'H16X', 'H16Y', 'H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z']],
+        
+        'DLI':[['H2R', 'H2S', 'H3R', 'H3S', 'H4R', 'H4S', 'H5R', 'H5S', 'H6R', 'H6S', 'H7R', 'H7S','H8R', 'H8S', 'H9R', 'H10R', 'H11R', 'H11S', 'H12R', 'H13R', 'H14R', 'H14S', 'H15R', 'H15S', 'H16R', 'H16S', 'H17R', 'H17S', 'H18R', 'H18S', 'H18T'],
+            ['H2X', 'H2Y', 'H3X', 'H3Y', 'H4X', 'H4Y', 'H5X', 'H5Y', 'H6X', 'H6Y', 'H7X', 'H7Y','H8X', 'H8Y', 'H9X', 'H10X', 'H11X', 'H11Y', 'H12X', 'H13X', 'H14X', 'H14Y', 'H15X', 'H15Y', 'H16X', 'H16Y', 'H17X', 'H17Y', 'H18X', 'H18Y', 'H18Z']],
+        
         'DY':[['H2R', 'H2S','H3R', 'H3S', 'H4R', 'H4S', 'H5R', 'H5S', 'H6R', 'H6S','H7R','H7S','H8R',
                     'H8S', 'H9R', 'H10R', 'H11R', 'H11S', 'H12R', 'H12S','H13R', 'H13S',
                     'H14R', 'H14S', 'H15R', 'H15S','H16R', 'H16S', 'H16T'],
@@ -118,6 +124,8 @@ if ff == 'all_atom':
     'DP':[TAILCARBS['DP'][0][::2], TAILCARBS['DP'][1][::2]],
     'DU':[['C22', 'C24', 'C26', 'C28', 'C211', 'C214', 'C216', 'C218'], # Double bonds between 9-10, 12-12
             ['C32', 'C34', 'C36', 'C38', 'C311', 'C314', 'C316', 'C318']],
+    'DLI':[['C22', 'C24', 'C26', 'C28', 'C211', 'C214', 'C216', 'C218'], # Double bonds between 9-10, 12-12
+            ['C32', 'C34', 'C36', 'C38', 'C311', 'C314', 'C316', 'C318']],
     'DM':[TAILCARBS['DM'][0][::2], TAILCARBS['DM'][1][::2]],
     'DS':[TAILCARBS['DS'][0][::2], TAILCARBS['DS'][1][::2]],
     'DY':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213', 'C215', ],   # Double bonds between 9-10
@@ -127,10 +135,12 @@ if ff == 'all_atom':
     'DO':[['C22', 'C24', 'C26', 'C28', 'C211', 'C213', 'C215', 'C217'],  # Double bonds between 9-10
             ['C32', 'C34', 'C36', 'C38', 'C311', 'C313', 'C315', 'C317']],
     'CHL1':[['C3', 'C17']],
+    #'CHL1':[['C20', 'C25']],
     'ch1m':[['C20', 'C12']],
     'CHIM':[['C20', 'C12']],
     'CH0M':[['C20', 'C12']],
     'ERG':[['C3', 'C17']],
+    #'ERG':[['C20', 'C25']],
                     }
 else:
     SCD_TAIL_ATOMS_OF = {\
@@ -176,6 +186,7 @@ if ff == 'all_atom':
         'DO':[TAILCARBS['DO'][0], TAILHYDR['DO'][0], TAILCARBS['DO'][1], TAILHYDR['DO'][1],],
         'DY':[TAILCARBS['DY'][0], TAILHYDR['DY'][0], TAILCARBS['DY'][1], TAILHYDR['DY'][1],],
         'DU':[TAILCARBS['DU'][0], TAILHYDR['DU'][0], TAILCARBS['DU'][1], TAILHYDR['DU'][1],],
+        'DLI':[TAILCARBS['DLI'][0], TAILHYDR['DLI'][0], TAILCARBS['DLI'][1], TAILHYDR['DLI'][1],],
         'PO':[TAILCARBS['PO'][0], TAILHYDR['PO'][0], TAILCARBS['PO'][1], TAILHYDR['PO'][1],],
         'PL':[TAILCARBS['PL'][0], TAILHYDR['PL'][0], TAILCARBS['PL'][1], TAILHYDR['PL'][1],],
         'CHL1':[['C13', 'C14', 'C15', 'C16', 'C17', 'C20', 'C22', 'C23', 'C24', 'C25']],

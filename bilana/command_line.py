@@ -44,7 +44,7 @@ def submit_energycalcs(systemname, temperature, jobname, lipidpart, *args,
                 '\nos.remove(sys.argv[0])'.format(lipidpart, overwrite, inputfilename, neighborfile, list_of_res),
                 file=jobf)
         if not dry:
-            write_submitfile('submit.sh', jobfile_name, ncores=cores)
+            write_submitfile('submit.sh', jobfile_name, ncores=cores, mem='16G')
             cmd = ['sbatch', '-J', complete_name[2:]+"_"+str(jobpart)+'_'+jobname, 'submit.sh','python3', jobscript_name]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
@@ -71,7 +71,7 @@ def submit_energycalc_on_res(systemname, temperature, jobname, lipidpart, resid,
             '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfile, resid),
             file=jobf)
     if not dry:
-        write_submitfile('submit.sh', jobfile_name, ncores=cores)
+        write_submitfile('submit.sh', jobfile_name, ncores=cores, mem='16G')
         cmd = ['sbatch', '-J', complete_name[2:]+"_"+str(resid)+'_'+jobname, 'submit.sh','python3', jobscript_name]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
@@ -129,8 +129,11 @@ def calc_scd(systemname, temperature, jobname, *args,
             'import os, sys, gc'
             '\nfrom bilana.systeminfo import SysInfo'
             '\nfrom bilana.analysis.order import Order, calc_tilt'
-            '\ncalc_tilt(SysInfo())'
-            '\nOrder(inputfilename="{0}").create_orderfile(parallel=False)'
+            #'\ncalc_tilt(SysInfo())'
+            #'\nOrder(inputfilename="{0}").create_orderfile(parallel=False)'
+            '\norder_inst = Order(inputfilename="{0}")'
+            '\norder_inst.create_orientationfile()'
+            #'\nOrder(inputfilename="{0}").create_orderfile(outputfile="scd_for_tilt.dat", parallel=False)'
             #'\nOrder(inputfilename="{0}").create_orderfile(outputfile="scd_distribution_uncorrected.dat", with_tilt_correction=None, parallel=False)'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
             file=scriptf)
@@ -166,14 +169,15 @@ def check_and_write(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
             '\nfrom bilana.analysis.order import Order'
-            '\norder_inst = Order(inputfilename="{2}")'
-            '\norder_inst.create_orientationfile()'
+            # '\norder_inst = Order(inputfilename="{2}")'
+            # '\norder_inst.create_orientationfile()'
             '\nenergy_instance = Energy("{0}", overwrite={1}, inputfilename="{2}", neighborfilename="{3}")'
             '\nenergy_instance.info()'
             '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
             '\n    energy_instance.write_energyfile()'
             '\n    eofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
             '\n    eofs.create_eofscdfile()'.format(lipidpart, overwrite,
+            #'\nenergy_instance.write_energyfile()'
             # '\nenergy_instance.write_energyfile()'
             # '\neofs = EofScd("{0}", inputfilename="{2}", energyfilename="{4}", scdfilename="{5}")'
             # '\neofs.create_eofscdfile()'.format(lipidpart, overwrite,
@@ -204,14 +208,17 @@ def write_eofscd(systemname, temperature, jobname, lipidpart, *args,
             '\nfrom bilana.analysis.energy import Energy'
             '\nfrom bilana.files.eofs import EofScd'
             '\nfrom bilana.analysis.order import Order'
-            '\norder_inst = Order(inputfilename="{1}")'
-            '\norder_inst.create_orientationfile()'
+            # '\norder_inst = Order(inputfilename="{1}")'
+            # '\norder_inst.create_orientationfile()'
             '\nenergy_instance = Energy("{0}", inputfilename="{1}", neighborfilename="{2}")'
-            '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
-            '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
-            '\n    eofs.create_eofscdfile()'
-            '\nelse:'
-            '\n    raise ValueError("There are .edr files missing.")'
+            # '\nif energy_instance.check_exist_xvgs(check_len=energy_instance.t_end):'
+            # '\n    eofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
+            # '\n    eofs.create_eofscdfile()'
+            # '\nelse:'
+            # '\n    raise ValueError("There are .edr files missing.")'
+            '\neofs = EofScd("{0}", inputfilename="{1}", energyfilename="{4}", scdfilename="{3}")'
+            '\neofs.create_eofscdfile()'
+            #'\neofs.create_eofscdfile_slices("DPPC_CHL1", 0.0, 0.8, 0.8)'
             '\nos.remove(sys.argv[0])'.format(lipidpart, inputfilename, neighborfilename,  scdfilename, energyfilename),
             file=scriptf)
         if not dry:
@@ -283,7 +290,7 @@ def submit_missing_energycalculation(res, part, systemname, temperature):
             '\nenergy_instance.info()'
             '\nenergy_instance.run_calculation(resids=[{}])'
             '\nos.remove(sys.argv[0])'.format(part, res), file=sf)
-    write_submitfile('submit.sh', jobname, mem='8G')
+    write_submitfile('submit.sh', jobname, mem='16G')
     cmd = ['sbatch', '-J', jobname, 'submit.sh','python3', jobfilename]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()

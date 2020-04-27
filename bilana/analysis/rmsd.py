@@ -33,12 +33,12 @@ class RMSD(SysInfo):
 
     def rmsd(self, sterol, start_frame, end_frame, step):
         
-        ref = MDAnalysis.Universe('{}'.format(self.gropath))         
+        ref = MDAnalysis.Universe('{}'.format(self.initgropath))         
         print(len(self.u.trajectory))   
         sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
         resid_list = list(set(sterol_sel.resids)) 
         
-        headatms = lipidmolecules.head_atoms_of(sterol)
+        headatms = lipidmolecules.head_atoms_of(sterol)[1:18]
         tailatms = lipidmolecules.tail_atoms_of(sterol)[0][5:]
         
         refs_head = [[] for i in range(len(resid_list))]
@@ -79,23 +79,13 @@ class RMSD(SysInfo):
     
     def rmsf(self, sterol, start_frame, end_frame, step):
         
-        ref = MDAnalysis.Universe('{}'.format(self.gropath))         
+        ref = MDAnalysis.Universe('{}'.format(self.initgropath))     
+        self.u.trajectory[start_frame:end_frame:step]   
         sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
         resid_list = list(set(sterol_sel.resids)) 
         
-        headatms = lipidmolecules.head_atoms_of(sterol)
+        headatms = lipidmolecules.head_atoms_of(sterol)[1:18]
         tailatms = lipidmolecules.tail_atoms_of(sterol)[0][5:]
-        
-        refs_head = [[] for i in range(len(resid_list))]
-        refs_tail = [[] for i in range(len(resid_list))]
-        
-        for i_res,res in enumerate(resid_list):
-
-            ref_head_crds = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, res, ' '.join(map(str, headatms)))).positions
-            ref_tail_crds = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, res, ' '.join(map(str, tailatms)))).positions
-            
-            refs_head[i_res]= ref_head_crds
-            refs_tail[i_res]= ref_tail_crds
         
         #rmsds = [[] for i in range(len(resid_list))]  
             
@@ -103,7 +93,10 @@ class RMSD(SysInfo):
         
         rmsf_head = []
         rmsf_tail = []
-        
+
+        df_head = pd.DataFrame(columns = ['resid','atom_id','head_rmsf'])
+        df_tail = pd.DataFrame(columns = ['resid','atom_id','tail_rmsf'])
+
         for i_res,res in enumerate(resid_list):
             
             head_sel = self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res, ' '.join(map(str, headatms))))
@@ -116,18 +109,33 @@ class RMSD(SysInfo):
             
             # R_head = MDAnalysis.analysis.rms.RMSF(head_sel)
             # R_head.run()
+            df1_head = pd.DataFrame(columns = ['resid','atom_id','head_rmsf'])
+            df1_tail = pd.DataFrame(columns = ['resid','atom_id','tail_rmsf'])
+ 
+            df1_head['resid'] = [res]*len(head_sel)
+            df1_head['atom_id'] = head_sel.atoms.ids
+            df1_head['head_rmsf'] = R_head.rmsf
             
+            df1_tail['resid'] = [res]*len(tail_sel)
+            df1_tail['atom_id'] = tail_sel.atoms.ids
+            df1_tail['tail_rmsf'] = R_tail.rmsf
             # R_tail = MDAnalysis.analysis.rms.RMSF(tail_sel)
             # R_tail.run()
+
+            df_head = df_head.append(df1_head)
+            df_tail = df_tail.append(df1_tail)
             
             rmsf_head.append(R_head.rmsf)
             rmsf_tail.append(R_tail.rmsf)
             
             #fout.write('{}\t{}\t{}\t{}\n'.format(self.u.trajectory.time, res, )
-        np.savetxt('rmsf_head.dat', np.array(rmsf_head), delimiter=' ')
-        np.savetxt('rmsf_tail.dat', np.array(rmsf_tail), delimiter=' ')
-        np.savetxt('rmsf_head_resnums.dat', head_sel.resnums, delimiter=' ')
-        np.savetxt('rmsf_tail_resnums.dat', tail_sel.resnums, delimiter=' ')
+        df_head.to_csv('rmsf_head.csv', sep='\t')
+        df_tail.to_csv('rmsf_tail.csv', sep='\t')
+
+        # np.savetxt('rmsf_head.dat', np.array(rmsf_head), delimiter=' ')
+        # np.savetxt('rmsf_tail.dat', np.array(rmsf_tail), delimiter=' ')
+        # np.savetxt('rmsf_head_resnums.dat', head_sel.resnums, delimiter=' ')
+        # np.savetxt('rmsf_tail_resnums.dat', tail_sel.resnums, delimiter=' ')
 
     def plane_fitting(self, sterol, start_frame, end_frame, step):
         
@@ -213,6 +221,77 @@ class RMSD(SysInfo):
                     ax.axis('tight')
                     plt.show()
                     '''
+
+    def methyl_angle_plane(self, sterol, start, end, interval):
+        
+        planeatms = lipidmolecules.head_atoms_of(sterol)
+        ringatms = lipidmolecules.head_atoms_of(sterol)[1:18]
+        
+        sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
+        atm1, atm2, atm3, atm4 = planeatms[10], planeatms[19], planeatms[13], planeatms[18] # C10, C19, C13, C18
+        
+        resid_list = list(set(sterol_sel.resids)) 
+        # The perpendicular distance (i.e shortest distance) from a given point to a Plane is the perpendicular 
+        # distance from that point to the given plane. Let the co-ordinate of the given point be (x1, y1, z1)
+        # and equation of the plane be given by the equation a * x + b * y + c * z + d = 0, where a, b and c are real constants.
+
+        with open("methyl_angle_plane.dat" , 'w') as fout:
+            
+            print('{: ^10}{: ^10}{: ^15}{: ^15}{: ^15}{: ^15}{: ^15}'.format('Time','Resid','n_sterol_neib','angle1','angle2','angle1_n','angle2_n'),file=fout)
+            
+            dt = self.u.trajectory.dt
+
+            start_frame = int(start / dt)
+            end_frame = int(end / dt)
+            time_interval = int(interval / dt)
+            
+            #for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:step]):
+            for ts in self.u.trajectory[start_frame:end_frame:time_interval]:
+                for i_res,res in enumerate(resid_list):
+                                        
+                    coords1 = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol,res,atm1)).positions
+                    coords2 = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol,res,atm2)).positions
+                    coords3 = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol,res,atm3)).positions
+                    coords4 = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol,res,atm4)).positions
+                    
+                    v1 = np.subtract(coords2[0],coords1[0])
+                    v2 = np.subtract(coords4[0],coords3[0])                    
+                    
+                    ring_crds = self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res, ' '.join(map(str, ringatms)))).positions
+                    data = np.c_[ring_crds[:,0],ring_crds[:,1],ring_crds[:,2]]
+                        
+                    # best-fit linear plane (1st-order)
+                    A = np.c_[data[:,0], data[:,1], np.ones(data.shape[0])]
+                    C,_,_,_ = scipy.linalg.lstsq(A, data[:,2])    # coefficients
+                    
+                    plane_v = [C[0],C[1],-1]
+
+                    alpha1 = np.arccos(np.dot(v1, plane_v)/(np.linalg.norm(v1)*np.linalg.norm(plane_v))) * (180/np.pi)
+                    alpha2 = np.arccos(np.dot(v2, plane_v)/(np.linalg.norm(v2)*np.linalg.norm(plane_v))) * (180/np.pi)
+
+                    if alpha1 > 90:
+                        alpha1 = 180 - alpha1
+                    
+                    if alpha2 > 90:
+                        alpha2 = 180 - alpha2
+                    
+                    theta1 = 90 - alpha1
+                    theta2 = 90 - alpha2
+                    
+                    neibs = self.neiblist[res][float(self.u.trajectory.time)]
+                    
+                    neib_list = []
+                    
+                    if len(neibs) != 0:
+                        for r in neibs:
+                            resn = self.resid_to_lipid[r]
+                            if resn in lipidmolecules.STEROLS:
+                                neib_list.append(r)
+                    
+                    n_sterol = len(neib_list)
+                    #print(sum_least_squares)
+                    print('{: <10}{: <10}{: <15}{: <15.2f}{: <15.2f}{: <15.2f}{: <15.2f}'.format(self.u.trajectory.time, res, n_sterol, theta1, theta2, alpha1, alpha2),file=fout)
+
     def plane_fitting_neib(self, sterol, start_frame, end_frame, step):
         
         ringatms = lipidmolecules.head_atoms_of(sterol)[1:18]

@@ -6,6 +6,7 @@ from .. import log
 from ..analysis import neighbors
 from ..analysis.neighbors import Neighbors
 from ..definitions import lipidmolecules
+import numpy as np
 
 LOGGER = log.LOGGER
 
@@ -66,6 +67,7 @@ class EofScd(Neighbors):
         ''' Creates files of data of E(S) for each lipid part'''
         timetoscd, endtime = read_scdinput(self.scdfilename)
         timetoorientation = read_orientationinput(self.orientationfilename)
+        #self.lipidpairs = ['ERG_ERG']
         for pair in self.lipidpairs:
             self.assemble_eofs(self.energyfilename, timetoscd, timetoorientation, pair, endtime)
 
@@ -182,6 +184,8 @@ class EofScd(Neighbors):
                 VDW  = float(cols[4])
                 interactiontype = cols[3]
                 
+                sterol_comp_list = []
+                
                 for i in lipidmolecules.STEROLS:
 
                     if i in self.molecules:
@@ -240,7 +244,10 @@ class EofScd(Neighbors):
                                 orient_flag = 2
                             else:
                                 orient_flag = 1
+                        sterol_comp_list.append(n_sterol_facing_host+n_sterol_facing_neib)
+                        sterol_comp_list.append(n_sterol_notfacing_host+n_sterol_notfacing_neib)
 
+                        sterol_comp_list.append(orient_flag)
                 # Get number of neighbors of type
 
                 pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
@@ -250,8 +257,6 @@ class EofScd(Neighbors):
                 for lip in self.components:
                     ncomp = [self.resid_to_lipid[N] for N in pair_neibs].count(lip)
                     neib_comp_list.append(ncomp)
-                
-                sterol_comp_list = []
                 
                 # Get number of cholesterol neighbors, that are neighbor to both PLs
                 if 'CHL1' in self.molecules:
@@ -286,6 +291,9 @@ class EofScd(Neighbors):
                     not_shared_neighbors = list(set(neighbors) ^ set(neighbors_neib))
                     not_shared_chol = [self.resid_to_lipid[N]\
                         for N in not_shared_neighbors].count('CHOL')
+
+                    neib_comp_list.append(shared_chol)
+                    neib_comp_list.append(shared_chol + not_shared_chol/2)
                     
                 if 'ERG' in self.molecules:
                     host_erg = [self.resid_to_lipid[N] for N in neighbors if N != neib].count('ERG')
@@ -305,12 +313,6 @@ class EofScd(Neighbors):
                     neib_comp_list.append(shared_erg)
                     neib_comp_list.append(shared_erg + not_shared_erg/2)
                 
-                    sterol_comp_list.append(n_sterol_facing_host)
-                    sterol_comp_list.append(n_sterol_notfacing_host)
-                    sterol_comp_list.append(n_sterol_facing_neib)
-                    sterol_comp_list.append(n_sterol_notfacing_neib)
-                    sterol_comp_list.append(orient_flag)
-
                 # Get order values
                 scd_host = timetoscd[(time, host)]
                 scd_neib = timetoscd[(time, neib)]
@@ -375,3 +377,128 @@ class EofScd(Neighbors):
                                 Etot, vdw_tot, coul_tot,
                                 vdw_sr, vdw_14, coul_sr, coul_14, ntot, nchol, ndppc),
                       file=outf)
+    
+    def create_eofscdfile_slices(self, lipidpair, rmin, rmax, r_interval):
+
+        cutoff_range = np.arange(rmin, rmax, r_interval)
+
+        lipidpair = [lipidpair]
+
+        energyfile = ''.join(['Eofscd', lipidpair[0], '.dat'])
+        
+        for i_c,i in enumerate(cutoff_range):
+
+            r_min, r_max = "{0:2.1f}".format(i), "{0:2.1f}".format(i + r_interval)
+
+            self.assemble_eofs_slices(energyfile, lipidpair, r_min, r_max)
+    
+    def assemble_eofs_slices(self, energyfile, lipidpair, r_min, r_max):
+        
+        components = self.components.copy() # dont change self.components
+        
+        outname = ''.join(['Eofscd_', lipidpair[0],'_', str(r_min), '_', str(r_max), '.dat'])
+        print(outname)
+        with open(energyfile, "r") as efile, open(outname, "w") as outf:
+            # Print header
+            print(\
+                '{: ^8}{: ^8}{: ^15}{: ^8}{: ^15}'\
+                '{: ^15}{: ^18}{: ^15}'\
+                '{: ^15}{: ^15}'\
+                '{: ^15}'\
+                .format("Time", "Host", "Host_Scd", "Neib", "Neib_Scd",
+                            "DeltaScd", "AvgScd",
+                            "Etot", "Evdw",
+                            "Ecoul", "Ntot")\
+                            + (len(components)*'{: <15}').format(*components) + '{: ^15}'.format("Orient_flag"), file=outf)
+                
+            efile.readline()
+            for line in efile:
+                cols = line.split()
+                time = float(cols[0])
+                
+                if time > self.t_end:
+                    continue
+                
+                # Get neighbor dictionary
+                host, neib = int(cols[1]), int(cols[3])
+                
+                original_neighbors_host = self.neiblist[host][float(time)]
+                neighbors = []
+                
+                original_neighbors_neib = self.neiblist[neib][float(time)]
+                neighbors_neib = []
+                
+                resn_host = self.resid_to_lipid[host]
+                resn_neib = self.resid_to_lipid[neib]
+                
+                dt = self.universe.trajectory.dt
+                frame_n = int(time / dt)
+                
+                self.universe.trajectory[frame_n]
+                
+                host_pos = self.universe.select_atoms('resname {} and resid {} and name {}'.format(resn_host, host, lipidmolecules.head_atoms_of(resn_host)[0])).positions
+                neib_pos = self.universe.select_atoms('resname {} and resid {} and name {}'.format(resn_neib, neib, lipidmolecules.head_atoms_of(resn_neib)[0])).positions
+                
+                dist = np.linalg.norm(np.multiply(np.subtract(neib_pos,host_pos),[1,1,0]))
+                
+                if np.abs(dist) < float(r_min)*10 or np.abs(dist) > float(r_max)*10:
+                    continue
+                
+                neighbors = []
+                neighbors_neib = []
+
+                for res in original_neighbors_host:                    
+
+                    resn = self.resid_to_lipid[res]
+
+                    host_pos = self.universe.select_atoms('resname {} and resid {} and name {}'.format(resn_host, host, lipidmolecules.head_atoms_of(resn_host)[0])).positions
+                    neib_pos = self.universe.select_atoms('resname {} and resid {} and name {}'.format(resn, res, lipidmolecules.head_atoms_of(resn)[0])).positions
+
+                    dist = np.linalg.norm(np.multiply(np.subtract(neib_pos,host_pos),[1,1,0]))
+
+                    if np.abs(dist) > float(r_min)*10 and np.abs(dist) < float(r_max)*10:
+                        neighbors.append(res)                 
+                
+                
+                for res in original_neighbors_neib: 
+                                                
+                    resn = self.resid_to_lipid[res]
+
+                    host_pos = self.universe.select_atoms('resname {} and resid {} and name {}'.format(resn_neib, neib, lipidmolecules.head_atoms_of(resn_neib)[0])).positions
+                    neib_pos = self.universe.select_atoms('resname {} and resid {} and name {}'.format(resn, res, lipidmolecules.head_atoms_of(resn)[0])).positions
+                    
+                    dist = np.linalg.norm(np.multiply(np.subtract(neib_pos,host_pos),[1,1,0]))
+
+                    if np.abs(dist) > float(r_min)*10 and np.abs(dist) < float(r_max)*10:
+                        neighbors_neib.append(res)
+                
+                scd_host = float(cols[2])
+                scd_neib = float(cols[4])
+                delta_scd = float(cols[6])
+                avg_scd = float(cols[7])
+                Etot = float(cols[8])
+                VDW  = float(cols[9])
+                COUL = float(cols[10])
+                orient = float(cols[20])
+                
+                neib_comp_list = []
+
+                pair_neibs = list(set(neighbors+neighbors_neib)-set([host])-set([neib]))
+                ntot = len(pair_neibs)
+
+                for lip in self.components:
+                    ncomp = [self.resid_to_lipid[N] for N in pair_neibs].count(lip)
+                    neib_comp_list.append(ncomp)
+                
+                # Write output line
+                print(
+                    '{: <12.1f}{: <10}{: <15.5f}{: <10}{: <15.5f}'
+                    '{: <15}{: <15.5f}{: <15.5f}'
+                    '{: <15.5f}{: <15.5f}'
+                    '{: <15}'\
+                    .format(time, host, scd_host, neib, scd_neib,
+                            delta_scd, avg_scd,
+                            float(Etot), float(VDW),
+                            float(COUL), ntot)\
+                      + (len(neib_comp_list)*'{: <15}').format(*neib_comp_list) + '{: <15}'.format(orient), file=outf)
+                    

@@ -11,6 +11,7 @@ from ..systeminfo import SysInfo
 from ..definitions import lipidmolecules
 import MDAnalysis as mda
 import numpy as np
+import pandas as pd
 
 
 LOGGER = log.LOGGER
@@ -24,10 +25,7 @@ class Tilt_sterol(Order):
     def __init__(self, inputfilename="inputfile"):
         super().__init__(inputfilename)
     
-        self.lipid_type_items = ' '.join(self.molecules)
         self.u = mda.Universe(self.gropath,self.trjpath_whole)  
-        self.sterol_lipid = ''.join(self.molecules[1])
-        print(self.sterol_lipid)
     '''                        
     def tilt_sterol(self,start_time,end_time):
         
@@ -39,7 +37,7 @@ class Tilt_sterol(Order):
                 for i_ts,ts in enumerate(self.u.trajectory[start_time:end_time:]):
                     time = self.u.trajectory.time
                     n_frame += 1
-                    sterol = self.u.select_atoms('resname {}'.format(self.sterol_lipid))
+                    sterol = self.u.select_atoms('resname {}'.format(sterol))
                     calc_s = tilt_sterol
                     resids_list = list(set(sterol.resids))                    
                     tilt_i = 0
@@ -50,7 +48,7 @@ class Tilt_sterol(Order):
                     tilt_mean = tilt_i / len(resids_list)
                     fout.write('{}\t{}\n'.format(time,tilt_mean))
     '''
-    def tilt_data(self,start_frame,end_frame,step):
+    def tilt_data(self, sterol, start_frame, end_frame, step, with_tilt_correction="tilt.csv"):
         n_frame = 0
         ptilt_total = []
         ttilt_total = []
@@ -62,13 +60,37 @@ class Tilt_sterol(Order):
             for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:step]):
                 time = self.u.trajectory.time
                 n_frame += 1
-                sterol = self.u.select_atoms('resname {}'.format(self.sterol_lipid))
-                resids_list = list(set(sterol.resids)) 
+                sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
+                resids_list = list(set(sterol_sel.resids)) 
                 ptilt_i = 0
                 ttilt_i = 0
                 
                 for res in resids_list:
-                    ptilt_value, ttilt_value = self.tilt_calculation(self.u, res)
+
+                    if with_tilt_correction:
+                        try:
+                            dat = pd.read_csv(with_tilt_correction)
+                        except FileNotFoundError:
+                            LOGGER.info("Could not find tilt file. Creating new one.")
+                            dat = pd.read_csv(with_tilt_correction)
+
+                    if with_tilt_correction:
+
+                        new_axis = np.asarray(dat.loc[(dat.time == time)][["x", "y", "z"]]).copy()
+                        LOGGER.debug("Corrected angle %s", new_axis)
+                    else:
+                        new_axis = None
+
+                    leaflet = self.res_to_leaflet[res]
+                    neibs   = self.neiblist[res]
+                    resname = self.resid_to_lipid[res]
+                    
+                    if new_axis is not None:
+                        new_axis_at_t = new_axis[leaflet]
+                    else:
+                        new_axis_at_t = [0,0,1]
+                    
+                    ptilt_value, ttilt_value = self.tilt_calculation(self.u, res, new_axis_at_t)
                     ptilt_i += ptilt_value
                     ttilt_i += ttilt_value
                     ptilt_total.append(ptilt_value)
@@ -82,9 +104,9 @@ class Tilt_sterol(Order):
         # np.savetxt('ptilt_total.dat',np.array(ptilt_total), delimiter=' ')  
         # np.savetxt('ttilt_total.dat',np.array(ttilt_total), delimiter=' ')  
 
-    def tilt_calculation(self, mda_uni, resid):
+    def tilt_calculation(self, mda_uni, resid, new_axis):
         ''' Calculate the tilt angle of sterol molecule   '''
-        
+
         resinfo = mda_uni.atoms.select_atoms("resid {}".format(resid))
 
         resname = list(set(resinfo.resnames))[0]
@@ -92,7 +114,6 @@ class Tilt_sterol(Order):
         tailatms1, tailatms2 = lipidmolecules.scd_tail_atoms_of(resname), lipidmolecules.tail_atoms_of(resname)
         atm1, atm2 = tailatms1[0][0], tailatms1[0][1]
         atm3, atm4 = tailatms2[0][5], tailatms2[0][9]
-
 
         coords1 = mda_uni.select_atoms("resid {}  and name {}".format(resid,atm1)).positions
         coords2 = mda_uni.select_atoms("resid {} and name {} ".format(resid,atm2)).positions
@@ -103,35 +124,42 @@ class Tilt_sterol(Order):
         diffvector1 = np.subtract(coords2[0],coords1[0])
         diffvector2 = np.subtract(coords4[0],coords3[0])
         
-        ptiltangle = np.arccos(np.dot(diffvector1, [0,0,1])/(np.linalg.norm(diffvector1))) * (180/np.pi)
-        ttiltangle = np.arccos(np.dot(diffvector2, [0,0,1])/(np.linalg.norm(diffvector2))) * (180/np.pi)
+        diffvector1 /= np.linalg.norm(diffvector1)
+        diffvector2 /= np.linalg.norm(diffvector2)
+        
+        ptiltangle = np.arccos(np.dot(diffvector1, new_axis)) * (180/np.pi)
+        ttiltangle = np.arccos(np.dot(diffvector2, new_axis)) * (180/np.pi)
         
         if abs(ptiltangle) > 90:
-            ptiltangle = 180 - ptiltangle
+            ptiltangle = np.abs(180 - ptiltangle)
         if abs(ttiltangle) > 90:
-            ttiltangle = 180 - ttiltangle
+            ttiltangle = np.abs(180 - ttiltangle)
 
         return ptiltangle, ttiltangle
     
-    def metylangle_data(self,start_frame,end_frame,step):
+    def metylangle_data(self, sterol, start_frame, end_frame, step):
         n_frame = 0
         metylangle_total = []
-        with open("metylangle_sterol.dat" , 'w') as fout:
+        with open("metylangle_sterol.dat" , 'w') as fout, open('metylangle_sterol_total.dat', 'w') as fout1:
                 
             fout.write('Time\tmetylangle\n')
+            fout1.write('Time\tresid\tmetylangle\n')
             
             for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:step]):
                 time = self.u.trajectory.time
+                print(ts.frame)
                 n_frame += 1
-                sterol = self.u.select_atoms('resname {}'.format(self.sterol_lipid))
+                sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
                 
-                resids_list = list(set(sterol.resids)) 
+                resids_list = list(set(sterol_sel.resids)) 
                 metylangle_i = 0
                 
                 for res in resids_list:
                     metylangle_value = self.metylangle_calc(self.u, res)
                     metylangle_i += metylangle_value
                     metylangle_total.append(metylangle_value)
+                    
+                    fout1.write('{}\t{}\t{}\n'.format(time, res, metylangle_value))
                 
                 metylangle_mean = metylangle_i / len(resids_list)
                 

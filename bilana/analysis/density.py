@@ -462,7 +462,7 @@ class Density(Neighbors):
         
         for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
             time = self.u.trajectory.time
-            
+            print(ts.frame)
             mda.analysis.align.alignto(self.u.atoms, rotated_ref.atoms, select='resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms))))       
 
             for res_s in self.MOLRANGE:
@@ -495,8 +495,25 @@ class Density(Neighbors):
                             neib_list.append(res)
                 
                 flattened_carbons = [y for x in lipidmolecules.tailcarbons_of(lipid) for y in x]
+                
+                # flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][0] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][0] +' '+ \
+                #     lipidmolecules.tailcarbons_of(lipid)[0][7] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][7] +' '+\
+                #         lipidmolecules.tailcarbons_of(lipid)[0][14] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][14]
+                
+                # flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][:len(lipidmolecules.tailcarbons_of(lipid)[0])//2] +\
+                #     lipidmolecules.tailcarbons_of(lipid)[1][:len(lipidmolecules.tailcarbons_of(lipid)[1])//2]
+                
+                #flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][7]
+                
+                #print(flattened_carbons)
+                
                 tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
-                #print(tail_carbons_xyz)
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons)))).positions
+                
+                #print("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons))))
+                
                 tail_carbons_xyz -= np.array(sterol_ref_center)
                 hist1,x_bins1,y_bins1 = np.histogram2d(tail_carbons_xyz[:,0].flatten(),tail_carbons_xyz[:,1].flatten(), (x_edges,y_edges))
                 H_lipidchains += hist1
