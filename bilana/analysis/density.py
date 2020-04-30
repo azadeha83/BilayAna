@@ -129,7 +129,7 @@ class Density(Neighbors):
         out, err = exec_gromacs(get_density)
 
 
-    def density_2D(self, sterol, sterol_resid, lipid, bin_width, start_frame, end_frame, time_interval):
+    def density_2D(self, sterol, sterol_resid, lipid, bin_width, start, end, interval):
         ''' This function calculated the density of lipid tails around a specific sterol'''
              
         ref = mda.Universe('{}'.format(self.gropath))         
@@ -184,6 +184,12 @@ class Density(Neighbors):
         H_lipidchains = 0
         volume = bin_width**2
         
+        dt = self.u.trajectory.dt
+
+        start_frame = int(start / dt)
+        end_frame = int(end / dt)
+        time_interval = int(interval / dt)
+
         for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
             time = self.u.trajectory.time
             
@@ -406,10 +412,10 @@ class Density(Neighbors):
         
         np.save('density_2d_sterol.dat',c)
 
-    def density_2D_all_sterols(self, sterol, sterol_resid, lipid, bin_width, start_frame, end_frame, time_interval):
+    def density_2D_all_sterols(self, sterol, sterol_resid, lipid, bin_width, start, end, interval):
         ''' This function calculated the density of lipid tails around a specific sterol'''
         
-        ref = mda.Universe('{}'.format(self.gropath))         
+        ref = mda.Universe('{}'.format(self.initgropath))         
         
         sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[7] + ' ' + lipidmolecules.head_atoms_of(sterol)[11]
         #sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[18] 
@@ -453,18 +459,32 @@ class Density(Neighbors):
         y_edges = np.arange(y_min,y_max,bin_width)
 
         sterol_ref_center = sterol_sel_ref.center_of_geometry()
+
+        sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
+                
+        resid_list = list(set(sterol_sel.resids)) 
                        
         n_frame = 0
         H_sterol_edges = 0
         H_sterol_methyl = 0
         H_lipidchains = 0
         volume = bin_width**2
+
+        H_chains = [0 for i in range(len(resid_list))]
         
+        dt = self.u.trajectory.dt
+
+        start_frame = int(start / dt)
+        end_frame = int(end / dt)
+        time_interval = int(interval / dt)
+
         for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
             time = self.u.trajectory.time
             print(ts.frame)
             mda.analysis.align.alignto(self.u.atoms, rotated_ref.atoms, select='resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms))))       
-
+            
+            i_s = 0
+            
             for res_s in self.MOLRANGE:
                 resn_s = self.resid_to_lipid[res_s]
                     
@@ -518,7 +538,10 @@ class Density(Neighbors):
                 hist1,x_bins1,y_bins1 = np.histogram2d(tail_carbons_xyz[:,0].flatten(),tail_carbons_xyz[:,1].flatten(), (x_edges,y_edges))
                 H_lipidchains += hist1
                 
-                n_frame += 1
+                H_chains[i_s] += hist1
+
+                i_s += 1
+            n_frame += 1
 
         H_sterol_edges = np.true_divide(H_sterol_edges,volume)
         H_sterol_methyl = np.true_divide(H_sterol_methyl,volume)
@@ -526,7 +549,14 @@ class Density(Neighbors):
         H_sterol_edges /= n_frame
         H_sterol_methyl /= n_frame
         H_lipidchains /= n_frame
+
+        H_chains = [H_chains[i]/n_frame for i in range(len(H_chains))]
+        H_chains = [H_chains[i]/volume for i in range(len(H_chains))]
         
+        # print(len(H_chains))
+        # print(np.array(H_chains))
+        # print(np.shape(np.array(H_chains)))
+
         a = np.array(H_sterol_edges)
         b = np.array(H_sterol_methyl)
         c = np.array(H_lipidchains)
@@ -536,6 +566,7 @@ class Density(Neighbors):
         np.save('density_2d_sterol_edges_all.dat',a)
         np.save('density_2d_sterol_methyl_all.dat',b)
         np.save('density_2d_lipidchains_all.dat',c)
+        np.save('density_2d_lipidchains_all_sterols.dat',np.array(H_chains))
     
     def density_2D_sterol_all(self, sterol, sterol_resid, bin_width, start_frame, end_frame, time_interval):
         ''' This function calculated the density of lipid tails around a specific sterol'''

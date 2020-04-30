@@ -86,6 +86,7 @@ class SysInfo():
             self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
         else:
             self.trjpath    = '{}/md_trj/{}_{}_14us.xtc'.format(self.mdfilepath, self.system, self.temperature)
+            self.trjpath_total    = '{}/md_trj/{}_{}.xtc'.format(self.mdfilepath, self.system, self.temperature)
             
         self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)
         self.initgropath    = '{}/initial_coords/{}_init.gro'.format(self.mdfilepath, self.system)
