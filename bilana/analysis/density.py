@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 from scipy.fftpack import fft, fftfreq
 from matplotlib.backends.backend_pdf import PdfPages
 from ..files.io import *
+from MDAnalysis.analysis import align
+from MDAnalysis.analysis.rms import rmsd
 
 LOGGER = log.LOGGER
 
@@ -157,15 +159,15 @@ class Density(Neighbors):
 
         rotated_ref = mda.Universe('{}'.format('rotated_grofile.pdb')) 
                 
-        headatms = lipidmolecules.head_atoms_of(sterol)[:18]
+        headatms = lipidmolecules.head_atoms_of(sterol)[:20]
         #headatms = lipidmolecules.head_atoms_of(sterol)
         
         C_sterol_edgeatoms = rotated_ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
         
-        sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
+        #sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
         sterol_sel_ref = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ''.join(map(str, sterol_edgeatoms))))
 
-        C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        #C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
         
         sterol_ref_center = sterol_sel_ref.center_of_geometry()
         sterol_ref_center -= np.array(sterol_ref_center)
@@ -193,16 +195,20 @@ class Density(Neighbors):
         for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
             time = self.u.trajectory.time
             
-            mda.analysis.align.alignto(self.u.atoms, rotated_ref.atoms, select='resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms))))       
+            mda.analysis.align.alignto(self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms))))\
+                , rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms)))), select='all')         
             
             sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[7] + ' ' + lipidmolecules.head_atoms_of(sterol)[11] 
             sterol_methylatom = lipidmolecules.head_atoms_of(sterol)[18]
+
+            self.u.atoms.translate(-sterol_ref_center)
+
             
             C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
-            C_sterol_edgeatoms -= np.array(sterol_ref_center)
+            #C_sterol_edgeatoms -= np.array(sterol_ref_center)
 
             C_sterol_methylatom = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_methylatom)).positions
-            C_sterol_methylatom -= np.array(sterol_ref_center)
+            #C_sterol_methylatom -= np.array(sterol_ref_center)
             
             hist_edges,x_bins,y_bins = np.histogram2d(C_sterol_edgeatoms[:,0].flatten(),C_sterol_edgeatoms[:,1].flatten(), (x_edges,y_edges))
             H_sterol_edges += hist_edges
@@ -221,7 +227,7 @@ class Density(Neighbors):
             flattened_carbons = [y for x in lipidmolecules.tailcarbons_of(lipid) for y in x]
             tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
             #print(tail_carbons_xyz)
-            tail_carbons_xyz -= np.array(sterol_ref_center)
+            #tail_carbons_xyz -= np.array(sterol_ref_center)
             hist1,x_bins1,y_bins1 = np.histogram2d(tail_carbons_xyz[:,0].flatten(),tail_carbons_xyz[:,1].flatten(), (x_edges,y_edges))
             H_lipidchains += hist1
             
@@ -364,10 +370,10 @@ class Density(Neighbors):
         
         C_sterol_edgeatoms = rotated_ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
         
-        sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
+        #sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
         sterol_sel_ref = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ''.join(map(str, sterol_edgeatoms))))
 
-        C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        #C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
         
         sterol_ref_center = sterol_sel_ref.center_of_geometry()
         sterol_ref_center -= np.array(sterol_ref_center)
@@ -412,10 +418,10 @@ class Density(Neighbors):
         
         np.save('density_2d_sterol.dat',c)
 
-    def density_2D_all_sterols(self, sterol, sterol_resid, lipid, bin_width, start, end, interval):
+    def density_2D_all_sterols_0(self, sterol, sterol_resid, lipid, bin_width, start, end, interval):
         ''' This function calculated the density of lipid tails around a specific sterol'''
         
-        ref = mda.Universe('{}'.format(self.initgropath))         
+        ref = mda.Universe('{}'.format(self.gropath))         
         
         sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[7] + ' ' + lipidmolecules.head_atoms_of(sterol)[11]
         #sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[18] 
@@ -444,10 +450,10 @@ class Density(Neighbors):
         
         C_sterol_edgeatoms = rotated_ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
         
-        sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
+        #sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
         sterol_sel_ref = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ''.join(map(str, sterol_edgeatoms))))
 
-        C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        #C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
         
         sterol_ref_center = sterol_sel_ref.center_of_geometry()
         sterol_ref_center -= np.array(sterol_ref_center)
@@ -567,8 +573,8 @@ class Density(Neighbors):
         np.save('density_2d_sterol_methyl_all.dat',b)
         np.save('density_2d_lipidchains_all.dat',c)
         np.save('density_2d_lipidchains_all_sterols.dat',np.array(H_chains))
-    
-    def density_2D_sterol_all(self, sterol, sterol_resid, bin_width, start_frame, end_frame, time_interval):
+
+    def density_2D_all_sterols_1(self, sterol, sterol_resid, lipid, bin_width, start, end, interval):
         ''' This function calculated the density of lipid tails around a specific sterol'''
         
         ref = mda.Universe('{}'.format(self.gropath))         
@@ -595,12 +601,350 @@ class Density(Neighbors):
 
         rotated_ref = mda.Universe('{}'.format('rotated_grofile.pdb')) 
                 
-        #headatms = lipidmolecules.head_atoms_of(sterol)[:18]
-        headatms = lipidmolecules.head_atoms_of(sterol)
+        headatms = lipidmolecules.head_atoms_of(sterol)[:20]
+        #headatms = lipidmolecules.head_atoms_of(sterol)
         
         C_sterol_edgeatoms = rotated_ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
         
-        sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
+        #sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
+        sterol_sel_ref = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ''.join(map(str, sterol_edgeatoms))))
+
+        #C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        
+        sterol_ref_center = sterol_sel_ref.center_of_geometry()
+        sterol_ref_center -= np.array(sterol_ref_center)
+            
+        x_min, x_max = sterol_ref_center[0] - 30 , sterol_ref_center[0] + 30
+        y_min, y_max = sterol_ref_center[1] - 30 , sterol_ref_center[1] + 30
+        
+        x_edges = np.arange(x_min,x_max,bin_width)
+        y_edges = np.arange(y_min,y_max,bin_width)
+
+        sterol_ref_center = sterol_sel_ref.center_of_geometry()
+
+        sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
+                
+        resid_list = list(set(sterol_sel.resids)) 
+                       
+        n_frame = 0
+        H_sterol_edges = 0
+        H_sterol_methyl = 0
+        H_lipidchains = 0
+        volume = bin_width**2
+
+        H_chains = [0 for i in range(len(resid_list))]
+        
+        dt = self.u.trajectory.dt
+
+        start_frame = int(start / dt)
+        end_frame = int(end / dt)
+        time_interval = int(interval / dt)
+
+        for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
+            time = self.u.trajectory.time
+            print(ts.frame)
+            
+            i_s = 0
+            
+            for i_res,res_s in enumerate(resid_list):
+                
+                sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[7] + ' ' + lipidmolecules.head_atoms_of(sterol)[11] 
+                sterol_methylatom = lipidmolecules.head_atoms_of(sterol)[18]
+
+                sterol_sel_ref_mobile = self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res_s, ''.join(map(str, sterol_edgeatoms))))
+                sterol_ref_center_mobile = sterol_sel_ref_mobile.center_of_geometry()
+
+
+                ref0 = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms)))).positions - sterol_ref_center
+                mobile0 = self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res_s, ' '.join(map(str, headatms)))).positions - sterol_ref_center_mobile
+                # ref0 = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms)))).positions 
+                # mobile0 = self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res_s, ' '.join(map(str, headatms)))).positions
+                
+                R, rmsd = mda.analysis.align.rotation_matrix(mobile0, ref0)
+
+                self.u.atoms.translate(-sterol_ref_center_mobile)
+                self.u.atoms.rotate(R)
+                #self.u.atoms.translate(sterol_ref_center)
+
+                C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, res_s, sterol_edgeatoms)).positions
+                
+                # self.u.atoms.translate(-np.array(sterol_ref_center))
+                # self.u.atoms.rotate(R)
+
+                #C_sterol_edgeatoms -= np.array(sterol_ref_center)
+                
+                #C_sterol_edgeatoms = np.dot(R,C_sterol_edgeatoms.transpose()).transpose()
+
+                C_sterol_methylatom = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, res_s, sterol_methylatom)).positions
+                
+                #C_sterol_methylatom -= np.array(sterol_ref_center)
+                
+                #C_sterol_methylatom = np.dot(R,C_sterol_methylatom.transpose()).transpose()
+                
+                hist_edges,x_bins,y_bins = np.histogram2d(C_sterol_edgeatoms[:,0].flatten(),C_sterol_edgeatoms[:,1].flatten(), (x_edges,y_edges))
+                H_sterol_edges += hist_edges
+
+                hist_methyl,x_bins,y_bins = np.histogram2d(C_sterol_methylatom[:,0].flatten(),C_sterol_methylatom[:,1].flatten(), (x_edges,y_edges))
+                H_sterol_methyl += hist_methyl
+
+                neibs = self.neiblist[res_s][float(time)]
+                neib_list = []
+                if len(neibs) != 0:
+                    for res in neibs:
+                        resn = self.resid_to_lipid[res]
+                        if resn not in lipidmolecules.STEROLS:
+                            neib_list.append(res)
+                
+                flattened_carbons = [y for x in lipidmolecules.tailcarbons_of(lipid) for y in x]
+                
+                # flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][0] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][0] +' '+ \
+                #     lipidmolecules.tailcarbons_of(lipid)[0][7] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][7] +' '+\
+                #         lipidmolecules.tailcarbons_of(lipid)[0][14] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][14]
+                
+                # flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][:len(lipidmolecules.tailcarbons_of(lipid)[0])//2] +\
+                #     lipidmolecules.tailcarbons_of(lipid)[1][:len(lipidmolecules.tailcarbons_of(lipid)[1])//2]
+                
+                #flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][7]
+                
+                #print(flattened_carbons)
+                
+                tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons)))).positions
+                
+                #print("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons))))
+                
+                #tail_carbons_xyz -= np.array(sterol_ref_center)
+                #tail_carbons_xyz = np.dot(R,tail_carbons_xyz.transpose()).transpose()
+
+                hist1,x_bins1,y_bins1 = np.histogram2d(tail_carbons_xyz[:,0].flatten(),tail_carbons_xyz[:,1].flatten(), (x_edges,y_edges))
+                H_lipidchains += hist1
+                
+                H_chains[i_s] += hist1
+
+                i_s += 1
+            n_frame += 1
+
+        H_sterol_edges = np.true_divide(H_sterol_edges,volume)
+        H_sterol_methyl = np.true_divide(H_sterol_methyl,volume)
+        H_lipidchains = np.true_divide(H_lipidchains,volume)
+        H_sterol_edges /= n_frame
+        H_sterol_methyl /= n_frame
+        H_lipidchains /= n_frame
+
+        H_chains = [H_chains[i]/n_frame for i in range(len(H_chains))]
+        H_chains = [H_chains[i]/volume for i in range(len(H_chains))]
+        
+        # print(len(H_chains))
+        # print(np.array(H_chains))
+        # print(np.shape(np.array(H_chains)))
+
+        a = np.array(H_sterol_edges)
+        b = np.array(H_sterol_methyl)
+        c = np.array(H_lipidchains)
+        
+        np.save('x_edges_density.dat',x_edges)
+        np.save('y_edges_density.dat',y_edges)
+        np.save('density_2d_sterol_edges_all.dat',a)
+        np.save('density_2d_sterol_methyl_all.dat',b)
+        np.save('density_2d_lipidchains_all.dat',c)
+        np.save('density_2d_lipidchains_all_sterols.dat',np.array(H_chains))
+
+    def density_2D_all_sterols(self, sterol, sterol_resid, lipid, bin_width, start, end, interval):
+        ''' This function calculated the density of lipid tails around a specific sterol'''
+        
+        ref = mda.Universe('{}'.format(self.gropath))         
+        
+        sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[7] + ' ' + lipidmolecules.head_atoms_of(sterol)[11]
+        #sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[18] 
+        C_sterol_edgeatoms = ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        
+        v1 = np.subtract(C_sterol_edgeatoms[0,:],C_sterol_edgeatoms[1,:])
+        v1[2] = 0
+        
+        theta = np.arccos(np.dot(v1, [0,1,0])/(np.linalg.norm(v1))) * (180/np.pi)
+        
+        if v1[0] > 0 and v1[1] > 0:
+            angle = theta
+        elif v1[0] > 0 and v1[1] < 0:
+            angle = theta
+        elif v1[0] < 0 and v1[1] > 0:
+            angle = -theta
+        elif v1[0] < 0 and v1[1] < 0:
+            angle = -theta
+
+        os.system('python /home/aalaviza/software/BilAna/bilana/analysis/rotate.py {} {} {} {}'.format(self.gropath, "z", angle, 'rotated_grofile'))
+
+        rotated_ref = mda.Universe('{}'.format('rotated_grofile.pdb')) 
+                
+        headatms = lipidmolecules.head_atoms_of(sterol)[:20]
+        #headatms = lipidmolecules.head_atoms_of(sterol)
+        
+        C_sterol_edgeatoms = rotated_ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        
+        #sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
+        sterol_sel_ref = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ''.join(map(str, sterol_edgeatoms))))
+
+        #C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        
+        sterol_ref_center = sterol_sel_ref.center_of_geometry()
+        sterol_ref_center -= np.array(sterol_ref_center)
+            
+        x_min, x_max = sterol_ref_center[0] - 30 , sterol_ref_center[0] + 30
+        y_min, y_max = sterol_ref_center[1] - 30 , sterol_ref_center[1] + 30
+        
+        x_edges = np.arange(x_min,x_max,bin_width)
+        y_edges = np.arange(y_min,y_max,bin_width)
+
+        sterol_ref_center = sterol_sel_ref.center_of_geometry()
+
+        sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
+                
+        resid_list = list(set(sterol_sel.resids)) 
+                       
+        n_frame = 0
+        H_sterol_edges = 0
+        H_sterol_methyl = 0
+        H_lipidchains = 0
+        volume = bin_width**2
+
+        H_chains = [0 for i in range(len(resid_list))]
+        
+        dt = self.u.trajectory.dt
+
+        start_frame = int(start / dt)
+        end_frame = int(end / dt)
+        time_interval = int(interval / dt)
+
+        for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
+            time = self.u.trajectory.time
+            print(ts.frame)
+            
+            i_s = 0
+            
+            for i_res,res_s in enumerate(resid_list):
+                
+                sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[7] + ' ' + lipidmolecules.head_atoms_of(sterol)[11] 
+                sterol_methylatom = lipidmolecules.head_atoms_of(sterol)[18]
+
+                sterol_sel_ref_mobile = self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res_s, ''.join(map(str, sterol_edgeatoms))))
+                sterol_ref_center_mobile = sterol_sel_ref_mobile.center_of_geometry()
+                
+                mda.analysis.align.alignto(self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res_s, ' '.join(map(str, headatms))))\
+                , rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms)))), select='all')     
+
+                
+                self.u.atoms.translate(-sterol_ref_center)
+                
+
+                C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, res_s, sterol_edgeatoms)).positions
+                
+
+                C_sterol_methylatom = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, res_s, sterol_methylatom)).positions                
+                
+                
+                hist_edges,x_bins,y_bins = np.histogram2d(C_sterol_edgeatoms[:,0].flatten(),C_sterol_edgeatoms[:,1].flatten(), (x_edges,y_edges))
+                H_sterol_edges += hist_edges
+
+                hist_methyl,x_bins,y_bins = np.histogram2d(C_sterol_methylatom[:,0].flatten(),C_sterol_methylatom[:,1].flatten(), (x_edges,y_edges))
+                H_sterol_methyl += hist_methyl
+
+                neibs = self.neiblist[res_s][float(time)]
+                neib_list = []
+                if len(neibs) != 0:
+                    for res in neibs:
+                        resn = self.resid_to_lipid[res]
+                        if resn not in lipidmolecules.STEROLS:
+                            neib_list.append(res)
+                
+                flattened_carbons = [y for x in lipidmolecules.tailcarbons_of(lipid) for y in x]
+                
+                # flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][0] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][0] +' '+ \
+                #     lipidmolecules.tailcarbons_of(lipid)[0][7] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][7] +' '+\
+                #         lipidmolecules.tailcarbons_of(lipid)[0][14] + ' ' + lipidmolecules.tailcarbons_of(lipid)[1][14]
+                
+                # flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][:len(lipidmolecules.tailcarbons_of(lipid)[0])//2] +\
+                #     lipidmolecules.tailcarbons_of(lipid)[1][:len(lipidmolecules.tailcarbons_of(lipid)[1])//2]
+                
+                #flattened_carbons = lipidmolecules.tailcarbons_of(lipid)[0][7]
+                
+                #print(flattened_carbons)
+                
+                tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
+                #tail_carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons)))).positions
+                
+                #print("resname {} and resid {} and name {}".format(lipid, ' '.join(map(str, neib_list)), ''.join(map(str, flattened_carbons))))
+                
+                #tail_carbons_xyz = np.dot(R,tail_carbons_xyz.transpose()).transpose()
+
+                hist1,x_bins1,y_bins1 = np.histogram2d(tail_carbons_xyz[:,0].flatten(),tail_carbons_xyz[:,1].flatten(), (x_edges,y_edges))
+                H_lipidchains += hist1
+                
+                H_chains[i_s] += hist1
+
+                i_s += 1
+            n_frame += 1
+
+        H_sterol_edges = np.true_divide(H_sterol_edges,volume)
+        H_sterol_methyl = np.true_divide(H_sterol_methyl,volume)
+        H_lipidchains = np.true_divide(H_lipidchains,volume)
+        H_sterol_edges /= (n_frame*i_s)
+        H_sterol_methyl /= (n_frame*i_s)
+        H_lipidchains /= (n_frame*i_s)
+
+        H_chains = [H_chains[i]/(n_frame*volume*i_s) for i in range(len(H_chains))]
+        
+        # print(len(H_chains))
+        # print(np.array(H_chains))
+        # print(np.shape(np.array(H_chains)))
+
+        a = np.array(H_sterol_edges)
+        b = np.array(H_sterol_methyl)
+        c = np.array(H_lipidchains)
+        
+        np.save('x_edges_density.dat',x_edges)
+        np.save('y_edges_density.dat',y_edges)
+        np.save('density_2d_sterol_edges_all.dat',a)
+        np.save('density_2d_sterol_methyl_all.dat',b)
+        np.save('density_2d_lipidchains_all.dat',c)
+        np.save('density_2d_lipidchains_all_sterols.dat',np.array(H_chains))
+    
+    def density_2D_sterol_all(self, sterol, sterol_resid, bin_width, start, end, interval):
+        ''' This function calculated the density of lipid tails around a specific sterol'''
+        
+        ref = mda.Universe('{}'.format(self.gropath))         
+        
+        sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[7] + ' ' + lipidmolecules.head_atoms_of(sterol)[11]
+        #sterol_edgeatoms = lipidmolecules.head_atoms_of(sterol)[18] 
+        C_sterol_edgeatoms = ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        
+        v1 = np.subtract(C_sterol_edgeatoms[0,:],C_sterol_edgeatoms[1,:])
+        v1[2] = 0
+        
+        theta = np.arccos(np.dot(v1, [0,1,0])/(np.linalg.norm(v1))) * (180/np.pi)
+        
+        if v1[0] > 0 and v1[1] > 0:
+            angle = theta
+        elif v1[0] > 0 and v1[1] < 0:
+            angle = theta
+        elif v1[0] < 0 and v1[1] > 0:
+            angle = -theta
+        elif v1[0] < 0 and v1[1] < 0:
+            angle = -theta
+
+        os.system('python /home/aalaviza/software/BilAna/bilana/analysis/rotate.py {} {} {} {}'.format(self.gropath, "z", angle, 'rotated_grofile'))
+
+        rotated_ref = mda.Universe('{}'.format('rotated_grofile.pdb')) 
+                
+        headatms = lipidmolecules.head_atoms_of(sterol)[:20]
+        #headatms = lipidmolecules.head_atoms_of(sterol)
+        
+        C_sterol_edgeatoms = rotated_ref.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
+        
+        #sterol_sel_ref = ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, sterol_edgeatoms))))
         sterol_sel_ref = rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ''.join(map(str, sterol_edgeatoms))))
 
         C_sterol_edgeatoms = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, sterol_resid, sterol_edgeatoms)).positions
@@ -608,30 +952,40 @@ class Density(Neighbors):
         sterol_ref_center = sterol_sel_ref.center_of_geometry()
         sterol_ref_center -= np.array(sterol_ref_center)
             
-        x_min, x_max = sterol_ref_center[0] - 20 , sterol_ref_center[0] + 20
-        y_min, y_max = sterol_ref_center[1] - 20 , sterol_ref_center[1] + 20
+        x_min, x_max = sterol_ref_center[0] - 30 , sterol_ref_center[0] + 30
+        y_min, y_max = sterol_ref_center[1] - 30 , sterol_ref_center[1] + 30
         
         x_edges = np.arange(x_min,x_max,bin_width)
         y_edges = np.arange(y_min,y_max,bin_width)
 
         sterol_ref_center = sterol_sel_ref.center_of_geometry()
+        
+        sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
+                
+        resid_list = list(set(sterol_sel.resids))
                        
         n_frame = 0
         H_sterol = 0
         volume = bin_width**2
+
+        dt = self.u.trajectory.dt
+
+        start_frame = int(start / dt)
+        end_frame = int(end / dt)
+        time_interval = int(interval / dt)
         
         for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
             time = self.u.trajectory.time
             
-            mda.analysis.align.alignto(self.u.atoms, rotated_ref.atoms, select='resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms))))       
 
-            for res_s in self.MOLRANGE:
-                resn_s = self.resid_to_lipid[res_s]
-                    
-                if resn_s not in lipidmolecules.STEROLS:
-                    continue  
+            for i_res,res_s in enumerate(resid_list):
+
+                mda.analysis.align.alignto(self.u.select_atoms('resname {} and resid {} and name {}'.format(sterol, res_s, ' '.join(map(str, headatms))))\
+                    , rotated_ref.select_atoms('resname {} and resid {} and name {}'.format(sterol, sterol_resid, ' '.join(map(str, headatms)))), select='all') 
+                
+                self.u.atoms.translate(-sterol_ref_center)
     
-                neibs = self.neiblist[sterol_resid][float(time)]
+                neibs = self.neiblist[res_s][float(time)]
                 neib_list = []
                 if len(neibs) != 0:
                     for res in neibs:
@@ -641,14 +995,15 @@ class Density(Neighbors):
                 
                 flattened_carbons = lipidmolecules.head_atoms_of(sterol)[:18]
                 carbons_xyz = self.u.select_atoms("resname {} and resid {} and name {}".format(sterol, ' '.join(map(str, neib_list)), ' '.join(map(str, flattened_carbons)))).positions
-                carbons_xyz -= np.array(sterol_ref_center)
-                hist1,x_bins1,y_bins1 = np.histogram2d(carbons_xyz[:,0].flatten(),carbons_xyz[:,1].flatten(), (x_edges,y_edges))
+                #carbons_xyz -= np.array(sterol_ref_center)
+                hist1,x_bins1,y_bins1 = np.histogram2d(carbons_xyz[:,0].flatten(), carbons_xyz[:,1].flatten(), (x_edges,y_edges))
                 H_sterol += hist1
                 
-                n_frame += 1
+            n_frame += 1
         
         H_sterol = np.true_divide(H_sterol,volume)
         H_sterol /= n_frame
+        H_sterol /= len(resid_list)
         
         c = np.array(H_sterol)
         

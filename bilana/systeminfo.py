@@ -60,8 +60,12 @@ class SysInfo():
                 ls = f.readlines()
                 if ls[0].strip() == 'all_atom':
                     self.ff = 'all_atom'
-                else:
+                
+                elif ls[0].strip() == 'coarse':
                     self.ff = 'coarse'
+                else:
+                    self.ff = 'coarse_tmd'
+                    
         except FileNotFoundError:
             LOGGER.info("Could not find the force field file.")
 
@@ -84,8 +88,12 @@ class SysInfo():
 
         if self.ff == 'all_atom':
             self.trjpath    = '{}/md_trj/{}_{}.trr'.format(self.mdfilepath, self.system, self.temperature)
-        else:
+        
+        elif self.ff == 'coarse':
             self.trjpath    = '{}/md_trj/{}_{}_14us.xtc'.format(self.mdfilepath, self.system, self.temperature)
+            self.trjpath_total    = '{}/md_trj/{}_{}.xtc'.format(self.mdfilepath, self.system, self.temperature)
+        else:
+            self.trjpath    = '{}/md_trj/{}_{}.xtc'.format(self.mdfilepath, self.system, self.temperature)
             self.trjpath_total    = '{}/md_trj/{}_{}.xtc'.format(self.mdfilepath, self.system, self.temperature)
             
         self.gropath    = '{}/initial_coords/{}.gro'.format(self.mdfilepath, self.system)

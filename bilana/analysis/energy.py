@@ -22,7 +22,7 @@ class Energy(SysInfo):
         For more information see its docstring
     '''
 
-    DENOMINATOR = 40
+    DENOMINATOR = 60
     LOGGER = LOGGER
 
     def __init__(self,

@@ -35,6 +35,7 @@ if ff == 'all_atom':
 else:
     HEADATM = {
         'PC':['PO4', 'NC3'],
+        'PS':['PO4', 'CNO'],
             }
 
 if ff == 'all_atom':
@@ -66,7 +67,11 @@ else:
         'DI':[['C1A', 'D2A', 'D3A', 'C4A'],                              #14:0
             ['C1B', 'D2B', 'D3B', 'C4B']],
         'DU':[['C1A', 'D2A', 'D3A', 'C4A'],                              #14:0
-            ['C1B', 'D2B', 'D3B', 'C4B']],                             #14:0                             #14:0
+            ['C1B', 'D2B', 'D3B', 'C4B']],
+        'DO':[['C1A', 'D2A', 'C3A', 'C4A'],                              #14:0
+            ['C1B', 'D2B', 'C3B', 'C4B']], 
+        'PO':[['C1A', 'D2A', 'C3A', 'C4A'],                              #14:0
+            ['C1B', 'C2B', 'C3B', 'C4B']],                                            #14:0                             #14:0
                 }
 
 if ff == 'all_atom':
@@ -147,8 +152,10 @@ else:
         'DP':[TAILCARBS['DP'][0][::1], TAILCARBS['DP'][1][::1]],
         'DI':[TAILCARBS['DI'][0][::1], TAILCARBS['DI'][1][::1]],
         'DU':[TAILCARBS['DU'][0][::1], TAILCARBS['DU'][1][::1]],
+        'DO':[TAILCARBS['DO'][0][::1], TAILCARBS['DO'][1][::1]],
+        'PO':[TAILCARBS['PO'][0][::1], TAILCARBS['PO'][1][::1]],
         'CHOL':[['R1', 'R5']],
-        'ERG':[['R1', 'R5']],
+        'ERGO':[['R1', 'R5']],
                         }
 
 if ff == 'all_atom':
@@ -198,9 +205,11 @@ else:
     TAIL_ATOMS_OF = {\
         'DP':[TAILCARBS['DP'][0], TAILCARBS['DP'][1],],
         'DI':[TAILCARBS['DI'][0], TAILCARBS['DI'][1],],
+        'DO':[TAILCARBS['DO'][0], TAILCARBS['DO'][1],],
+        'PO':[TAILCARBS['PO'][0], TAILCARBS['PO'][1],],
 
         'CHOL':[['C1', 'C2']],
-        'ERG':[['C1', 'C2']],
+        'ERGO':[['C1', 'C2']],
                 }
 
 if ff == 'all_atom':
@@ -222,7 +231,7 @@ else:
     CENTRAL_ATOM_OF = {
         'PC':'P',
         'CHOL':'ROH',
-        'ERG':'ROH',
+        'ERGO':'ROH',
                     }
 
 if ff == 'all_atom':
@@ -230,14 +239,14 @@ if ff == 'all_atom':
     INCLUDED_TAILS = ['DP', 'DM', 'DS', 'DO', 'DY', 'DU', 'PO', 'PL']
     INCLUDED_HEADS = ['PC', 'PE', 'PS', 'PI', 'PA']
     STEROLS        = ['CHL1', 'CHIM', 'CH0M', 'ERG', 'ch1m']
-    PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD']
+    PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD', 'ASN','HIS']
     SOLVENTS       = ["TIP3", "SOL", "CL", "POT", "NA"]
     SHORTESTCHAIN  = len(TAILCARBS['DM'])
 else:
-    INCLUDED_TAILS = ['DP', 'DI', 'DU']
+    INCLUDED_TAILS = ['DP', 'DI', 'DU', 'DO', 'PO']
     INCLUDED_HEADS = ['PC']
     STEROLS        = ['CHOL', 'ERG']
-    PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD']
+    PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD', 'ASN','HIS']
     SOLVENTS       = ["W", "TIP3", "SOL", "CL", "POT", "NA"]
     SHORTESTCHAIN  = len(TAILCARBS['DP'])
 

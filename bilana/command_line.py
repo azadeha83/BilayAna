@@ -131,8 +131,8 @@ def calc_scd(systemname, temperature, jobname, *args,
             '\nfrom bilana.analysis.order import Order, calc_tilt'
             '\ncalc_tilt(SysInfo())'
             '\nOrder(inputfilename="{0}").create_orderfile(parallel=False)'
-            '\norder_inst = Order(inputfilename="{0}")'
-            '\norder_inst.create_orientationfile()'
+            # '\norder_inst = Order(inputfilename="{0}")'
+            # '\norder_inst.create_orientationfile()'
             #'\nOrder(inputfilename="{0}").create_orderfile(outputfile="scd_for_tilt.dat", parallel=False)'
             #'\nOrder(inputfilename="{0}").create_orderfile(outputfile="scd_distribution_uncorrected.dat", with_tilt_correction=None, parallel=False)'
             '\nos.remove(sys.argv[0])'.format(inputfilename),
