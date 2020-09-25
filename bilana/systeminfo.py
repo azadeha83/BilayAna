@@ -103,7 +103,9 @@ class SysInfo():
         self.edrpath    = '{}/enr/{}_{}.edr'.format(self.mdfilepath, self.system, self.temperature)
 
         self.trjpath_whole = '{}/md_trj/{}_{}_whole.xtc'.format(self.mdfilepath, self.system, self.temperature)
-
+        self.trjpath_nojump = '{}/md_trj/{}_{}_nojump.xtc'.format(self.mdfilepath, self.system, self.temperature)
+        self.trjpath_nojump_mol = '{}/md_trj/{}_{}_nojump_mol.xtc'.format(self.mdfilepath, self.system, self.temperature)
+        
         # Check if all paths exist
         for fpath in [self.gropath, self.toppath, self.tprpath]: self.check_file_exists(fpath)
         try:

@@ -67,7 +67,7 @@ class EofScd(Neighbors):
         ''' Creates files of data of E(S) for each lipid part'''
         timetoscd, endtime = read_scdinput(self.scdfilename)
         timetoorientation = read_orientationinput(self.orientationfilename)
-        #self.lipidpairs = ['ERG_ERG']
+        self.lipidpairs = ['DPPC_CHOL','DIPC_CHOL']
         for pair in self.lipidpairs:
             self.assemble_eofs(self.energyfilename, timetoscd, timetoorientation, pair, endtime)
 

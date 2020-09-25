@@ -48,7 +48,14 @@ class Tilt_sterol(Order):
                     tilt_mean = tilt_i / len(resids_list)
                     fout.write('{}\t{}\n'.format(time,tilt_mean))
     '''
-    def tilt_data(self, sterol, start_frame, end_frame, step, with_tilt_correction="tilt.csv"):
+    def tilt_data(self, sterol, start, end, interval, with_tilt_correction="tilt.csv"):
+
+        dt = self.u.trajectory.dt
+
+        start_frame = int(start / dt)
+        end_frame = int(end / dt)
+        time_interval = int(interval / dt)
+
         n_frame = 0
         ptilt_total = []
         ttilt_total = []
@@ -57,7 +64,7 @@ class Tilt_sterol(Order):
             fout.write('Time\tplane_tilt_angle\ttail_tilt_angle\n')
             fout1.write('Time\tresid\tplane_tilt_angle\ttail_tilt_angle\n')
             
-            for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:step]):
+            for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:time_interval]):
                 time = self.u.trajectory.time
                 n_frame += 1
                 sterol_sel = self.u.select_atoms('resname {}'.format(sterol))
@@ -112,8 +119,13 @@ class Tilt_sterol(Order):
         resname = list(set(resinfo.resnames))[0]
 
         tailatms1, tailatms2 = lipidmolecules.scd_tail_atoms_of(resname), lipidmolecules.tail_atoms_of(resname)
-        atm1, atm2 = tailatms1[0][0], tailatms1[0][1]
-        atm3, atm4 = tailatms2[0][5], tailatms2[0][9]
+         
+        if self.ff =='all_atom':
+            atm1, atm2 = tailatms1[0][0], tailatms1[0][1]
+            atm3, atm4 = tailatms2[0][5], tailatms2[0][9]
+        else:
+            atm1, atm2 = tailatms1[0][0], tailatms1[0][1]
+            atm3, atm4 = tailatms2[0][0], tailatms2[0][1]
 
         coords1 = mda_uni.select_atoms("resid {}  and name {}".format(resid,atm1)).positions
         coords2 = mda_uni.select_atoms("resid {} and name {} ".format(resid,atm2)).positions

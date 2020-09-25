@@ -10,6 +10,8 @@ import MDAnalysis as mda
 import pandas as pd
 import numpy as np
 import csv
+from ..definitions import lipidmolecules
+
 
 LOGGER = log.LOGGER
 
@@ -56,7 +58,7 @@ class Areaperlipid_compressibility(SysInfo):
 
         u = mda.Universe(self.tprpath,self.trjpath)
 
-        main_lipid_selection = u.select_atoms('resname {} and name P'.format(lipid))
+        main_lipid_selection = u.select_atoms('resname {} and name {}'.format(lipid,lipidmolecules.head_atoms_of(lipid)[0]))
         number_of_main_lipid_selection = len(main_lipid_selection)
         print(number_of_main_lipid_selection)
         LOGGER.debug("number of main lipids: %d", number_of_main_lipid_selection)

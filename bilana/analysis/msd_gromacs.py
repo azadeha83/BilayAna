@@ -63,7 +63,7 @@ class MSDanalysis(SysInfo):
         with mda.selections.gromacs.SelectionWriter('index_msd.ndx', mode='w') as ndx:
             ndx.write(sel, name='{}'.format(selection))
 
-        get_msd = [GMXNAME, 'msd', '-f', self.trjpath, '-s', self.tprpath, '-n', 'index_msd.ndx', \
+        get_msd = [GMXNAME, 'msd', '-f', self.trjpath_mol, '-s', self.tprpath, '-n', 'index_msd.ndx', \
             '-o', "msd_" + outputfile_name + "_raw", '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1']
             
         #print(get_msd)  
@@ -77,6 +77,73 @@ class MSDanalysis(SysInfo):
             ls = f.readlines()
 
         with open("msd_" + outputfile_name + ".dat" , 'w') as fout:
+            
+            fout.write('Time\tMSD\n')
+            for l in ls:
+                lc = l.strip()
+                if lc:
+                    if lc[0] != '#' and lc[0] != '@':
+                        lf = lc.split()
+                        fout.write('{}\t{}\n'.format(lf[0],lf[1]))
+
+    def MSD_gromacs_leaflets(self, ref, selection, outputfile_name, start_time, end_time):
+
+        '''This function calulate the MSD through Gromacs'''
+        
+        w = mda.Universe(self.initgropath)
+        
+        ref_sel = w.select_atoms('{}'.format(ref))
+        
+        ref_sel_center = ref_sel.center_of_geometry()        
+        
+        selection1 = list(set(w.select_atoms('{} and (prop z > {})'.format(selection,ref_sel_center[2])).resids))
+        selection2 = list(set(w.select_atoms('{} and (prop z < {})'.format(selection,ref_sel_center[2])).resids))
+
+        sel1 = self.u.select_atoms('{} and resid {}'.format(selection,' '.join(map(str, selection1))))
+        sel2 = self.u.select_atoms('{} and resid {}'.format(selection,' '.join(map(str, selection2))))
+
+        with mda.selections.gromacs.SelectionWriter('index_msd_1.ndx', mode='w') as ndx:
+            ndx.write(sel1, name='{}'.format(selection))
+
+        get_msd = [GMXNAME, 'msd', '-f', self.trjpath_mol, '-s', self.tprpath, '-n', 'index_msd_1.ndx', \
+            '-o', "msd_" + outputfile_name + "_raw_1", '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1']
+        
+        out, err = exec_gromacs(get_msd)
+
+        with mda.selections.gromacs.SelectionWriter('index_msd_2.ndx', mode='w') as ndx:
+            ndx.write(sel2, name='{}'.format(selection))
+
+        get_msd = [GMXNAME, 'msd', '-f', self.trjpath_mol, '-s', self.tprpath, '-n', 'index_msd_2.ndx', \
+            '-o', "msd_" + outputfile_name + "_raw_2", '-lateral', 'z', '-b', str(start_time), '-rmcomm', '-beginfit', '-1', '-endfit', '-1']
+            
+        #print(get_msd)  
+        out, err = exec_gromacs(get_msd)
+
+        with open("gmx_msd_" + outputfile_name + "_1.log","a") as logfile:
+            logfile.write(err)
+            logfile.write(out)
+
+        with open("msd_" + outputfile_name + "_raw_1.xvg", 'r') as f:
+            ls = f.readlines()
+
+        with open("msd_" + outputfile_name + "_1.dat" , 'w') as fout:
+            
+            fout.write('Time\tMSD\n')
+            for l in ls:
+                lc = l.strip()
+                if lc:
+                    if lc[0] != '#' and lc[0] != '@':
+                        lf = lc.split()
+                        fout.write('{}\t{}\n'.format(lf[0],lf[1]))
+        
+        with open("gmx_msd_" + outputfile_name + "_2.log","a") as logfile:
+            logfile.write(err)
+            logfile.write(out)
+
+        with open("msd_" + outputfile_name + "_raw_2.xvg", 'r') as f:
+            ls = f.readlines()
+
+        with open("msd_" + outputfile_name + "_2.dat" , 'w') as fout:
             
             fout.write('Time\tMSD\n')
             for l in ls:

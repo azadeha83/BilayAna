@@ -24,18 +24,18 @@ class Rdf(SysInfo):
 
     def rdf(self, ref, sel, ref0, sel0, start_time, end_time, dt, seltype='atom', selrpos='atom', binsize=0.002):
         
-        w = mda.Universe(self.gropath)
+        w = mda.Universe(self.initgropath)
         
         file_name = ref.split(' ')[1] + '_' + sel.split(' ')[1]
 
-        ref_sel = w.select_atoms('{}'.format(ref))
-        sel_sel = w.select_atoms('{}'.format(sel))
+        ref_sel = w.select_atoms('{}'.format(ref0))
+        sel_sel = w.select_atoms('{}'.format(sel0))
         
         ref_sel_center = ref_sel.center_of_geometry()        
         sel_sel_center = sel_sel.center_of_geometry()        
         
-        selection1 = list(set(w.select_atoms('{} and (prop z > {})'.format(ref0,ref_sel_center[2])).resids))
-        selection2 = list(set(w.select_atoms('{} and (prop z > {})'.format(sel0,sel_sel_center[2])).resids))
+        selection1 = list(set(w.select_atoms('{} and (prop z > {})'.format(ref,ref_sel_center[2])).resids))
+        selection2 = list(set(w.select_atoms('{} and (prop z > {})'.format(sel,sel_sel_center[2])).resids))
         
         print(selection1)
         print(selection2)

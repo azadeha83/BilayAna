@@ -31,7 +31,7 @@ class RMSD(SysInfo):
         self.u = mda.Universe(self.gropath,self.trjpath)
         self.neiblist = get_neighbor_dict()
 
-    def rmsd(self, sterol, start_frame, end_frame, step):
+    def rmsd(self, sterol, start, end, interval):
         
         ref = MDAnalysis.Universe('{}'.format(self.initgropath))         
         print(len(self.u.trajectory))   
@@ -53,13 +53,18 @@ class RMSD(SysInfo):
             refs_tail[i_res]= ref_tail_crds
         
         #rmsds = [[] for i in range(len(resid_list))]
-        
+        dt = self.u.trajectory.dt
+
+        start_frame = int(start / dt)
+        end_frame = int(end / dt)
+        time_interval = int(interval / dt)
+
         with open("rmsds.dat" , 'w') as fout:
             
             fout.write('Time\tResid\tHead_rmsd\tTail_rmsd\n')
             
             #for i_ts,ts in enumerate(self.u.trajectory[start_frame:end_frame:step]):
-            for ts in self.u.trajectory[start_frame:end_frame:step]:
+            for ts in self.u.trajectory[start_frame:end_frame:time_interval]:
                 for i_res,res in enumerate(resid_list):
                     
                     ref_head_crds,ref_tail_crds = refs_head[i_res], refs_tail[i_res]

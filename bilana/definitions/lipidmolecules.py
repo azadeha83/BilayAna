@@ -245,7 +245,7 @@ if ff == 'all_atom':
 else:
     INCLUDED_TAILS = ['DP', 'DI', 'DU', 'DO', 'PO']
     INCLUDED_HEADS = ['PC']
-    STEROLS        = ['CHOL', 'ERG']
+    STEROLS        = ['CHOL', 'ERGO',]
     PROTEINS       = ['VAL', 'GLY', 'ALA', 'ILE', 'LEU', 'CYS', 'ARG', 'HSD', 'ASN','HIS']
     SOLVENTS       = ["W", "TIP3", "SOL", "CL", "POT", "NA"]
     SHORTESTCHAIN  = len(TAILCARBS['DP'])
