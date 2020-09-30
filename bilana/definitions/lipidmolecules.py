@@ -176,6 +176,7 @@ if ff == 'all_atom':
 else:
     HEAD_ATOMS_OF = {\
         'PC':HEADATM['PC']+GLYCATM,
+        'PS':HEADATM['PS']+GLYCATM,
         
         'CHOL':['ROH', 'R1', 'R2', 'R3', 'R4', 'R5'],
         #'CHOL':['ROH'],
