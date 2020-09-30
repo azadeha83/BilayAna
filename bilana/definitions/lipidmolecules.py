@@ -182,7 +182,7 @@ else:
         #'CHOL':['ROH'],
         #'ch1m':['all'],
         #'CHIM':['all'],
-        'ERG':['ROH', 'R1', 'R2', 'R3', 'R4', 'R5'],
+        'ERGO':['ROH', 'R1', 'R2', 'R3', 'R4', 'R5'],
                     }
 
 if ff == 'all_atom':
